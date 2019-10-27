@@ -1,0 +1,2 @@
+module Statement.Class where
+
