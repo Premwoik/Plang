@@ -10,17 +10,20 @@ import           Text.Megaparsec.Error      as Err
 import           AST
 import           Compiler.Parser
 import           Compiler.Translator
-import Control.Monad.Writer(runWriter)
+import Control.Monad.Writer(runWriterT)
+import Control.Monad.State(evalState)
+
+import Compiler.Translator.Type(emptyStorage)
 
 main :: IO ()
 main = do
-  let path = "res/test"
+  let path = "res/test.mard"
   input <- T.pack <$> readFile path
   let p = parse langParser path input
   case p of
 --    Right res -> translate res
     Right res -> do 
-      let (a, w) = runWriter (translate' res)
+      let (a, w) = evalState (runWriterT (translate' res)) emptyStorage
       let res = concat a
       writeFile "res/out.h" res
       print w

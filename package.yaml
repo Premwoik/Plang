@@ -25,6 +25,7 @@ dependencies:
 - parser-combinators
 - text
 - mtl
+- containers
 
 library:
   source-dirs: src
@@ -43,7 +44,7 @@ executables:
 tests:
   l1-test:
     main:                Spec.hs
-    source-dirs:         test
+    source-dirs:         test.mard
     ghc-options:
     - -threaded
     - -rtsopts

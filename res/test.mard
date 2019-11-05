@@ -1,31 +1,31 @@
-import "asd"
-import "XD"
-
-//if true then
-//    a = "12"
+import Ala.Ma.Kota
+import XD
 
 class Name:
     b: int = 12
     c = "string"
     Name do
-        c = "12"
-
+        ret 1
     test do
         ret 1
+
 
 dupa t1: Name, t2: int -> int do
     b = t1
     ret b1
 
-f1 ala: string, ma: int, kota: float do
-    f2 b do
-        b: float = 10.12
-        dupa: float = (12.12 + 100) / 12
-    f2(12)
+//f1 ala: string, ma: int, kota: float do
+//    f2 b do
+//        b: float = 10.12
+//        dupa: float = (12.12 + 100) / 12
+//    f2(12)
 
 f3 x: int do
     a = "alla test string xD"
-    c = (\x, y, z -> "fis")
+    c: int = {\x: int, y: int, z: int ->
+                k = 12
+                ret x + y
+             }
     c(1, 2, 3)
     res = f1(xasd, (12 / 4), (\x -> "a"), 12)
     test = if true then
@@ -41,12 +41,17 @@ f3 x: int do
 
 
 main do
+    myList = [1, 2.2, 3 / 31, 4]
+    if true then
+        ret 0
+    else
+        ret 0
     while true do
         loop()
 
 
 loop do
-    xd = [1..2]
-    for z <- xd do
-        skip
+    for z <- [1..2] do
+        ret 1
     name().dupa()
+

@@ -41,12 +41,12 @@ functionArgsParser = sepBy1 p sep
       return $ FunArg (fromMaybe VAuto type') n
 
 
-returnParser :: Parser Stmt
+returnParser :: Parser FunctionStmt
 returnParser = lexeme p
   where
     p = do
       void (symbol "ret")
-      ReturnExpr <$> aExpr
+      ReturnFn <$> aExpr
 
 functionParser :: Parser Stmt
 functionParser = lexeme (L.indentBlock scn p)
@@ -59,7 +59,18 @@ functionParser = lexeme (L.indentBlock scn p)
           void (symbol "->")
           matchType pItem
       void (symbolEnd "do")
-      return (L.IndentSome Nothing (return . Function header (fromMaybe VAuto type') args) stmt')
+      return (L.IndentSome Nothing (return . Function header (fromMaybe VAuto type') args) functionStmt)
+
+nativeParser :: Parser Stmt
+nativeParser = lexeme $ do
+  void $ symbol "native"
+  header <- pItem
+  args <- optional functionArgsParser
+  type' <-
+    optional $ do
+      void (symbol "->")
+      matchType pItem
+  return $ NativeFunction header (fromMaybe VAuto type') args
 
 blockParser :: Parser BodyBlock
 blockParser = L.indentBlock scn p
@@ -73,21 +84,38 @@ anonymousFunctionParser = lexeme p
            args <- optional functionArgsParser
            void (symbol "->")
            Fn True args <$> aExpr
+           
+anonymousFunctionBlockParser :: Parser AExpr
+anonymousFunctionBlockParser = blockMark $ lexeme $ L.indentBlock scn p
+-- TODO as
+ where
+  
+   p = do void (symbol "\\")
+          args <- optional functionArgsParser
+          void (symbolEnd "->")
+          return (L.IndentMany Nothing (return . FnBlock args) functionStmt)
+
 
 skipStmt :: Parser Stmt
 skipStmt = do
   void (symbol "skip")
   return Skip
 
-assignParser :: Parser Stmt
-assignParser = do
+linkPathParser:: Parser Stmt
+linkPathParser= do
+  void (symbol "link_path")
+  name <- stringLiteral
+  return $ LinkPath name
+
+assignParser :: (String -> VarType -> AExpr -> a) -> Parser a
+assignParser wrapper = do
   var <- identifier
   type' <-
     optional $ do
       void (symbol ":")
       matchType pItem
   void (symbol "=")
-  Assign var (fromMaybe VAuto type') <$> aExpr
+  wrapper var (fromMaybe VAuto type') <$> aExpr
 
 matchType :: Parser String -> Parser VarType
 matchType t = do
@@ -107,16 +135,16 @@ importParser --dbg "import" $
   where
     p = do
       void (symbol "import")
-      Import <$> lexeme stringLiteral
-      
+      Import <$> lexeme (sepBy1 identifier (symbol "."))
+
 functionExecutionArgParser :: Parser [AExpr]
-functionExecutionArgParser = do 
+functionExecutionArgParser = do
   v <- optional $ sepBy1 aExpr sep
---  returns empty list if there were no args to parse 
+--  returns empty list if there were no args to parse
   return $ fromMaybe [] v
 
-functionExecution :: Parser AExpr
-functionExecution = do
+varParser :: Parser AExpr
+varParser = do
   fun <- identifier
   args <- optional (parens functionExecutionArgParser)
   m <- optional more'
@@ -124,7 +152,7 @@ functionExecution = do
   where
     more' = do
       void (symbol ".")
-      functionExecution
+      varParser
 
 ifStmtParser :: Parser IfCondBody
 ifStmtParser = lexeme $ L.indentBlock scn p
@@ -133,7 +161,7 @@ ifStmtParser = lexeme $ L.indentBlock scn p
       void (symbol "if")
       cond' <- bExpr
       void (symbolEnd "then")
-      return (L.IndentMany Nothing (return . IfCondBody cond') stmt')
+      return (L.IndentMany Nothing (return . IfCondBody cond') functionStmt)
 
 elifStmtParser :: Parser IfCondBody
 elifStmtParser = lexeme (L.indentBlock scn p)
@@ -142,14 +170,14 @@ elifStmtParser = lexeme (L.indentBlock scn p)
       void (symbol "elif")
       cond <- bExpr
       void (symbolEnd "then")
-      return (L.IndentMany Nothing (return . IfCondBody cond) stmt')
+      return (L.IndentMany Nothing (return . IfCondBody cond) functionStmt)
 
 elseStmtParser :: Parser ElseCondBody
 elseStmtParser = L.indentBlock scn p
   where
     p = do
       void (symbolEnd "else")
-      return (L.IndentSome Nothing (return . ElseCondBody) stmt')
+      return (L.IndentSome Nothing (return . ElseCondBody) functionStmt)
 
 fullIfStmt :: Parser AExpr
 fullIfStmt = do
@@ -157,26 +185,29 @@ fullIfStmt = do
   elif' <- Text.Megaparsec.many elifStmtParser
   If if' elif' <$> elseStmtParser
 
-classStmt :: Parser Stmt
-classStmt = lexeme $ L.indentBlock scn p
+classParser :: Parser Stmt
+classParser = lexeme $ L.indentBlock scn p
   where
     p = do
       void (symbol "class")
-      name <- identifier
+      name <-identifier
+      gen <- optional generics
+--      gen <- return Nothing
       void (symbolEnd ":")
-      return (L.IndentSome Nothing (return . ClassExpr name) stmt')
+      return (L.IndentSome Nothing (return . ClassExpr name gen) classStmt)
 
-whileStmt :: Parser Stmt
-whileStmt = lexeme $ L.indentBlock scn p
+
+whileStmt :: (BExpr -> [b] -> b) -> Parser b-> Parser b
+whileStmt wrapper parser= lexeme $ L.indentBlock scn p
   where
     p = do
       void (symbol "while")
       name <- bExpr
       void (symbolEnd "do")
-      return (L.IndentSome Nothing (return . While name) stmt')
+      return (L.IndentSome Nothing (return . wrapper name) parser)
 
-forStmt :: Parser Stmt
-forStmt = lexeme $ L.indentBlock scn p
+forStmt :: (AExpr -> AExpr -> [b] -> b) -> Parser b-> Parser b
+forStmt wrapper parser= lexeme $ L.indentBlock scn p
   where
     p = do
       void (symbol "for")
@@ -184,7 +215,7 @@ forStmt = lexeme $ L.indentBlock scn p
       void (symbol "<-")
       range <- aExpr
       void (symbolEnd "do")
-      return (L.IndentSome Nothing (return . For var range ) stmt')
+      return (L.IndentSome Nothing (return . wrapper var range ) parser)
 
 guardedVar :: Parser AExpr -> Parser AExpr
 guardedVar expr = do
@@ -196,20 +227,41 @@ guardedVar expr = do
 stmt' :: Parser Stmt
 stmt'
   = importParser
-  <|> returnParser
+  <|> linkPathParser
+  <|> nativeParser
   <|> skipStmt
-  <|> whileStmt
-  <|> forStmt
-  <|> classStmt
-  <|> try assignParser
-  <|> try functionParser
-  <|> CasualExpr <$> aExpr
+--  <|> whileStmt While stmt'
+--  <|> forStmt For stmt'
+  <|> classParser
+  <|> try (assignParser Assign)
+  <|> functionParser
+--  <|> CasualExpr <$> aExpr
+
+functionStmt :: Parser FunctionStmt
+functionStmt
+  = returnParser 
+  <|> whileStmt WhileFn functionStmt
+  <|> forStmt ForFn functionStmt
+  <|> try (assignParser AssignFn)
+  <|> OtherFn <$> aExpr
+
+classStmt :: Parser ClassStmt
+classStmt
+  = try (assignParser ClassAssign)
+  <|> ((\(Function a b c d) -> Method a b c d) <$> functionParser)
+
 
 langParser :: Parser AST
 langParser = AST <$> (some stmt' <* eof)
 
 parens :: Parser a -> Parser a
 parens = between (symbol "(") (symbol ")")
+
+blockMark :: Parser a -> Parser a
+blockMark = between (symbol "{") (symbol "}")
+
+generics :: Parser [String]
+generics = between (symbol "<") (symbol ">") (sepBy identifier sep)
 
 aExpr :: Parser AExpr
 aExpr = makeExprParser aTerm aOperators
@@ -231,25 +283,18 @@ bOperators =
   , InfixL (BBinary Or <$ rword "or")]]
 
 
---dbg "DOT PARSER" $ do
---  left <- aExpr
---  void (symbol ".")
---  right <- aExpr
---  return $ Dot left right
-
 aTerm :: Parser AExpr
 aTerm
   = parens aExpr
-  <|> try functionExecution
---  <|> Var <$> identifier
+  <|> try varParser
   <|> try (ListVar <$> listParser)
   <|> rangeParser
   <|> try (FloatConst <$> float')
   <|> IntConst <$> integer
   <|> StringVal <$> stringLiteral
+  <|> anonymousFunctionBlockParser
   <|> anonymousFunctionParser
   <|> fullIfStmt
---  <|> dotParser
 
 bTerm :: Parser BExpr
 bTerm

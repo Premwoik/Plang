@@ -13,35 +13,35 @@ newtype AST
   deriving (Show)
 
 data Stmt
-  = Function String VarType (Maybe [FunArg]) BodyBlock
-  | Import String
-  | Assign String VarType AExpr
-  | While BExpr BodyBlock 
-  | For AExpr AExpr BodyBlock
-  | CasualExpr AExpr
-  | ClassExpr String [Stmt]
-  | ReturnExpr AExpr
-  | Skip
+  = Function String VarType (Maybe [FunArg]) [FunctionStmt]
+   | Import [String]
+   | ClassExpr String (Maybe [String]) [ClassStmt]
+   | NativeFunction String VarType (Maybe [FunArg])
+   | LinkPath String
+   | Skip 
+--  -------------------------------------------------------
+   | Assign String VarType AExpr
+--   | While BExpr BodyBlock 
+--   | For AExpr AExpr BodyBlock
+--   | CasualExpr AExpr
   deriving (Show)
 
 data ClassStmt
-  = ClassStmtOther Stmt
-  | ClassConstructor 
-  | Method String (Maybe [FunArg]) [MethodStmt]
-  deriving (Show)
-
---data Range = Range AExpr AExpr deriving (Show)
-
-data MethodStmt
-  = MethodStmtFn FunctionStmt
+  = ClassAssign String VarType AExpr
+  | Method String VarType (Maybe [FunArg]) [FunctionStmt]
   deriving (Show)
   
 data FunctionStmt
-  = FunctionExpr AExpr
+  = AssignFn String VarType AExpr
+  | WhileFn BExpr [FunctionStmt]
+  | ForFn AExpr AExpr [FunctionStmt]
+  | ReturnFn AExpr
+  | OtherFn AExpr
   deriving (Show)
 
-data IfCondBody = IfCondBody BExpr BodyBlock deriving (Show)
-newtype ElseCondBody = ElseCondBody BodyBlock deriving (Show)
+
+data IfCondBody = IfCondBody BExpr [FunctionStmt] deriving (Show)
+newtype ElseCondBody = ElseCondBody [FunctionStmt] deriving (Show)
 
 data BoolExpr = BoolExpr deriving (Show)
 
@@ -74,6 +74,8 @@ data AExpr
   | StringVal String
   | Range AExpr AExpr
   | Fn Bool (Maybe [FunArg]) AExpr
+  | FnBlock (Maybe [FunArg]) [FunctionStmt]
+  
   | Neg AExpr
   | ABinary ABinOp AExpr AExpr
   | If IfCondBody [IfCondBody] ElseCondBody -- Maybe ElseCondBody
@@ -95,7 +97,7 @@ data VarType
   | VAuto
   | VChar 
   | VClass String
-  deriving (Show)
+  deriving (Show, Eq)
 
 data BoolOp = BoolOp deriving (Show)
 
