@@ -6,35 +6,44 @@
 #include "XD.h"
 class Name{
    int b = 12
-   auto c = string
-   void Name(){
+   auto c = "string"
+   auto Name(){
+      int x = 1
+   }
+   int test(){
       return 1;
    }
-   void test(){
-      return 1;
-   }
 }
-void dupa(void t1, int t2){
-   auto b = t1
-   return b1;
+int dupa(void t1, int t2){
+   void b = t1
+   return 0;
 }
-void f3(int x){
-   auto a = alla test string xD
-   int c = FnBlock (Just [FunArg VInt "x",FunArg VInt "y",FunArg VInt "z"]) [AssignFn "k" VAuto (IntConst 12),ReturnFn (ABinary Add (Var "x" Nothing Nothing) (Var "y" Nothing Nothing))]
-   c(1, 2, 3)   
-   auto res = f1(xasd, "TODO", "TODO", 12)
-   auto test = "TODO"
+auto f3(int x){
+   char* a = "alla test string xD"
+   int d = 12
+   auto fuckT12 = 0
+   if(true){
+   int a = 12
+    fuckT12 = "0"
 }
-void main(){
+   else if(true){
+    fuckT12 = "1"
+}
+   else {
+   int x = 12
+    fuckT12 = "2"
+}
+   auto testIf = fuckT12
+}
+int main(){
    auto myList = new ArrayList(new int[4]{1,2.2,"TODO",4}
-   "TODO"   
-   while(true){
-      loop()      
-   }
+   auto myList = new ArrayList(new int[1]{12}
+   return 0;
 }
-void loop(){
+auto loop(){
    for(int i = 0; i < 10; i++){
       return 1;
    }
-   name().dupa()   
+   int a = 12
+   Name().test()   
 }

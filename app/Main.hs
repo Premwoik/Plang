@@ -11,9 +11,11 @@ import           AST
 import           Compiler.Parser
 import           Compiler.Translator
 import Control.Monad.Writer(runWriterT)
-import Control.Monad.State(evalState)
+import Control.Monad.State(evalState, runState)
 
 import Compiler.Translator.Type(emptyStorage)
+import Compiler.LexicalAnalyzer
+import Compiler.Analyzer.Pre
 
 main :: IO ()
 main = do
@@ -23,10 +25,13 @@ main = do
   case p of
 --    Right res -> translate res
     Right res -> do 
-      let (a, w) = evalState (runWriterT (translate' res)) emptyStorage
-      let res = concat a
-      writeFile "res/out.h" res
+--      print $ findAllDeclaredNames $ (\(AST x) -> x) res
+      let ((a, w), s) = runState (runWriterT (analyze res)) emptyStorage
       print w
---      print res
+      print a
+      let (a', w') = evalState (runWriterT (translate' a)) s
+      let res = concat a'
+      writeFile "res/out.h" res
       return ()
     Left err  -> putStrLn $ Err.errorBundlePretty err
+

@@ -1,50 +1,54 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module AST where
 
-
-import Text.Megaparsec hiding (State)
 import Data.Text (Text)
 import Data.Void
+import Text.Megaparsec hiding (State)
 
 type Parser = Parsec Void Text
 
-newtype AST
-  = AST [Stmt]
+newtype AST =
+  AST [Stmt]
   deriving (Show)
 
 data Stmt
   = Function String VarType (Maybe [FunArg]) [FunctionStmt]
-   | Import [String]
-   | ClassExpr String (Maybe [String]) [ClassStmt]
-   | NativeFunction String VarType (Maybe [FunArg])
-   | LinkPath String
-   | Skip 
---  -------------------------------------------------------
-   | Assign String VarType AExpr
---   | While BExpr BodyBlock 
---   | For AExpr AExpr BodyBlock
---   | CasualExpr AExpr
+  | Import [String]
+  | ClassExpr String (Maybe [String]) [ClassStmt]
+  | NativeFunction String VarType (Maybe [FunArg])
+  | LinkPath String
+  | Skip
+  | Assign String VarType AExpr
   deriving (Show)
 
+--  -------------------------------------------------------
 data ClassStmt
   = ClassAssign String VarType AExpr
   | Method String VarType (Maybe [FunArg]) [FunctionStmt]
   deriving (Show)
-  
+
 data FunctionStmt
   = AssignFn String VarType AExpr
   | WhileFn BExpr [FunctionStmt]
   | ForFn AExpr AExpr [FunctionStmt]
+  | IfFn [(BExpr, [FunctionStmt])]
   | ReturnFn AExpr
   | OtherFn AExpr
+  ----
   deriving (Show)
 
+data IfCondBody =
+  IfCondBody BExpr [FunctionStmt]
+  deriving (Show)
 
-data IfCondBody = IfCondBody BExpr [FunctionStmt] deriving (Show)
-newtype ElseCondBody = ElseCondBody [FunctionStmt] deriving (Show)
+newtype ElseCondBody =
+  ElseCondBody [FunctionStmt]
+  deriving (Show)
 
-data BoolExpr = BoolExpr deriving (Show)
-
+data BoolExpr =
+  BoolExpr
+  deriving (Show)
 
 data BExpr
   = BoolConst Bool
@@ -75,12 +79,15 @@ data AExpr
   | Range AExpr AExpr
   | Fn Bool (Maybe [FunArg]) AExpr
   | FnBlock (Maybe [FunArg]) [FunctionStmt]
-  
   | Neg AExpr
   | ABinary ABinOp AExpr AExpr
-  | If IfCondBody [IfCondBody] ElseCondBody -- Maybe ElseCondBody
+  | If [(BExpr, [FunctionStmt])]
+  | TypedVar String VarType (Maybe [AExpr]) (Maybe AExpr)
   deriving (Show)
-  
+
+-- ONLY FOR TRANSLATION
+--  | 
+type Cond = (BExpr, [FunctionStmt])
 
 data ABinOp
   = Add
@@ -95,13 +102,20 @@ data VarType
   | VString
   | VVoid
   | VAuto
-  | VChar 
+  | VChar
   | VClass String
+  | Pointer VarType
+  | VBlank
   deriving (Show, Eq)
 
-data BoolOp = BoolOp deriving (Show)
+data BoolOp =
+  BoolOp
+  deriving (Show)
 
 type BodyBlock = [Stmt]
+
 --newtype IndentedBlock = IndentedBlock
-data FunArg = FunArg VarType String deriving (Show)
+data FunArg =
+  FunArg VarType String
+  deriving (Show)
 

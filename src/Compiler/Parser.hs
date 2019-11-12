@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
 module Compiler.Parser(langParser) where
 
 import           Control.Applicative            hiding (some)
@@ -154,36 +155,37 @@ varParser = do
       void (symbol ".")
       varParser
 
-ifStmtParser :: Parser IfCondBody
+ifStmtParser :: Parser Cond
 ifStmtParser = lexeme $ L.indentBlock scn p
   where
     p = do
       void (symbol "if")
       cond' <- bExpr
       void (symbolEnd "then")
-      return (L.IndentMany Nothing (return . IfCondBody cond') functionStmt)
+      return (L.IndentMany Nothing (return . (cond',)) functionStmt)
 
-elifStmtParser :: Parser IfCondBody
+elifStmtParser :: Parser Cond
 elifStmtParser = lexeme (L.indentBlock scn p)
   where
     p = do
       void (symbol "elif")
       cond <- bExpr
       void (symbolEnd "then")
-      return (L.IndentMany Nothing (return . IfCondBody cond) functionStmt)
+      return (L.IndentMany Nothing (return . (cond,)) functionStmt)
 
-elseStmtParser :: Parser ElseCondBody
+elseStmtParser :: Parser Cond
 elseStmtParser = L.indentBlock scn p
   where
     p = do
       void (symbolEnd "else")
-      return (L.IndentSome Nothing (return . ElseCondBody) functionStmt)
+      return (L.IndentSome Nothing (return . (BoolConst True,)) functionStmt)
 
 fullIfStmt :: Parser AExpr
 fullIfStmt = do
   if' <- ifStmtParser
   elif' <- Text.Megaparsec.many elifStmtParser
-  If if' elif' <$> elseStmtParser
+  else' <- elseStmtParser
+  return . If $ if' : elif' ++ [else']
 
 classParser :: Parser Stmt
 classParser = lexeme $ L.indentBlock scn p
