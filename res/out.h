@@ -10,7 +10,7 @@ class Name{
    auto Name(){
       int x = 1
    }
-   int test(){
+   auto test(){
       return 1;
    }
 }
@@ -35,7 +35,7 @@ auto f3(int x){
 }
    auto testIf = fuckT12
 }
-int main(){
+auto main(){
    auto myList = new ArrayList(new int[4]{1,2.2,"TODO",4}
    auto myList = new ArrayList(new int[1]{12}
    return 0;

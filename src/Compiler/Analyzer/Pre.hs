@@ -58,32 +58,32 @@ parseArgs :: Maybe [FunArg] -> [DeclarationTree]
 parseArgs (Just args) = map (\(FunArg t n) -> Decl VariableT n [] t []) args
 parseArgs Nothing     = []
 
-loadFunction :: String -> Analyzer' ()
-loadFunction name = do
-  s <- get
-  let res = head . filter f $ makeList (local s) s
-  put $ s {local = res}
-  where
-    f (Decl FunctionT name' _ _ _) = name == name'
-    f _                            = False
-    makeList EmptyDecl s = global s
-    makeList _  s = children (local s) ++ global s
-    
-    
-getClass :: String -> Analyzer' DeclarationTree
-getClass name = do
-  s <- get
-  return . head . filter f $ global s
-  where
-    f (Decl ClassT name' _ _ _) = name == name'
-    f _                            = False
-
-loadClass :: String -> Analyzer' ()
-loadClass name = do
-  s <- get
-  c <- getClass name
-  put $ s {local = c}
-  return ()
+--loadFunction :: String -> Analyzer' ()
+--loadFunction name = do
+--  s <- get
+--  let res = head . filter f $ makeList (local s) s
+--  put $ s {local = res}
+--  where
+--    f (Decl FunctionT name' _ _ _) = name == name'
+--    f _                            = False
+--    makeList EmptyDecl s = global s
+--    makeList _  s = children (local s) ++ global s
+--    
+--    
+--getClass :: String -> Analyzer' DeclarationTree
+--getClass name = do
+--  s <- get
+--  return . head . filter f $ global s
+--  where
+--    f (Decl ClassT name' _ _ _) = name == name'
+--    f _                            = False
+--
+--loadClass :: String -> Analyzer' ()
+--loadClass name = do
+--  s <- get
+--  c <- getClass name
+--  put $ s {local = c}
+--  return ()
 
 isMethodInClass :: String -> DeclarationTree -> (Bool, DeclarationTree)
 isMethodInClass name (Decl ClassT _ _ _ children) = makePair . filter f $ children

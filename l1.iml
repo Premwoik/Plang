@@ -27,5 +27,7 @@
     <orderEntry type="library" name="hashable-1.2.7.0" level="project" />
     <orderEntry type="library" name="integer-logarithms-1.0.3" level="project" />
     <orderEntry type="library" name="primitive-0.6.4.0" level="project" />
+    <orderEntry type="library" name="R User Library" level="project" />
+    <orderEntry type="library" name="R Skeletons" level="application" />
   </component>
 </module>

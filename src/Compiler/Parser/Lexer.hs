@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Compiler.Lexing where
+module Compiler.Parser.Lexer where
 
 import           AST
 import           Control.Applicative        hiding (some)

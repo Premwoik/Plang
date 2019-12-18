@@ -11,9 +11,10 @@ import           AST
 import           Compiler.Parser
 import           Compiler.Translator
 import Control.Monad.Writer(runWriterT)
-import Control.Monad.State(evalState, runState)
+import Control.Monad.State(evalState, runState, runStateT)
 
-import Compiler.Translator.Type(emptyStorage)
+import Compiler.Analyzer.Type(emptyStorage)
+import qualified Compiler.Translator.Type as TT
 import Compiler.LexicalAnalyzer
 import Compiler.Analyzer.Pre
 
@@ -29,7 +30,7 @@ main = do
       let ((a, w), s) = runState (runWriterT (analyze res)) emptyStorage
       print w
       print a
-      let (a', w') = evalState (runWriterT (translate' a)) s
+      let (a', w') = evalState (runWriterT (translate' a)) TT.emptyStorage
       let res = concat a'
       writeFile "res/out.h" res
       return ()

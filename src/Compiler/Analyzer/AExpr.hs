@@ -2,33 +2,34 @@ module Compiler.Analyzer.AExpr where
 
 import           Compiler.Analyzer.Pre
 import           Compiler.Analyzer.Type
-import           Compiler.Translator.Type
 import           Control.Exception
 import           Control.Monad.State      (get, gets, put, modify)
 import Control.Monad.Writer(tell)
 import           AST
+import Compiler.Analyzer.Browser
 
 checkVar :: AExpr -> Maybe VarType -> Analyzer' AExprRes
 checkVar var wantedType = do
   s <- get
   let global' = global s
-  let local' = local s
+  let (LocalStmt [local']) = local s
   case (var, wantedType) of
 
 --  TODO add arguments check
 
 --  previous was class
-    (Var name args more, Just(VClass cName)) -> do
-      cl <- getClass cName
-      case isMethodInClass name cl of
-        (True, Decl FunctionT name _ type' _) -> makeOutput type' (TypedVar name type' args) <$> handleMore more (Just type')
-        (False, _) -> throw UnknownMethodName
-
+    (Var name args more, Just(VClass cName)) ->
+      case findMethod cName name global' of
+        [Method n t _ _] -> makeOutput t (TypedVar n t args) <$> handleMore more (Just t)
+        _ -> throw UnknownMethodName
+        
 --   this is first, so it has to be variable global or local
     (Var name args more, Nothing) ->
-      case isVar name (argTypes local' ++ children local' ++ global') of
-        (True, Decl _  name _ type' _) -> makeOutput type' (TypedVar name type' args) <$> handleMore more (Just type')
-        (False, _) -> throw $  VariableNotExist name
+      case findNameAll name local' global' of
+        [Assign n t _] -> makeOutput t (TypedVar name t args) <$> handleMore more (Just t)
+        [ClassExpr n _ _] -> makeOutput (VClass n) (TypedVar name (VClass n) args) <$> handleMore more (Just (VClass n))
+        p -> throw $ VariableNotExist (show p ++ show name)
+        
 
 --  error previous was not a class
     (Var {}, Just _) -> throw NotAClass

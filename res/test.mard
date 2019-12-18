@@ -17,11 +17,6 @@ dupa t1: Name, t2: int -> int do
 
 f3 x: int do
     a = "alla test string xD"
-//    c: int = {\x: int, y: int, z: int ->
-//                k = 12
-//                ret x + y
-//             }
-//    c(1, 2, 3)
     d: int = 12
     testIf = if d > 10 then
               a: int = 12

@@ -4,7 +4,6 @@ import           AST
 import           Compiler.Analyzer.AExpr
 import           Compiler.Analyzer.Statement
 import           Compiler.Analyzer.Type
-import           Compiler.Translator.Type
 import           Control.Exception
 import           Control.Monad.State         (State, get, gets, put)
 import           Control.Monad.Writer        (WriterT, tell)
@@ -15,7 +14,7 @@ analyze :: AST -> Analyzer' AST
 analyze (AST stmts) = do
   storage <- get
   let g = findAllDeclaredNames stmts
-  put $ storage {global = g}
+  put $ storage {global = stmts}
   stmts' <- mapM statementAnalyzer stmts
   return (AST stmts')
 

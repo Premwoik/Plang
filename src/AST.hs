@@ -5,6 +5,7 @@ module AST where
 import Data.Text (Text)
 import Data.Void
 import Text.Megaparsec hiding (State)
+import Control.Monad.State(StateT)
 
 type Parser = Parsec Void Text
 
@@ -37,6 +38,8 @@ data FunctionStmt
   | OtherFn AExpr
   ----
   deriving (Show)
+
+data AssignType = Create | Reassign
 
 data IfCondBody =
   IfCondBody BExpr [FunctionStmt]
