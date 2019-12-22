@@ -23,10 +23,10 @@ statementAnalyzer s =
   case s of
     t@Import {}         -> checkImport t
     t@LinkPath {}       -> checkLinkPath t
-    Function a b c d    -> checkFunction (a, b, c, d) Function functionStmtAnalyzer
+    t@Function {}       -> checkFunction t functionStmtAnalyzer
     t@NativeFunction {} -> checkNative t
 --    TODO be careful with this head, but probably it always should work great
-    Assign a b c        -> head <$> checkAssign (a, b, c) Assign aExprAnalyzer
+    Assign a b c        -> checkAssign (a, b, c) Assign aExprAnalyzer
     t@ClassExpr {}      -> checkClass t classStmtAnalyzer
     t@Skip              -> return t
 
@@ -39,11 +39,11 @@ functionStmtAnalyzer s =
     t@ReturnFn {}  -> checkReturn t aExprAnalyzer
     t@OtherFn {}   -> checkOtherExpr t aExprAnalyzer
 
-classStmtAnalyzer :: ClassStmt -> Analyzer' ClassStmt
-classStmtAnalyzer s =
+classStmtAnalyzer :: String -> ClassStmt -> Analyzer' ClassStmt
+classStmtAnalyzer name s =
   case s of
-    t@ClassAssign {} -> return t
-    Method a b c d -> checkFunction (a, b, c, d) Method functionStmtAnalyzer
+    ClassAssign a b c -> checkAssign (a, b, c) ClassAssign aExprAnalyzer
+    t@Method {} -> checkMethod t functionStmtAnalyzer
 
 aExprAnalyzer :: AExpr -> Analyzer' AExprRes
 aExprAnalyzer expr =

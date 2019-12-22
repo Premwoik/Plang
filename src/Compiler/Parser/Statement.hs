@@ -116,6 +116,16 @@ assignParser aExpr wrapper = do
   wrapper var (fromMaybe VAuto type') <$> aExpr
 
 
+classAssignParser :: Parser AExpr -> (String -> VarType -> AExpr -> a) -> Parser a
+classAssignParser aExpr wrapper = do
+  var <- identifier
+  type' <-
+    optional $ do
+      void (symbol ":")
+      matchType pItem
+  void (symbol "=")
+  wrapper var (fromMaybe VAuto type') <$> aExpr
+
 classParser :: Parser ClassStmt -> Parser Stmt
 classParser classStmt = lexeme $ L.indentBlock scn p
   where

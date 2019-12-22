@@ -15,44 +15,46 @@ checkLinkPath :: Stmt -> Analyzer' Stmt
 -- TODO check if import path exist
 checkLinkPath t@(LinkPath p) = return t
 
-checkFunction :: RawFunction -> RawFunctionConst a -> FnStmtAnalyzer -> Analyzer' a
--- TODO check if arguments are good
-checkFunction (name, type', args, body) wrapper bodyAnalyzer = do
-  s <- get
-  put $ s {local = LocalStmt [Function name type' args body]}
-  checkedBody' <- concat <$> mapM bodyAnalyzer body
-  nType <- retType <$> gets local
-  put s
-  return $ wrapper name nType args checkedBody'
-  where
-    retType (LocalStmt [Function _ t _ _]) = t
 
---  loadFunction name
---loadFunction :: RawFunction -> Analyzer' ()
---loadFunction
+checkFunction :: Stmt -> FnStmtAnalyzer -> Analyzer' Stmt 
+checkFunction f@(Function n t a body) bodyAnalyzer = do
+  setStmt f
+  checkFunction' (n, t, a, body) Function bodyAnalyzer
+  
+
+checkMethod :: ClassStmt -> FnStmtAnalyzer -> Analyzer' ClassStmt
+checkMethod m@(Method n t a body) bodyAnalyzer = do
+  setMethod m
+  method <- checkFunction' (n, t, a, body) Method bodyAnalyzer
+  class' <- getClass
+  return $ if getName class' == n then Constructor n (getBody method) else method
+  where
+    getBody (Method _ _ _ b) = b
+    getName (ClassExpr n _ _) = n
+  
+  
+checkFunction' :: RawFunction -> RawFunctionConst a -> FnStmtAnalyzer -> Analyzer' a
+-- TODO check if arguments are good
+checkFunction' (name, type', args, body) wrapper bodyAnalyzer = do
+  checkedBody' <- concat <$> mapM bodyAnalyzer body
+  nType <- getType <$> gets local
+  return $ wrapper name nType args checkedBody'
+
+
 checkReturn :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]
 checkReturn (ReturnFn aExpr) analyzer = do
-  local' <- gets local
+  funcType <- getType <$> gets local
   (t, inject, res) <- analyzer aExpr
-  checkTypes local' t
+  checkTypes funcType  t
   modify (\s -> s {cache = TypeCache [t]})
   return $ inject ++ [ReturnFn res]
 
-checkTypes (LocalStmt [Function n t _ _]) t' =
+checkTypes t t' =
   if t == t' || t == VAuto
     then return ()
-    else throw $ TypesMismatch ("In function named [" ++ n ++ "] return missmatch: " ++ show t ++ " =/= " ++ show t')
-checkTypes _ _ = throw $ TypesMismatch "Local don't contain function struct, so types cant be checked!!!"
+    else throw $ TypesMismatch ("return missmatch: " ++ show t ++ " =/= " ++ show t')
+--checkTypes t _ = throw $ TypesMismatch $ "Local don't contain function struct, so types cant be checked!!! { " ++ show t
 
---checkCasualExpr :: FunctionStmt -> AExprAnalyzer -> Analyzer' FunctionStmt
---checkCasualExpr (OtherFn aexpr) aEx =
---  OtherFn <$>
---  case aexpr of
---    Var {} -> continue
---    If {}  -> continue
---    _      -> throw IncorrectExprException
---  where
---    continue = aEx aexpr
 checkNative :: Stmt -> Analyzer' Stmt
 checkNative t@(NativeFunction name ret args') =
   case ret of
@@ -65,7 +67,6 @@ checkArgs = return
 checkAssignFn :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]
 --TODO
 checkAssignFn (AssignFn name ret aExpr) analyzer = do
-  s <- get
   (type', inject, res) <- analyzer aExpr
   res' <- checkType ret type' type' res
   return $ inject ++ res'
@@ -74,15 +75,16 @@ checkAssignFn (AssignFn name ret aExpr) analyzer = do
       | a == b || a == VAuto = return [AssignFn name nt r]
       | otherwise = throw $ TypesMismatch (show a ++ " =/= " ++ show b)
 
---  res' <-
---    case isVar name (children (local s) ++ global s) of
---      (True, Decl _ name _ t _) -> checkType t type' VBlank res
---      (False, _)                -> checkType ret type' type' res
-checkAssign :: RawAssign -> RawAssignConst a -> AExprAnalyzer -> Analyzer' [a]
+checkAssign :: RawAssign -> RawAssignConst a -> AExprAnalyzer -> Analyzer' a
 --TODO
 checkAssign (name, ret, aExpr) wrapper analyzer = do
   (type', inject, res) <- analyzer aExpr
-  return [wrapper name ret res]
+  nType <- checkType ret type'
+  return $ wrapper name nType res
+  where
+    checkType a b
+      | a == b || a == VAuto = return b
+      | otherwise = throw $ TypesMismatch (show a ++ " =/= " ++ show b)
 
 checkWhile :: FunctionStmt -> Analyzer' [FunctionStmt]
 -- TODO
@@ -94,8 +96,9 @@ checkFor = return . return
 
 checkClass :: Stmt -> ClassStmtAnalyzer -> Analyzer' Stmt
 -- TODO
-checkClass (ClassExpr name cast body) analyzer = do
-  body' <- mapM analyzer body
+checkClass c@(ClassExpr name cast body) analyzer = do
+  setStmt c
+  body' <- mapM (analyzer name) body
   return $ ClassExpr name cast body'
 
 --  loadClass name

@@ -111,10 +111,12 @@ newLine :: String -> String
 newLine x = x ++ "\n"
 
 assignTranslator :: Stmt -> Translator
+--assignTranslator (Assign name type' Nop) = 
+--  return [typeToString type' ++ " " ++ name ++ ";\n"]
 assignTranslator (Assign name type' expr) = do
   let t = typeToString type'
   e <- aExprTranslator expr
-  return . return . concat $ ((t ++ " " ++ name ++ " = ") : e) ++ ["\n"]
+  return . return . concat $ ((t ++ " " ++ name ++ " = ") : e) ++ [";\n"]
 
 whileTranslator :: BExpr -> [a] -> (a -> Translator) -> Translator
 whileTranslator bExpr block trans = do
@@ -140,6 +142,12 @@ classStmtTranslator c =
   case c of
     ClassAssign a b c -> assignTranslator $ Assign a b c
     Method a b c d    -> functionTranslator $ Function a b c d
+    t@Constructor {} -> constTranslator t
+
+constTranslator :: ClassStmt -> Translator
+constTranslator (Constructor name block) = do
+  readyBlock <- blockTranslator' functionStmtTranslator block
+  return . concat $ [[name ++ "{\n"] ++ readyBlock ++ ["}\n"]]
 
 --  TODO replace mock with real feature
 casualExprTranslator :: FunctionStmt -> Translator
@@ -165,6 +173,7 @@ aExprTranslator expr =
     e@FnBlock {}  -> return [show e]
     e@Neg {}      -> return ["\"TODO\""]
     e@ABinary {}  -> return ["\"TODO\""]
+    Nop -> return ["nullptr"]
     a             -> throw $ UnsupportedTypeException (show a)
 
 --rangeTranslator :: AExpr -> Translator
@@ -197,7 +206,7 @@ listVarTranslator (ListVar expr) = do
   let size = length expr
   res <- concat <$> mapM aExprTranslator expr
   let resAsString = intercalate "," res
-  return . return $ "new ArrayList(new " ++ typeToString wantedType ++ "[" ++ show size ++ "]{" ++ resAsString ++ "}"
+  return . return $ "new ArrayList(new " ++ typeToString wantedType ++ "[" ++ show size ++ "]{" ++ resAsString ++ "})"
 
 bExprTranslator :: BExpr -> Translator
 bExprTranslator expr =

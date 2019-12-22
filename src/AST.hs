@@ -27,6 +27,7 @@ data Stmt
 data ClassStmt
   = ClassAssign String VarType AExpr
   | Method String VarType (Maybe [FunArg]) [FunctionStmt]
+  | Constructor String [FunctionStmt]
   deriving (Show)
 
 data FunctionStmt
@@ -86,6 +87,7 @@ data AExpr
   | ABinary ABinOp AExpr AExpr
   | If [(BExpr, [FunctionStmt])]
   | TypedVar String VarType (Maybe [AExpr]) (Maybe AExpr)
+  | Nop
   deriving (Show)
 
 -- ONLY FOR TRANSLATION

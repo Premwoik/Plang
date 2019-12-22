@@ -5,45 +5,45 @@
 #include "Ala/Ma/Kota.h"
 #include "XD.h"
 class Name{
-   int b = 12
-   auto c = "string"
-   auto Name(){
-      int x = 1
+   int b = 12;
+   char* c = "string";
+   Name{
+      int b = 1;
    }
    auto test(){
-      return 1;
+      return 10;
    }
 }
 int dupa(void t1, int t2){
-   void b = t1
+   int b = t2;
    return 0;
 }
 auto f3(int x){
-   char* a = "alla test string xD"
-   int d = 12
-   auto fuckT12 = 0
+   char* a = "alla test string xD";
+   int d = 12;
+   char* fuckT12 = nullptr;
    if(true){
-   int a = 12
-    fuckT12 = "0"
+   int a = 12;
+    fuckT12 = "1";
 }
    else if(true){
-    fuckT12 = "1"
+    fuckT12 = "2";
 }
    else {
-   int x = 12
-    fuckT12 = "2"
+   int x = 12;
+    fuckT12 = "3";
 }
-   auto testIf = fuckT12
+   char* testIf = fuckT12;
 }
 auto main(){
-   auto myList = new ArrayList(new int[4]{1,2.2,"TODO",4}
-   auto myList = new ArrayList(new int[1]{12}
+   auto myList = new ArrayList(new int[4]{1,2.2,"TODO",4});
+   auto myList = new ArrayList(new int[1]{12});
    return 0;
 }
 auto loop(){
    for(int i = 0; i < 10; i++){
       return 1;
    }
-   int a = 12
+   int a = 12;
    Name().test()   
 }
