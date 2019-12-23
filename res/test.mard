@@ -1,45 +1,53 @@
-import Ala.Ma.Kota
-import XD
 
-class Name:
-    b: int = 12
-    c = "string"
-    Name do
-        b = 1
-//        ret 12
-    test do
-        ret 10
+class MyClass do
 
+   MyClass do
+      a = 12
 
-dupa t1: Name, t2: int -> int do
-    b = t2
-    ret 0
+   test -> int do
+      ret 2
+      ret 1
 
-f3 x: int do
-    a = "alla test string xD"
-    d: int = 12
-    testIf = if d > 10 then
-              a: int = 12
-              "1"
+dupa t1: int, t2: int -> int do
+   b = t2
+   ret 0
 
-          elif false then
-              "2"
+f3 x: int -> string do
+   a: string = "alla test string xD"
+   d: int = 12
+   ret
+      if d > 10 then
+         a = "HAHA działa"
+         "1"
+      elif not false then
+         "2"
+      else
+         x: int = 12
+         "3"
 
-          else
-              x: int = 12
-              "3"
-
-
-main do
-    myList = [1, 2.2, 3 / 31, 4]
-    myList = [12]
-    ret 0
+test do
+//    ret "bug"
+   if 2 > 3 then
+      ret 12
+   else
+      ret 13
 
 
+Main -> int do
+//   myList = [1, 2.2, 3 / 31, 4]
+//   myList = [12]
+  loop()
+  test()
+  ret 0
 
-loop do
-    for z <- [1..2] do
-        ret 1
-    a = 12
-    Name().test()
+
+loop -> void do
+   c: int = 12
+   while c > 10 do
+      c = c - 1
+   for z <- [1..2] do
+      zaa = 12
+   x = 12
+   x = 13
+//   Name().test()
 

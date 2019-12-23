@@ -42,10 +42,15 @@ data LocalStorage
   deriving (Show)
 
 getType :: LocalStorage -> VarType
-getType (LocalClassScope (ClassExpr n _ _) Nothing) = VClass n
-getType (LocalClassScope _ (Just (Method _ t _ _))) = t
-getType (LocalFunc (Function _ t _ _)) = t
+getType (LocalClassScope (ClassExpr _ n _ _) Nothing) = VClass n
+getType (LocalClassScope _ (Just (Method _ _ t _ _))) = t
+getType (LocalFunc (Function _ _ t _ _)) = t
 getType t = throw $ UnsupportedTypeException $ show t
+
+setType :: VarType -> LocalStorage -> LocalStorage
+setType t (LocalClassScope c (Just (Method o n _ a b))) = LocalClassScope c (Just (Method o n t a b))
+setType t (LocalFunc (Function o n _ a b)) = LocalFunc (Function o n t a b)
+setType t l = throw $ UnsupportedTypeException $ show  l
 
 setStmt:: Stmt -> Analyzer' ()
 setStmt s =
@@ -89,20 +94,22 @@ type AExprRes = (VarType, [FunctionStmt], AExpr)
 
 type AExprAnalyzer = AExpr -> Analyzer' AExprRes
 
+type BExprAnalyzer = BExpr -> Analyzer' BExpr
+
 type FnStmtAnalyzer = FunctionStmt -> Analyzer' [FunctionStmt]
 
 type ClassStmtAnalyzer = String -> ClassStmt -> Analyzer' ClassStmt
 
-type RawAssign = (String, VarType, AExpr)
+type RawAssign = (Int, String, VarType, AExpr)
 
-type RawAssignConst a = (String -> VarType -> AExpr -> a)
+type RawAssignConst a = (Int -> String -> VarType -> AExpr -> a)
 
 type RawWhile b = (BExpr, [b])
 
 type RawWhileConst a b = (BExpr -> [b] -> a)
 
-type RawFunction = (String, VarType, Maybe [FunArg], [FunctionStmt])
+type RawFunction = (Int, String, VarType, Maybe [FunArg], [FunctionStmt])
 
-type RawFunctionConst a = String -> VarType -> Maybe [FunArg] -> [FunctionStmt] -> a
+type RawFunctionConst a = Int -> String -> VarType -> Maybe [FunArg] -> [FunctionStmt] -> a
 
 trd (_, _, c) = c

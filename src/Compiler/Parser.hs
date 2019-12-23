@@ -45,13 +45,18 @@ functionStmt
   = returnParser aExpr
   <|> whileStmt bExpr WhileFn functionStmt
   <|> forStmt aExpr ForFn functionStmt
+  <|> fullIfFuncParser bExpr functionStmt
   <|> try (assignParser aExpr AssignFn)
-  <|> OtherFn <$> aExpr
+  <|> otherStmt
+
+otherStmt = do
+  o <- getOffset
+  OtherFn o <$> aExpr
 
 classStmt :: Parser ClassStmt
 classStmt
   = try (assignParser aExpr ClassAssign)
-  <|> ((\(Function a b c d) -> Method a b c d) <$> functionParser functionStmt)
+  <|> ((\(Function o a b c d) -> Method o a b c d) <$> functionParser functionStmt)
 
 
 

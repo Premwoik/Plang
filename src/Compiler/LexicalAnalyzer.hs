@@ -13,7 +13,6 @@ import           Compiler.Analyzer.Pre
 analyze :: AST -> Analyzer' AST
 analyze (AST stmts) = do
   storage <- get
-  let g = findAllDeclaredNames stmts
   put $ storage {global = stmts}
   stmts' <- mapM statementAnalyzer stmts
   return (AST stmts')
@@ -25,25 +24,26 @@ statementAnalyzer s =
     t@LinkPath {}       -> checkLinkPath t
     t@Function {}       -> checkFunction t functionStmtAnalyzer
     t@NativeFunction {} -> checkNative t
---    TODO be careful with this head, but probably it always should work great
-    Assign a b c        -> checkAssign (a, b, c) Assign aExprAnalyzer
+    Assign o a b c      -> checkAssign (o, a, b, c) Assign aExprAnalyzer
     t@ClassExpr {}      -> checkClass t classStmtAnalyzer
-    t@Skip              -> return t
+    t@Skip {}           -> return t
 
+--    TODO be careful with this head, but probably it always should work great
 functionStmtAnalyzer :: FunctionStmt -> Analyzer' [FunctionStmt]
 functionStmtAnalyzer s =
   case s of
-    t@AssignFn {}  -> checkAssignFn t aExprAnalyzer
-    t@WhileFn {}   -> checkWhile t
-    t@ForFn {}     -> checkFor t
-    t@ReturnFn {}  -> checkReturn t aExprAnalyzer
-    t@OtherFn {}   -> checkOtherExpr t aExprAnalyzer
+    t@AssignFn {} -> checkAssignFn t aExprAnalyzer
+    t@WhileFn {}  -> checkWhile t functionStmtAnalyzer bExprAnalyzer
+    t@ForFn {}    -> checkFor t functionStmtAnalyzer aExprAnalyzer
+    t@IfFn {}     -> checkIfFunction t functionStmtAnalyzer bExprAnalyzer
+    t@ReturnFn {} -> checkReturn t aExprAnalyzer
+    t@OtherFn {}  -> checkOtherExpr t aExprAnalyzer
 
 classStmtAnalyzer :: String -> ClassStmt -> Analyzer' ClassStmt
 classStmtAnalyzer name s =
   case s of
-    ClassAssign a b c -> checkAssign (a, b, c) ClassAssign aExprAnalyzer
-    t@Method {} -> checkMethod t functionStmtAnalyzer
+    ClassAssign o a b c -> checkAssign (o, a, b, c) ClassAssign aExprAnalyzer
+    t@Method {}         -> checkMethod t functionStmtAnalyzer
 
 aExprAnalyzer :: AExpr -> Analyzer' AExprRes
 aExprAnalyzer expr =
@@ -57,7 +57,7 @@ aExprAnalyzer expr =
     e@Fn {}         -> checkFn e
     e@FnBlock {}    -> checkFnBlock e
     e@Neg {}        -> checkNegBlock e
-    e@ABinary {}    -> checkABinary e
+    e@ABinary {}    -> checkABinary e aExprAnalyzer
     e@If {}         -> checkIfStatement e functionStmtAnalyzer
 
 bExprAnalyzer :: BExpr -> Analyzer' BExpr
@@ -67,5 +67,3 @@ bExprAnalyzer expr =
     e@Not {}       -> return e
     e@BBinary {}   -> return e
     e@RBinary {}   -> return e
-
-

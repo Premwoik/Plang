@@ -14,45 +14,33 @@ newtype AST =
   deriving (Show)
 
 data Stmt
-  = Function String VarType (Maybe [FunArg]) [FunctionStmt]
-  | Import [String]
-  | ClassExpr String (Maybe [String]) [ClassStmt]
-  | NativeFunction String VarType (Maybe [FunArg])
-  | LinkPath String
-  | Skip
-  | Assign String VarType AExpr
+  = Function Int String VarType (Maybe [FunArg]) [FunctionStmt]
+  | FunctionDecl String VarType (Maybe [FunArg])
+  | Import Int [String]
+  | ClassExpr Int String (Maybe [String]) [ClassStmt]
+  | NativeFunction Int String VarType (Maybe [FunArg])
+  | LinkPath Int String
+  | Skip Int
+  | Assign Int String VarType AExpr
   deriving (Show)
 
 --  -------------------------------------------------------
 data ClassStmt
-  = ClassAssign String VarType AExpr
-  | Method String VarType (Maybe [FunArg]) [FunctionStmt]
-  | Constructor String [FunctionStmt]
+  = ClassAssign Int String VarType AExpr
+  | Method Int String VarType (Maybe [FunArg]) [FunctionStmt]
+  | Constructor Int String [FunctionStmt]
   deriving (Show)
 
 data FunctionStmt
-  = AssignFn String VarType AExpr
-  | WhileFn BExpr [FunctionStmt]
-  | ForFn AExpr AExpr [FunctionStmt]
-  | IfFn [(BExpr, [FunctionStmt])]
-  | ReturnFn AExpr
-  | OtherFn AExpr
+  = AssignFn Int String VarType AExpr
+  | WhileFn Int BExpr [FunctionStmt]
+  | ForFn Int AExpr AExpr [FunctionStmt]
+  | IfFn Int [(BExpr, [FunctionStmt])]
+  | ReturnFn Int AExpr
+  | OtherFn Int AExpr
   ----
   deriving (Show)
 
-data AssignType = Create | Reassign
-
-data IfCondBody =
-  IfCondBody BExpr [FunctionStmt]
-  deriving (Show)
-
-newtype ElseCondBody =
-  ElseCondBody [FunctionStmt]
-  deriving (Show)
-
-data BoolExpr =
-  BoolExpr
-  deriving (Show)
 
 data BExpr
   = BoolConst Bool
@@ -76,6 +64,7 @@ data RBinOp
 
 data AExpr
   = Var String (Maybe [AExpr]) (Maybe AExpr)
+  | ABracket AExpr
   | IntConst Integer
   | FloatConst Float
   | ListVar [AExpr]

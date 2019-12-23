@@ -19,10 +19,20 @@ translate (AST stmts) = mapM_ print stmts
 
 translate' :: AST -> Translator
 translate' (AST stmts) = do
-  imports <- initialImports ["Arduino.h", "ArrayList.h", "Map.h", "Maybe.h"]
-  state <- get
+--  imports <- initialImports ["Arduino.h", "ArrayList.h", "Map.h", "Maybe.h"]
+  imports <- initialImports ["Arduino.h"]
+  declarations <- declareFunctions stmts
+--  state <- get
   restOfCode <- mapM translateStatement stmts
-  return . concat $ imports : restOfCode
+  return . concat $ imports : declarations : restOfCode
+
+declareFunctions :: [Stmt]-> Translator
+declareFunctions = return . map trans . filter cond
+  where
+    trans (Function _ n t args _) =
+      typeToString t ++ " " ++ n ++ "(" ++ (argumentsTranslator . M.fromMaybe [] $ args) ++ ");\n"
+    cond Function {} = True
+    cond _ = False
 
 initialImports :: [String] -> Translator
 initialImports modules = return $ map merge modules
@@ -38,17 +48,17 @@ translateStatement s =
     t@NativeFunction {} -> nativeTranslator t
     t@Assign {}         -> assignTranslator t
     t@ClassExpr {}      -> classTranslator t
-    t@Skip              -> return []
+    t@Skip {}              -> return []
 
 --    _ -> return ()
 importTranslator :: Stmt -> Translator
-importTranslator (Import name) = return ["#include \"" ++ intercalate "/" name ++ ".h\"\n"]
+importTranslator (Import _ name) = return ["#include \"" ++ intercalate "/" name ++ ".h\"\n"]
 
 linkPathTranslator :: Stmt -> Translator
-linkPathTranslator (LinkPath name) = return ["#include \"" ++ name ++ "\"\n"]
+linkPathTranslator (LinkPath _ name) = return ["#include \"" ++ name ++ "\"\n"]
 
 functionTranslator :: Stmt -> Translator
-functionTranslator (Function name ret args block) = do
+functionTranslator (Function _ name ret args block) = do
   let readyArgs = argumentsTranslator . M.fromMaybe [] $ args
   readyBlock <- blockTranslator' functionStmtTranslator block
   return . concat $ [[typeToString ret ++ " " ++ name ++ "(" ++ readyArgs ++ "){\n"], readyBlock, ["}\n"]]
@@ -56,15 +66,15 @@ functionTranslator (Function name ret args block) = do
 functionStmtTranslator :: FunctionStmt -> Translator
 functionStmtTranslator s =
   case s of
-    AssignFn a b c -> assignTranslator $ Assign a b c
-    WhileFn a b    -> whileTranslator a b functionStmtTranslator
-    ForFn a b c    -> forTranslator a b c functionStmtTranslator
+    AssignFn o a b c -> assignTranslator $ Assign o a b c
+    WhileFn _ a b    -> whileTranslator a b functionStmtTranslator
+    ForFn _ a b c    -> forTranslator a b c functionStmtTranslator
     a@IfFn {}      -> ifTranslator a
     a@ReturnFn {}  -> returnExprTranslator a
     a@OtherFn {}   -> casualExprTranslator a
 
 ifTranslator :: FunctionStmt -> Translator
-ifTranslator (IfFn l) = mapM build $ zip [1 ..] l
+ifTranslator (IfFn _ l) = mapM build $ zip [1 ..] l
   where
     translateIf s (b, body) = do
       res <- concat <$> blockTranslator' functionStmtTranslator body
@@ -76,10 +86,10 @@ ifTranslator (IfFn l) = mapM build $ zip [1 ..] l
     build (x, p)
       | x == length l = translateElse p
       | x == 1 = translateIf "if(" p
-      | otherwise = translateIf "else if(" p 
+      | otherwise = translateIf "else if(" p
 
 nativeTranslator :: Stmt -> Translator
-nativeTranslator (NativeFunction name type' args) = return []
+nativeTranslator (NativeFunction _ name type' args) = return []
 
 argumentsTranslator :: [FunArg] -> String
 argumentsTranslator = intercalate ", " . map (\(FunArg type' name) -> typeToString type' ++ " " ++ name)
@@ -93,7 +103,7 @@ typeToString t =
     VVoid   -> "void"
     VAuto   -> "auto"
     VChar   -> "char"
-    VBlank  -> "" 
+    VBlank  -> ""
     _       -> "void"
 
 blockTranslator :: BodyBlock -> Translator
@@ -111,9 +121,9 @@ newLine :: String -> String
 newLine x = x ++ "\n"
 
 assignTranslator :: Stmt -> Translator
---assignTranslator (Assign name type' Nop) = 
+--assignTranslator (Assign name type' Nop) =
 --  return [typeToString type' ++ " " ++ name ++ ";\n"]
-assignTranslator (Assign name type' expr) = do
+assignTranslator (Assign _ name type' expr) = do
   let t = typeToString type'
   e <- aExprTranslator expr
   return . return . concat $ ((t ++ " " ++ name ++ " = ") : e) ++ [";\n"]
@@ -125,36 +135,38 @@ whileTranslator bExpr block trans = do
   return . concat $ [["while(" ++ head bExpr' ++ "){\n"], block', ["}\n"]]
 
 forTranslator :: AExpr -> AExpr -> [a] -> (a -> Translator) -> Translator
-forTranslator (Var name Nothing Nothing) range block trans = do
+forTranslator (TypedVar name type' Nothing Nothing) (Range a b) block trans = do
+  a' <- aExprTranslator a
+  b' <- aExprTranslator b
   block' <- blockTranslator' trans block
-  return . concat $ [["for(int i = 0; i < 10; i++){\n"], block', ["}\n"]]
+  return . concat $ [["for(" ++ typeToString type' ++ " " ++ name ++ " = "], a', ["; " ++ name ++ " < "], b', ["; " ++ name ++ "++){\n"], block', ["}\n"]]
 
 --  TODO replace mock with real feature
 --  TODO add generics support (as template)
 classTranslator :: Stmt -> Translator
-classTranslator (ClassExpr name generics block) = do
+classTranslator (ClassExpr _ name generics block) = do
   block' <- blockTranslator' classStmtTranslator block
-  return . concat $ [["class " ++ name ++ "{\n"], block', ["}\n"]]
+  return . concat $ [["class " ++ name ++ "{\n"], block', ["};\n"]]
 
 --  tell [show (fromMaybe [] generics)]
 classStmtTranslator :: ClassStmt -> Translator
 classStmtTranslator c =
   case c of
-    ClassAssign a b c -> assignTranslator $ Assign a b c
-    Method a b c d    -> functionTranslator $ Function a b c d
+    ClassAssign o a b c -> assignTranslator $ Assign o a b c
+    Method o a b c d    -> functionTranslator $ Function o a b c d
     t@Constructor {} -> constTranslator t
 
 constTranslator :: ClassStmt -> Translator
-constTranslator (Constructor name block) = do
+constTranslator (Constructor _ name block) = do
   readyBlock <- blockTranslator' functionStmtTranslator block
-  return . concat $ [[name ++ "{\n"] ++ readyBlock ++ ["}\n"]]
+  return . concat $ [[name ++ "(){\n"] ++ readyBlock ++ ["}\n"]]
 
 --  TODO replace mock with real feature
 casualExprTranslator :: FunctionStmt -> Translator
-casualExprTranslator (OtherFn aExpr) = (++ ["\n"]) <$> aExprTranslator aExpr
+casualExprTranslator (OtherFn _ aExpr) = (++ [";\n"]) <$> aExprTranslator aExpr
 
 returnExprTranslator :: FunctionStmt -> Translator
-returnExprTranslator (ReturnFn aExpr) = do
+returnExprTranslator (ReturnFn _ aExpr) = do
   aExpr' <- aExprTranslator aExpr
   return . return $ "return " ++ head aExpr' ++ ";\n"
 
@@ -164,6 +176,7 @@ aExprTranslator expr =
   case expr of
     e@TypedVar {} -> varTranslator e
     Var a b c     -> varTranslator (TypedVar a VAuto b c)
+    ABracket a ->  aExprTranslator a
     IntConst i    -> return . return $ show i
     FloatConst f  -> return . return $ show f
     StringVal s   -> return . return $ show s
@@ -172,9 +185,27 @@ aExprTranslator expr =
     e@Fn {}       -> return ["\"TODO\""]
     e@FnBlock {}  -> return [show e]
     e@Neg {}      -> return ["\"TODO\""]
-    e@ABinary {}  -> return ["\"TODO\""]
+    e@ABinary {}  -> binaryTranslator e
     Nop -> return ["nullptr"]
     a             -> throw $ UnsupportedTypeException (show a)
+
+bracketTranslator (ABracket aExpr) = do
+  res <- aExprTranslator aExpr
+  return . concat $ ["("] ++ res ++ [")"]
+
+binaryTranslator :: AExpr -> Translator
+binaryTranslator (ABinary op a b) = do
+  let op' = binaryOperatorToString op
+  a' <- aExprTranslator a
+  b' <- aExprTranslator b
+  return . concat $ [a',  [" " ++ op' ++ " "], b']
+
+binaryOperatorToString :: ABinOp -> String
+binaryOperatorToString a = case a of
+  Add -> "+"
+  Subtract -> "-"
+  Multiply -> "*"
+  Divide -> "/"
 
 --rangeTranslator :: AExpr -> Translator
 --rangeTranslator (Range from to) =
@@ -213,7 +244,44 @@ bExprTranslator expr =
   case expr
 --  TODO replace mock with real feature
         of
-    e@BoolConst {} -> return ["true"]
-    e@Not {}       -> return ["true"]
-    e@BBinary {}   -> return ["true"]
-    e@RBinary {}   -> return ["true"]
+    BoolConst a -> return $ if a then ["true"] else ["false"]
+    e@Not {}       -> negationTranslator e
+    e@BBinary {}   -> bBinaryTranslator e
+    e@RBinary {}   -> rBinaryTranslator e
+
+negationTranslator :: BExpr -> Translator
+negationTranslator (Not bExpr) = do
+  res <- bExprTranslator bExpr
+  return . return . concat $ "!" : res
+
+
+
+bBinaryTranslator :: BExpr -> Translator
+bBinaryTranslator (BBinary op a b) = do
+  let op' = bBinOpToString op
+  a' <- bExprTranslator a
+  b' <- bExprTranslator b
+  return  ["(" ++ head a' ++ ") " ++ op' ++ " (" ++ head b' ++ ")"]
+
+bBinOpToString :: BBinOp -> String
+bBinOpToString a = case a of
+  And -> "&&"
+  Or -> "||"
+
+
+rBinaryTranslator :: BExpr -> Translator
+rBinaryTranslator (RBinary op a b) = do
+  let op' = rBinOpToString op
+  a' <- aExprTranslator a
+  b' <- aExprTranslator b
+  return  [head a' ++ " " ++ op' ++ " " ++ head b']
+--  return  ["(" ++ head a' ++ ") " ++ op' ++ " (" ++ head b' ++ ")"]
+
+
+rBinOpToString :: RBinOp -> String
+rBinOpToString a = case a of
+  Greater -> ">"
+  Less -> "<"
+  Equal -> "=="
+  EqLess -> "<="
+  EqGreater -> ">="
