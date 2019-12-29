@@ -9,7 +9,6 @@ import           Control.Exception
 import           Control.Monad.State         (State, get, gets, put)
 import           Control.Monad.Writer        (WriterT, tell)
 
-import           Compiler.Analyzer.Pre
 
 analyze :: AST -> Analyzer' AST
 analyze (AST stmts) = do

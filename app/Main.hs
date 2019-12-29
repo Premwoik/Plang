@@ -16,7 +16,6 @@ import Control.Monad.State(evalState, runState, runStateT)
 import Compiler.Analyzer.Type(emptyStorage)
 import qualified Compiler.Translator.Type as TT
 import Compiler.LexicalAnalyzer
-import Compiler.Analyzer.Pre
 
 main :: IO ()
 main = do

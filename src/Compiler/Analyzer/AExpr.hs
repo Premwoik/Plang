@@ -1,6 +1,5 @@
 module Compiler.Analyzer.AExpr where
 
-import           Compiler.Analyzer.Pre
 import           Compiler.Analyzer.Type
 import           Control.Exception
 import           Control.Monad.State      (get, gets, put, modify)
