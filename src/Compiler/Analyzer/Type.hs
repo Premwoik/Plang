@@ -33,30 +33,32 @@ data Storage =
 
 emptyStorage = Storage [] LocalEmpty EmptyCache
 
+type Scope = [FunctionStmt]
+
 data LocalStorage
   = LocalScope [FunctionStmt]
   | LocalClassScope Stmt (Maybe ClassStmt)
-  | LocalStmt [Stmt]
-  | LocalFunc Stmt
+  | LocalStmt [Stmt] 
+  | LocalFunc Stmt [Scope]
   | LocalEmpty
   deriving (Show)
 
 getType :: LocalStorage -> VarType
 getType (LocalClassScope (ClassExpr _ n _ _) Nothing) = VClass n
 getType (LocalClassScope _ (Just (Method _ _ t _ _))) = t
-getType (LocalFunc (Function _ _ t _ _)) = t
+getType (LocalFunc (Function _ _ t _ _) _) = t
 getType t = throw $ UnsupportedTypeException $ show t
 
 setType :: VarType -> LocalStorage -> LocalStorage
 setType t (LocalClassScope c (Just (Method o n _ a b))) = LocalClassScope c (Just (Method o n t a b))
-setType t (LocalFunc (Function o n _ a b)) = LocalFunc (Function o n t a b)
+setType t (LocalFunc (Function o n _ a b) x) = LocalFunc (Function o n t a b) x
 setType t l = throw $ UnsupportedTypeException $ show  l
 
 setStmt:: Stmt -> Analyzer' ()
 setStmt s =
   case s of
     class'@ClassExpr {} -> modify (\s -> s {local = LocalClassScope class' Nothing})
-    func@Function {} -> modify (\s -> s {local = LocalFunc func})
+    func@Function {} -> modify (\s -> s {local = LocalFunc func []})
     _ -> throw $ UnsupportedTypeException $ "setStmt | " ++ show s
 --    _ -> throw $ NotAClass $ "Function setClass need class as parameter. Indstead of that it got: " ++ show s
 
@@ -78,6 +80,19 @@ getClass = do
   case local' of
     LocalClassScope c _ -> return c
     _ -> fail "Class can't be get"
+
+addFnScope :: Scope -> Analyzer' ()
+addFnScope scope = modify (\s -> s {local = update (local s) scope })
+  where
+    update (LocalFunc f s) x = LocalFunc f (x : s)
+    update x _ = error $ show x
+
+removeFnScope :: Analyzer' ()
+removeFnScope = modify (\s -> s {local = update (local s)})
+  where
+    update (LocalFunc f (x : xs)) = LocalFunc f xs
+
+
 
 data StorageCache
   = EmptyCache

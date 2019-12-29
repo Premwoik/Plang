@@ -58,7 +58,7 @@ float' :: Parser Float
 float' = lexemeEnd L.float
 
 pItem :: Parser String
-pItem = lexemeEnd (some (alphaNumChar <|> char '-')) <?> "list item"
+pItem = lexemeEnd (some (alphaNumChar <|> char '-' <|> char '_')) <?> "list item"
 
 stringLiteral :: Parser String
 stringLiteral = char '\"' *> manyTill L.charLiteral (char '\"')

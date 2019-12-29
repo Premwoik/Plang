@@ -26,6 +26,8 @@ dependencies:
 - text
 - mtl
 - containers
+- hspec
+- hspec-megaparsec
 
 library:
   source-dirs: src
@@ -44,7 +46,7 @@ executables:
 tests:
   l1-test:
     main:                Spec.hs
-    source-dirs:         test.mard
+    source-dirs:         test
     ghc-options:
     - -threaded
     - -rtsopts

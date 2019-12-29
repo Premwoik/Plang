@@ -20,7 +20,7 @@ translate (AST stmts) = mapM_ print stmts
 translate' :: AST -> Translator
 translate' (AST stmts) = do
 --  imports <- initialImports ["Arduino.h", "ArrayList.h", "Map.h", "Maybe.h"]
-  imports <- initialImports ["Arduino.h"]
+  imports <- initialImports []
   declarations <- declareFunctions stmts
 --  state <- get
   restOfCode <- mapM translateStatement stmts
@@ -45,10 +45,13 @@ translateStatement s =
     t@Import {}         -> importTranslator t
     t@LinkPath {}       -> linkPathTranslator t
     t@Function {}       -> functionTranslator t
-    t@NativeFunction {} -> nativeTranslator t
     t@Assign {}         -> assignTranslator t
     t@ClassExpr {}      -> classTranslator t
     t@Skip {}              -> return []
+    t@NativeFunction {} -> nativeTranslator t
+    t@NativeClass {} -> return []
+    t@NativeAssignDeclaration {} -> return []
+--    _ -> return []
 
 --    _ -> return ()
 importTranslator :: Stmt -> Translator
@@ -89,7 +92,7 @@ ifTranslator (IfFn _ l) = mapM build $ zip [1 ..] l
       | otherwise = translateIf "else if(" p
 
 nativeTranslator :: Stmt -> Translator
-nativeTranslator (NativeFunction _ name type' args) = return []
+nativeTranslator (NativeFunction _  _ name type' args) = return []
 
 argumentsTranslator :: [FunArg] -> String
 argumentsTranslator = intercalate ", " . map (\(FunArg type' name) -> typeToString type' ++ " " ++ name)
@@ -99,11 +102,12 @@ typeToString t =
   case t of
     VInt    -> "int"
     VFloat  -> "float"
-    VString -> "char*"
+    VString -> "String"
     VVoid   -> "void"
     VAuto   -> "auto"
     VChar   -> "char"
     VBlank  -> ""
+    VClass c -> c
     _       -> "void"
 
 blockTranslator :: BodyBlock -> Translator
@@ -121,12 +125,16 @@ newLine :: String -> String
 newLine x = x ++ "\n"
 
 assignTranslator :: Stmt -> Translator
---assignTranslator (Assign name type' Nop) =
---  return [typeToString type' ++ " " ++ name ++ ";\n"]
+assignTranslator (Assign _ name type' Nop) =
+  return [typeToString type' ++ " " ++ name ++ ";\n"]
+assignTranslator (Assign _ name type' (TypedVar cName (VClass t) (Just args) Nothing)) = do
+  args' <- intercalate ", " . concat <$> mapM aExprTranslator args
+  return ["unique_ptr<" ++ cName ++ "> " ++ name ++ "(new " ++ cName ++ "(" ++ args' ++ "));"]
 assignTranslator (Assign _ name type' expr) = do
   let t = typeToString type'
   e <- aExprTranslator expr
   return . return . concat $ ((t ++ " " ++ name ++ " = ") : e) ++ [";\n"]
+
 
 whileTranslator :: BExpr -> [a] -> (a -> Translator) -> Translator
 whileTranslator bExpr block trans = do
@@ -146,7 +154,7 @@ forTranslator (TypedVar name type' Nothing Nothing) (Range a b) block trans = do
 classTranslator :: Stmt -> Translator
 classTranslator (ClassExpr _ name generics block) = do
   block' <- blockTranslator' classStmtTranslator block
-  return . concat $ [["class " ++ name ++ "{\n"], block', ["};\n"]]
+  return . concat $ [["class " ++ name ++ "{\npublic:\n"], block', ["};\n"]]
 
 --  tell [show (fromMaybe [] generics)]
 classStmtTranslator :: ClassStmt -> Translator
@@ -155,6 +163,7 @@ classStmtTranslator c =
     ClassAssign o a b c -> assignTranslator $ Assign o a b c
     Method o a b c d    -> functionTranslator $ Function o a b c d
     t@Constructor {} -> constTranslator t
+    t@MethodDeclaration {} -> return []
 
 constTranslator :: ClassStmt -> Translator
 constTranslator (Constructor _ name block) = do
@@ -184,10 +193,14 @@ aExprTranslator expr =
     e@Range {}    -> return ["\"TODO\""]
     e@Fn {}       -> return ["\"TODO\""]
     e@FnBlock {}  -> return [show e]
-    e@Neg {}      -> return ["\"TODO\""]
+    e@Neg {}      -> aExprNegTranslator e
     e@ABinary {}  -> binaryTranslator e
     Nop -> return ["nullptr"]
     a             -> throw $ UnsupportedTypeException (show a)
+
+aExprNegTranslator (Neg a) = do
+  a' <- aExprTranslator a
+  return . concat $ [["(-"], a', [")"]]
 
 bracketTranslator (ABracket aExpr) = do
   res <- aExprTranslator aExpr
@@ -218,6 +231,10 @@ varTranslator :: AExpr -> Translator
 varTranslator (TypedVar name type' Nothing more') = do
   readyMore <- moreVarTranslator type' more'
   return . return . concat $ name : readyMore
+--varTranslator (TypedVar name (VClass t) (Just args) Nothing) = do
+--  args' <- intercalate ", " . concat <$> mapM aExprTranslator args
+--  return . return . concat $ ("unique_ptr<" ++ name ++ ">(new " ++ name ++ "(" ++ args' ++ "))") : []
+
 varTranslator (TypedVar name type' (Just args) more') = do
   readyMore <- moreVarTranslator type' more'
   args' <- intercalate ", " . concat <$> mapM aExprTranslator args
@@ -225,7 +242,7 @@ varTranslator (TypedVar name type' (Just args) more') = do
 
 moreVarTranslator :: VarType -> Maybe AExpr -> Translator
 -- TODO handle pointers
-moreVarTranslator (Pointer _) (Just e) = return . (\[x] -> '-' : '>' : x) <$> varTranslator e
+moreVarTranslator (VClass _) (Just e) = return . (\[x] -> '-' : '>' : x) <$> varTranslator e
 moreVarTranslator _ (Just e) = return . (\[x] -> '.' : x) <$> varTranslator e
 moreVarTranslator _ Nothing = return []
 

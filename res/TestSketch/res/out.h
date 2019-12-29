@@ -1,55 +1,40 @@
-#include "Arduino.h"
-int dupa(int t1, int t2);
-char *f3(int x);
-int test();
+int mymax(int a, int b);
 int Main();
-void loop();
-class MyClass {
-  MyClass() { int a = 12; }
-  int test() {
-    return 2;
-    return 1;
-  }
-};
-int dupa(int t1, int t2) {
-  int b = t2;
-  return 0;
-}
-char *f3(int x) {
-  char *a = "alla test string xD";
-  int d = 12;
-  char *fuckT12 = nullptr;
-  if (d > 10) {
-    a = "HAHA dzia\322a";
-    fuckT12 = "1";
-  } else if (!false) {
-    fuckT12 = "2";
+#include "Arduino.h"
+int mymax(int a, int b) {
+  int fuckT12;
+  if (a > b) {
+    fuckT12 = a;
   } else {
-    x = 12;
-    fuckT12 = "3";
+    fuckT12 = b;
   }
   return fuckT12;
 }
-int test() {
-  if (2 > 3) {
-    return 12;
-  } else {
-    return 13;
-  }
-}
 int Main() {
-  loop();
-  test();
+  Serial.begin(9600);
+  pinMode(13, OUTPUT);
+  int i = 0;
+  int top = 5;
+  while (i < top) {
+    int tak = 30;
+    i = i + 1;
+    Serial.println(F("Tak czy siak"));
+  }
+  while (true) {
+    digitalWrite(13, LOW);
+    Serial.println(F("LOW"));
+    delay(1000);
+    digitalWrite(13, HIGH);
+    Serial.println(F("HIGH"));
+    delay(500);
+    digitalWrite(13, LOW);
+    Serial.println("LOW");
+    delay(500);
+    digitalWrite(13, HIGH);
+    Serial.println("HIGH");
+    delay(2000);
+    int tak = 12;
+    Serial.println(mymax(tak, 15));
+  }
   return 0;
-}
-void loop() {
-  int c = 12;
-  while (c > 10) {
-    c = c - 1;
-  }
-  for (int z = 1; z < 2; z++) {
-    int zaa = 12;
-  }
-  int x = 12;
-  x = 13;
 }

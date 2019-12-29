@@ -31,12 +31,15 @@ stmt' :: Parser Stmt
 stmt'
   = importParser
   <|> linkPathParser
-  <|> nativeParser
   <|> skipStmt
 --  <|> whileStmt While stmt'
 --  <|> forStmt For stmt'
-  <|> classParser classStmt
+
   <|> try (assignParser aExpr Assign)
+  <|> nativeClassParser classStmt
+  <|> try nativeFunctionParser
+  <|> nativeAssignDeclParser
+  <|> classParser classStmt
   <|> functionParser functionStmt
 --  <|> CasualExpr <$> aExpr
 
@@ -56,10 +59,9 @@ otherStmt = do
 classStmt :: Parser ClassStmt
 classStmt
   = try (assignParser aExpr ClassAssign)
+  <|> methodDeclarationParser
   <|> ((\(Function o a b c d) -> Method o a b c d) <$> functionParser functionStmt)
-
-
-
+  
 
 aExpr :: Parser AExpr
 aExpr = makeExprParser aTerm aOperators

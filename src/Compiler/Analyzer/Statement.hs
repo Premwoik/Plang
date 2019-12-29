@@ -64,10 +64,12 @@ checkTypes t t' =
 --checkTypes t _ = throw $ TypesMismatch $ "Local don't contain function struct, so types cant be checked!!! { " ++ show t
 
 checkNative :: Stmt -> Analyzer' Stmt
-checkNative t@(NativeFunction o name ret args') =
-  case ret of
-    VAuto -> throw IncorrectExprException
-    _     -> NativeFunction o name ret <$> checkArgs args'
+checkNative t@(NativeFunction o "" name ret args') = NativeFunction o name name ret <$> checkArgs args'
+checkNative t@(NativeFunction o path name ret args') =
+ case ret of
+--    VAuto -> throw IncorrectExprException
+   _     -> NativeFunction o path name ret <$> checkArgs args'
+
 
 checkArgs :: Maybe [FunArg] -> Analyzer' (Maybe [FunArg])
 checkArgs = return
@@ -106,8 +108,10 @@ checkAssign (o, name, ret, aExpr) wrapper analyzer = do
 
 checkWhile :: FunctionStmt -> FnStmtAnalyzer -> BExprAnalyzer ->Analyzer' [FunctionStmt]
 checkWhile t@(WhileFn o cond block) analyzer bAnalyzer= do
+  addFnScope block
   cond' <- bAnalyzer cond 
   block' <- concat <$> mapM analyzer block
+  removeFnScope
   return . return $ WhileFn o cond' block'
 
 checkIfFunction :: FunctionStmt -> FnStmtAnalyzer -> BExprAnalyzer -> Analyzer' [FunctionStmt]
@@ -119,8 +123,10 @@ checkIfFunction t@(IfFn o ifs) analyzer bExprAnalyzer = do
   return [IfFn o newIfs]
   where
     makeIf (cond, body) = do
+      addFnScope body
       body' <- concat <$> mapM analyzer body
       cond' <- bExprAnalyzer cond
+      removeFnScope
       return (cond', body')
 --    retType (t:s) = if all (==t) s then t else error "If statement return' type is not the same in every block"
 --    retType _ = error "If statement return' type is not the same in every block"
@@ -131,8 +137,10 @@ checkFor :: FunctionStmt -> FnStmtAnalyzer -> AExprAnalyzer -> Analyzer' [Functi
 checkFor (ForFn o (Var n _ _) range body) fnAnalyzer aAnalyzer= do
 --  TODO add aExpr analyzing (range and var)
 --  (_, _, var') <- aAnalyzer var
+  addFnScope body
   (t, _, range') <- aAnalyzer range
   body' <- concat <$> mapM fnAnalyzer body
+  removeFnScope
   return [ForFn o (TypedVar n VInt Nothing Nothing) range' body'] 
   
 

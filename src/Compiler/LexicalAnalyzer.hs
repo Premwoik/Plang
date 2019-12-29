@@ -2,6 +2,7 @@ module Compiler.LexicalAnalyzer where
 
 import           AST
 import           Compiler.Analyzer.AExpr
+import           Compiler.Analyzer.BExpr
 import           Compiler.Analyzer.Statement
 import           Compiler.Analyzer.Type
 import           Control.Exception
@@ -24,6 +25,8 @@ statementAnalyzer s =
     t@LinkPath {}       -> checkLinkPath t
     t@Function {}       -> checkFunction t functionStmtAnalyzer
     t@NativeFunction {} -> checkNative t
+    t@NativeClass {} -> return t
+    t@NativeAssignDeclaration {} -> return t
     Assign o a b c      -> checkAssign (o, a, b, c) Assign aExprAnalyzer
     t@ClassExpr {}      -> checkClass t classStmtAnalyzer
     t@Skip {}           -> return t
@@ -44,6 +47,7 @@ classStmtAnalyzer name s =
   case s of
     ClassAssign o a b c -> checkAssign (o, a, b, c) ClassAssign aExprAnalyzer
     t@Method {}         -> checkMethod t functionStmtAnalyzer
+    t@MethodDeclaration {} -> return t
 
 aExprAnalyzer :: AExpr -> Analyzer' AExprRes
 aExprAnalyzer expr =
@@ -51,14 +55,14 @@ aExprAnalyzer expr =
     e@IntConst {}   -> return (VInt, [], e)
     e@FloatConst {} -> return (VFloat, [], e)
     e@StringVal {}  -> return (VString, [], e)
-    e@Var {}        -> checkVar e Nothing
+    e@Var {}        -> checkVar e Nothing aExprAnalyzer
     e@ListVar {}    -> checkListVar e
     e@Range {}      -> checkRange e
     e@Fn {}         -> checkFn e
     e@FnBlock {}    -> checkFnBlock e
     e@Neg {}        -> checkNegBlock e
     e@ABinary {}    -> checkABinary e aExprAnalyzer
-    e@If {}         -> checkIfStatement e functionStmtAnalyzer
+    e@If {}         -> checkIfStatement e functionStmtAnalyzer bExprAnalyzer
 
 bExprAnalyzer :: BExpr -> Analyzer' BExpr
 bExprAnalyzer expr =
@@ -66,4 +70,4 @@ bExprAnalyzer expr =
     e@BoolConst {} -> return e
     e@Not {}       -> return e
     e@BBinary {}   -> return e
-    e@RBinary {}   -> return e
+    e@RBinary {}   -> rBinaryAnalyzer e aExprAnalyzer

@@ -15,20 +15,26 @@ newtype AST =
 
 data Stmt
   = Function Int String VarType (Maybe [FunArg]) [FunctionStmt]
-  | FunctionDecl String VarType (Maybe [FunArg])
   | Import Int [String]
   | ClassExpr Int String (Maybe [String]) [ClassStmt]
-  | NativeFunction Int String VarType (Maybe [FunArg])
-  | LinkPath Int String
   | Skip Int
   | Assign Int String VarType AExpr
+  | NativeAssignDeclaration Int String String VarType
+  | NativeFunction Int String String VarType (Maybe [FunArg])
+  | NativeClass Int String String (Maybe [String]) [ClassStmt]
+  | LinkPath Int String
+--  FOR TRANSLATION ONLY
+  | FunctionDecl String VarType (Maybe [FunArg])
   deriving (Show)
 
 --  -------------------------------------------------------
 data ClassStmt
   = ClassAssign Int String VarType AExpr
+  | ClassAssignDeclaration Int String VarType
   | Method Int String VarType (Maybe [FunArg]) [FunctionStmt]
   | Constructor Int String [FunctionStmt]
+  | MethodDeclaration Int String VarType (Maybe [FunArg])
+--  FOR TRANSLATION ONLY
   deriving (Show)
 
 data FunctionStmt
@@ -75,6 +81,8 @@ data AExpr
   | Neg AExpr
   | ABinary ABinOp AExpr AExpr
   | If [(BExpr, [FunctionStmt])]
+--  FOR TRANSLATION ONLY
+  | DefineVar String (Maybe [AExpr])
   | TypedVar String VarType (Maybe [AExpr]) (Maybe AExpr)
   | Nop
   deriving (Show)
@@ -98,6 +106,7 @@ data VarType
   | VAuto
   | VChar
   | VClass String
+  | VRef String
   | Pointer VarType
   | VBlank
   deriving (Show, Eq)

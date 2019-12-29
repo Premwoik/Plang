@@ -1,4 +1,99 @@
+link_path "Arduino.h"
+//link_path "unique_ptr"
 
-import List
-import Map
-import Maybe
+//FUNCTIONS
+
+native "" pinMode pin: int, mode: int -> void
+native "" digitalWrite pin: int, state: int -> void
+native "delay" sleep time: int -> void
+
+native "" digitalRead port: int -> int
+native "" analogRead port: int -> int
+native "" analogReference mode: int -> void
+native "" analogWrite port: int, value: int -> void
+
+native "" millis -> int
+native "" micros -> int
+native "" delay ms: int -> void
+native "" delayMicroseconds us: int -> void
+
+native "" pulseIn pin: int, state: int, timeout: int -> int
+native "" pulseInLong pin: int, state: int, timeout: int -> int
+
+native "" shiftOut dataPin: int, clockPin: int, bitOrder: int, val: int -> void
+native "" shiftIn dataPin: int, clockPin: int, bitOrder: int -> int
+
+native "" attachInterrupt id: int, fn: void, mode: int -> void
+native "" detachInterrupt id: int -> void
+
+// DEFINE
+
+native "" HIGH
+native "" LOW
+native "" INPUT
+native "" OUTPUT
+native "" INPUT_PULLUP
+
+native "" PI
+native "" HALF_PI
+native "" TWO_PI
+native "" DEG_TO_RAD
+native "" RAD_TO_DEG
+native "" EULER
+
+native "" SERIAL
+native "" DISPLAY
+
+native "" LSBFIRST
+native "" MSBFIRST
+
+native "" CHANGE
+native "" FALLING
+native "" RISING
+
+// MACROS
+
+native "" min a, b
+native "" max a, b
+native "" abs x
+native "" constrain atm, low, high
+native "" round x
+native "" radians deg
+native "" degrees rad
+native "" sq x
+
+native "" interrupts -> void
+native "" noInterrupts -> void
+
+native "" clockCyclesPerMicrosecond -> int
+native "" clockCyclesToMicroseconds x: int -> int
+native "" microsecondsToClockCycles x: int -> int
+
+native "" lowByte w -> int
+native "" highByte w -> int
+
+native "" bitRead value, bit -> int
+native "" bitSet value, bit -> int
+native "" bitClear value, bit -> int
+native "" bitWrite value, bit, bitValue -> int
+
+//SERIAL
+
+native "F" F s: string -> string
+
+native class "HardwareSerial" HardwareSerial do
+    def begin baud: int -> void
+    def begin baud: int, x: int -> void
+    def end -> void
+    def available -> int
+    def peek -> int
+    def read -> int
+    def availableForWrite -> int
+    def flush -> void
+    def write val: int -> int // as size
+    def write val: string -> int // as size
+    def println val: string -> int
+    def print val: string -> int
+
+native var "Serial" Serial: HardwareSerial
+

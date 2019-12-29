@@ -21,8 +21,10 @@ import Compiler.Analyzer.Pre
 main :: IO ()
 main = do
   let path = "res/test.mard"
+  let corePath = "res/Core.mard"
   input <- T.pack <$> readFile path
-  let p = parse langParser path input
+  inputCore <- T.pack <$> readFile corePath
+  let p = parse langParser path (T.append inputCore input)
   case p of
 --    Right res -> translate res
     Right res -> do 

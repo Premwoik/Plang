@@ -1,53 +1,38 @@
+//TODO make import working | import are mocked for now and only core module is always loaded
 
-class MyClass do
 
-   MyClass do
-      a = 12
-
-   test -> int do
-      ret 2
-      ret 1
-
-dupa t1: int, t2: int -> int do
-   b = t2
-   ret 0
-
-f3 x: int -> string do
-   a: string = "alla test string xD"
-   d: int = 12
-   ret
-      if d > 10 then
-         a = "HAHA działa"
-         "1"
-      elif not false then
-         "2"
-      else
-         x: int = 12
-         "3"
-
-test do
-//    ret "bug"
-   if 2 > 3 then
-      ret 12
-   else
-      ret 13
-
+mymax a: int, b: int do
+  ret
+    if a > b then
+      a
+    else
+      b
 
 Main -> int do
-//   myList = [1, 2.2, 3 / 31, 4]
-//   myList = [12]
-  loop()
-  test()
+  Serial.begin(9600)
+  pinMode(13, OUTPUT)
+  i: int = 0
+  top: int = 5
+  while i < top do
+    tak: int = 30
+    i = i + 1
+    Serial.println(F("Tak czy siak"))
+  while true do
+    digitalWrite(13, LOW)
+    Serial.println(F("LOW"))
+    sleep(1000)
+    digitalWrite(13, HIGH)
+    Serial.println(F("HIGH"))
+    sleep(500)
+    digitalWrite(13, LOW)
+    Serial.println("LOW")
+    sleep(500)
+    digitalWrite(13, HIGH)
+    Serial.println("HIGH")
+    sleep(2000)
+    tak: int = 12
+    Serial.println(mymax(tak, 15))
+
   ret 0
 
-
-loop -> void do
-   c: int = 12
-   while c > 10 do
-      c = c - 1
-   for z <- [1..2] do
-      zaa = 12
-   x = 12
-   x = 13
-//   Name().test()
 
