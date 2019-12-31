@@ -34,7 +34,7 @@ functionArgsParser = sepBy1 p sep
       type' <-
         optional $ do
           void (symbol ":")
-          matchType pItem
+          matchType <$> pItem
       return $ FunArg (fromMaybe VAuto type') n
 
 functionParser :: Parser FunctionStmt -> Parser Stmt
@@ -47,7 +47,7 @@ functionParser functionStmt = lexeme (L.indentBlock scn p)
       type' <-
         optional $ do
           void (symbol "->")
-          matchType pItem
+          matchType <$> pItem
       void (symbolEnd "do")
       return (L.IndentSome Nothing (return . Function o header (fromMaybe VAuto type') args) functionStmt)
 
@@ -62,15 +62,8 @@ nativeFunctionParser =
     type' <-
       optional $ do
         void (symbol "->")
-        matchType pItem
+        matchType <$> pItem
     return $ NativeFunction o path header (fromMaybe VAuto type') args
-
---nativeParser :: Parser Stmt
---nativeParser =
---  lexeme $ do
---    o <- getOffset
---    void $ symbol "native"
-    
 
 returnParser :: Parser AExpr -> Parser FunctionStmt
 returnParser aExpr = lexeme p
@@ -102,7 +95,7 @@ assignParser aExpr wrapper = lexeme $ do
   type' <-
     optional $ do
       void (symbol ":")
-      matchType pItem
+      typeParser
   void (symbol "=")
   wrapper o var (fromMaybe VAuto type') <$> aExpr
   
@@ -115,7 +108,7 @@ nativeAssignDeclParser = lexeme $ do
   type' <-
     optional $ do
       void (symbol ":")
-      matchType pItem
+      matchType <$> pItem
   return $ NativeAssignDeclaration o path name (fromMaybe VAuto type')
   
 
@@ -126,7 +119,7 @@ classAssignParser aExpr wrapper = do
   type' <-
     optional $ do
       void (symbol ":")
-      matchType pItem
+      typeParser
   void (symbol "=")
   wrapper o var (fromMaybe VAuto type') <$> aExpr
 
@@ -141,7 +134,7 @@ methodDeclarationParser =
     type' <-
       optional $ do
         void (symbol "->")
-        matchType pItem
+        matchType <$> pItem
     return $ MethodDeclaration o header (fromMaybe VAuto type') args
 
 

@@ -7,57 +7,56 @@ import Control.Monad.Writer(tell)
 import           AST
 import Compiler.Analyzer.Browser
 import Data.Maybe(fromMaybe)
+import Debug.Trace
 
 checkVar :: AExpr -> Maybe VarType -> AExprAnalyzer -> Analyzer' AExprRes
 checkVar var wantedType analyzer = do
   s <- get
   let global' = global s
   let local' = local s
-
-  tell [show var]
   case (var, wantedType) of
 
+--   TODO merge bottom function with upper (maybe)?
+    (Var name _ args more, Just(VClass cName [x])) ->
+      case findMethod cName name global' of
+        [Method _ n t _ _] -> makeOutput x (TypedVar n x args) <$> handleMore more (Just x)
+        MethodDeclaration _ n t _:_ -> makeOutput x (TypedVar n x args) <$> handleMore more (Just x)
+        x -> error (show x ++ " | " ++ name) --throw UnknownMethodName
+ 
+
 --  previous was class
-    (Var name args more, Just(VClass cName)) ->
+    (Var name _ args more, Just(VClass cName _ )) ->
       case findMethod cName name global' of
         [Method _ n t _ _] -> makeOutput t (TypedVar n t args) <$> handleMore more (Just t)
         MethodDeclaration _ n t _:_ -> makeOutput t (TypedVar n t args) <$> handleMore more (Just t)
         x -> error (show x ++ " | " ++ name) --throw UnknownMethodName
-
-        
+       
 --   this is first, so it has to be variable global or local
-    (Var name args more, Nothing) -> do
+    (Var name gen args more, Nothing) -> do
       args' <- case args of
         (Just a) -> Just . map (\(_, _, x) -> x) <$> mapM analyzer a
         Nothing -> return Nothing
       case find name local' global' of
         Assign _ n t _ : _ -> makeOutput t (TypedVar name t args') <$> handleMore more (Just t)
-        [ClassExpr _ n _ _] -> makeOutput (VClass n) (TypedVar name (VClass n) args') <$> handleMore more (Just (VClass n))
-        [NativeClass _ p n _ _] -> makeOutput (VClass n) (TypedVar p (VClass n) args') <$> handleMore more (Just (VClass n))
+        [ClassExpr _ n _ _] -> makeOutput (VClass n gen) (TypedVar name (VClass n gen) args') <$> handleMore more (Just (VClass n gen))
+        [NativeClass _ p n _ _] -> makeOutput (VClass n gen) (TypedVar p (VClass n gen) args') <$> handleMore more (Just (VClass n gen))
         [Function _ n t _ _] -> makeOutput t (TypedVar name t args') <$> handleMore more (Just t)
-        [NativeFunction _ p n t _] -> makeOutput t (TypedVar (checkPath p n) t (if t == VAuto then Nothing else args')) <$> handleMore more (Just t)
-        [NativeAssignDeclaration _ p n t] -> makeOutput (classToRef t) (TypedVar (checkPath p n) (classToRef t) Nothing) <$> handleMore more (Just t)
+        [NativeFunction _ p n t _] -> makeOutput t (TypedVar (defaultPath p n) t (if t == VAuto then Nothing else args')) <$> handleMore more (Just t)
+        [NativeAssignDeclaration _ p n t] -> makeOutput (classToRef t) (TypedVar (defaultPath p n) (classToRef t) Nothing) <$> handleMore more (Just t)
         p -> throw $ VariableNotExist (show var ++ " | " ++ show p ++ "  |  " ++ show local')
         
 
 --  error previous was not a class
-    (Var {}, Just _) -> throw $ NotAClass ""
+    (Var {}, Just x) -> throw $ NotAClass $ show x
   where
     handleMore (Just m) x = Just <$> checkVar m x analyzer
     handleMore Nothing _ = return Nothing
     makeOutput _ wrapper (Just (v,i, m)) = (v, i, wrapper (Just m))
     makeOutput t wrapper Nothing = (t, [], wrapper Nothing)
-    checkPath "" n = n
-    checkPath p _ = p
-    classToRef (VClass n) = VRef n
+    defaultPath "" n = n
+    defaultPath p _ = p
+    classToRef (VClass n _) = VRef n
     classToRef t = t
-
---checkArgs  :: Maybe [AExpr] -> Maybe [FunArg] -> Analyzer' (Maybe [AExpr])
---checkArgs (Just current) (Just design) =
---  zipWith (\(FunArg t _) a -> checkType t a) design current
---  where
---    checkType t a = case a of
---      (Var
 
 checkListVar a = return (VAuto,[], a)
 
@@ -85,7 +84,7 @@ checkIfStatement (If ifs) analyzer bAnalyzer = do
   (types, newIfs) <- unzip <$> mapM makeIf ifs
   let readyRetType = retType types
   let newCache = [AssignFn (-1) "fuckT12" readyRetType Nop, IfFn (-1) newIfs]
-  return (readyRetType, newCache, Var "fuckT12" Nothing Nothing)
+  return (readyRetType, newCache, Var "fuckT12" [] Nothing Nothing)
   where
     makeIf (cond, body) = do
       cond' <- bAnalyzer cond

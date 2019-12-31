@@ -1,18 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module Compiler.Parser.Universal where
 
-import Data.Text(Text)
-import           Text.Megaparsec                hiding (State)
+import           Compiler.Parser.Lexer
+import           Data.Text                  (Text)
+import           Text.Megaparsec            hiding (State)
 import           Text.Megaparsec.Char
-import qualified Text.Megaparsec.Char.Lexer     as L
-import Compiler.Parser.Lexer
-
-import AST
+import qualified Text.Megaparsec.Char.Lexer as L
+import Data.Maybe (fromMaybe)
+import           AST
 
 sep :: Parser Text
 sep = symbol ","
 
-        
 parens :: Parser a -> Parser a
 parens = between (symbol "(") (symbol ")")
 
@@ -21,17 +21,23 @@ blockMark = between (symbol "{") (symbol "}")
 
 generics :: Parser [String]
 generics = between (symbol "<") (symbol ">") (sepBy identifier sep)
-        
-           
-matchType :: Parser String -> Parser VarType
-matchType t = do
-  t' <- t
-  case t' of
-    "int"    -> return VInt
-    "void"   -> return VVoid
-    "auto"   -> return VAuto
-    "float"  -> return VFloat
-    "string" -> return VString
-    "char"   -> return VChar
-    x        -> return $ VClass x
 
+matchType :: String -> VarType
+matchType = matchType' []
+
+matchType' :: [String] -> String -> VarType
+matchType' g t =
+  case t of
+    "int" -> VInt
+    "void" -> VVoid
+    "auto" -> VAuto
+    "float" -> VFloat
+    "string" -> VString
+    "char" -> VChar
+    x -> VClass x (map (matchType' []) g)
+
+typeParser :: Parser VarType
+typeParser = do
+  t <- pItem
+  gen <- fromMaybe [] <$> optional generics
+  return $ matchType' gen t

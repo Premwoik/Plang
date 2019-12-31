@@ -32,9 +32,6 @@ stmt'
   = importParser
   <|> linkPathParser
   <|> skipStmt
---  <|> whileStmt While stmt'
---  <|> forStmt For stmt'
-
   <|> try (assignParser aExpr Assign)
   <|> nativeClassParser classStmt
   <|> try nativeFunctionParser
@@ -49,7 +46,7 @@ functionStmt
   <|> whileStmt bExpr WhileFn functionStmt
   <|> forStmt aExpr ForFn functionStmt
   <|> fullIfFuncParser bExpr functionStmt
-  <|> try (assignParser aExpr AssignFn)
+  <|> try (assignParser aExprExtended AssignFn)
   <|> otherStmt
 
 otherStmt = do
@@ -65,6 +62,9 @@ classStmt
 
 aExpr :: Parser AExpr
 aExpr = makeExprParser aTerm aOperators
+
+aExprExtended:: Parser AExpr
+aExprExtended = makeExprParser aTermExtended aOperators
 
 bExpr :: Parser BExpr
 bExpr = makeExprParser bTerm bOperators
@@ -95,6 +95,20 @@ aTerm
   <|> anonymousFunctionBlockParser functionArgsParser functionStmt
   <|> anonymousFunctionParser functionArgsParser aExpr
   <|> fullIfStmt bExpr functionStmt
+  
+aTermExtended :: Parser AExpr
+aTermExtended
+  = parens aExpr
+  <|> try (varExtendedParser aExpr)
+  <|> try (ListVar <$> listParser aExpr)
+  <|> rangeParser aExpr
+  <|> try (FloatConst <$> float')
+  <|> IntConst <$> integer
+  <|> StringVal <$> stringLiteral
+  <|> anonymousFunctionBlockParser functionArgsParser functionStmt
+  <|> anonymousFunctionParser functionArgsParser aExpr
+  <|> fullIfStmt bExpr functionStmt
+
 
 bTerm :: Parser BExpr
 bTerm

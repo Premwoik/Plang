@@ -69,7 +69,7 @@ data RBinOp
   deriving (Show)
 
 data AExpr
-  = Var String (Maybe [AExpr]) (Maybe AExpr)
+  = Var String [VarType] (Maybe [AExpr]) (Maybe AExpr)
   | ABracket AExpr
   | IntConst Integer
   | FloatConst Float
@@ -105,7 +105,7 @@ data VarType
   | VVoid
   | VAuto
   | VChar
-  | VClass String
+  | VClass String [VarType]
   | VRef String
   | Pointer VarType
   | VBlank

@@ -44,11 +44,24 @@ varParser aExpr = do
   fun <- identifier
   args <- optional (parens (functionExecutionArgParser aExpr))
   m <- optional more'
-  return $ Var fun args m
+  return $ Var fun [] args m
   where
     more' = do
       void (symbol ".")
       varParser aExpr
+      
+varExtendedParser :: Parser AExpr -> Parser AExpr
+varExtendedParser aExpr = do
+  fun <- identifier
+  gen <- map matchType . fromMaybe [] <$> optional generics
+  args <- optional (parens (functionExecutionArgParser aExpr))
+  m <- optional more'
+  return $ Var fun gen args m
+  where
+    more' = do
+      void (symbol ".")
+      varParser aExpr
+
 
 ifStmtParser :: Parser BExpr -> Parser FunctionStmt ->  Parser Cond
 ifStmtParser bExpr functionStmt= lexeme $ L.indentBlock scn p
@@ -87,7 +100,7 @@ guardedVar :: Parser AExpr -> Parser AExpr
 guardedVar expr = do
   uExpr <- expr
   case uExpr of
-    Var n e m-> return $ Var n e m
+    Var n g e m-> return $ Var n g e m
     _ -> fail "aExpr should be Var here"
     
 listParser :: Parser AExpr -> Parser [AExpr]

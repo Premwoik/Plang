@@ -36,28 +36,26 @@ emptyStorage = Storage [] LocalEmpty EmptyCache
 type Scope = [FunctionStmt]
 
 data LocalStorage
-  = LocalScope [FunctionStmt]
-  | LocalClassScope Stmt (Maybe ClassStmt)
-  | LocalStmt [Stmt] 
+  = LocalClassScope Stmt (Maybe ClassStmt) [Scope]
   | LocalFunc Stmt [Scope]
   | LocalEmpty
   deriving (Show)
 
 getType :: LocalStorage -> VarType
-getType (LocalClassScope (ClassExpr _ n _ _) Nothing) = VClass n
-getType (LocalClassScope _ (Just (Method _ _ t _ _))) = t
+getType (LocalClassScope (ClassExpr _ n _ _) Nothing _) = VClass n []
+getType (LocalClassScope _ (Just (Method _ _ t _ _)) _) = t
 getType (LocalFunc (Function _ _ t _ _) _) = t
 getType t = throw $ UnsupportedTypeException $ show t
 
 setType :: VarType -> LocalStorage -> LocalStorage
-setType t (LocalClassScope c (Just (Method o n _ a b))) = LocalClassScope c (Just (Method o n t a b))
+setType t (LocalClassScope c (Just (Method o n _ a b)) sc) = LocalClassScope c (Just (Method o n t a b)) sc
 setType t (LocalFunc (Function o n _ a b) x) = LocalFunc (Function o n t a b) x
 setType t l = throw $ UnsupportedTypeException $ show  l
 
 setStmt:: Stmt -> Analyzer' ()
 setStmt s =
   case s of
-    class'@ClassExpr {} -> modify (\s -> s {local = LocalClassScope class' Nothing})
+    class'@ClassExpr {} -> modify (\s -> s {local = LocalClassScope class' Nothing []})
     func@Function {} -> modify (\s -> s {local = LocalFunc func []})
     _ -> throw $ UnsupportedTypeException $ "setStmt | " ++ show s
 --    _ -> throw $ NotAClass $ "Function setClass need class as parameter. Indstead of that it got: " ++ show s
@@ -67,31 +65,51 @@ setMethod s =
   case s of
     method@Method {} -> do
       state <- get
-      let (LocalClassScope class' _) = local state
-      put $ state {local = LocalClassScope class' (Just method)}
+      let (LocalClassScope class' _ _) = local state
+      put $ state {local = LocalClassScope class' (Just method) []}
     _ -> throw $ NotAMethod $ "Function setMethod need a method as parameter. Instead of that it got: " ++ show s
-    
-setScope :: [FunctionStmt] -> Analyzer' ()
-setScope scope = modify (\ s -> s {local = LocalScope scope})
 
+
+replaceInFunc:: FunctionStmt -> Analyzer' ()
+replaceInFunc s = do
+  scopes <- unwrap <$> gets local
+  updateFnScopes . map (map tryReplace) $ scopes
+  where
+    unwrap (LocalFunc _ x ) = x
+    unwrap _ = error "Accept only LocalFunc wrapper"
+    tryReplace a = case (a, s) of
+      (l@(AssignFn o1 _ _ _ ), r@(AssignFn o2 _ _ _ )) -> if o1 == o2 then r else l 
+      (l, _) ->  l
+    
+    
 getClass :: Analyzer' Stmt
 getClass = do
   local' <- gets local
   case local' of
-    LocalClassScope c _ -> return c
+    LocalClassScope c _ _-> return c
     _ -> fail "Class can't be get"
 
 addFnScope :: Scope -> Analyzer' ()
 addFnScope scope = modify (\s -> s {local = update (local s) scope })
   where
     update (LocalFunc f s) x = LocalFunc f (x : s)
+    update (LocalClassScope c f s) x = LocalClassScope c f (x:s)
     update x _ = error $ show x
 
 removeFnScope :: Analyzer' ()
 removeFnScope = modify (\s -> s {local = update (local s)})
   where
     update (LocalFunc f (x : xs)) = LocalFunc f xs
+    update (LocalClassScope c f (x : xs)) = LocalClassScope c f xs
+    update x = error $ show x
 
+updateFnScopes :: [Scope] -> Analyzer' ()
+updateFnScopes scopes = modify (\s -> s {local = update (local s)})
+  where
+    update (LocalFunc f _ ) = LocalFunc f scopes
+    update (LocalClassScope c f _) = LocalClassScope c f scopes
+    update x = error $ show x
+    
 
 
 data StorageCache

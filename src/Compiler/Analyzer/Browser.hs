@@ -9,15 +9,16 @@ findFirst name l g = case find name l g of
   [] -> Nothing
 
 find :: String -> LocalStorage -> [Stmt] -> [Stmt]
-find name (LocalScope body) g = []
-find name (LocalClassScope c (Just (Method o n t a b))) g = findVarInFunc name (Function o n t a b) ++ findVarInClass name c ++ findGlobal name g
---find name (LocalClassScope c Nothing) g = varToGlobal (findVar name b)
-find name (LocalFunc f s) g = findVarInFunc name f ++ varToGlobal (findInScopes name s) ++ findGlobal name g 
-find name LocalEmpty g = findGlobal name g
+find name (LocalClassScope c (Just (Method o n t a b)) scopes) g = 
+  findVarInFunc name (Function o n t a b) ++ findInScopes name scopes ++ findVarInClass name c ++ findGlobal name g
+find name (LocalFunc f s) g = 
+  findVarInFunc name f ++ findInScopes name s ++ findGlobal name g 
+find name LocalEmpty g = 
+  findGlobal name g
 find _ _ _ = []
 
-findInScopes :: String -> [Scope] -> Scope
-findInScopes name = concatMap (findVar name)
+findInScopes :: String -> [Scope] -> [Stmt]
+findInScopes name = varToGlobal . concatMap (findVar name)
 
 findVarInFunc :: String -> Stmt -> [Stmt]
 findVarInFunc name (Function _ _ _ args l) =

@@ -39,14 +39,7 @@ checkFunction' :: RawFunction -> RawFunctionConst a -> FnStmtAnalyzer -> Analyze
 checkFunction' (o, name, type', args, body) wrapper bodyAnalyzer = do
   checkedBody' <- concat <$> mapM bodyAnalyzer body
   nType <- getType <$> gets local
---  retType <- retType . unwrap <$> gets cache
   return $ wrapper o name nType args checkedBody'
---  where
---    unwrap (TypeCache l) = l
---    unwrap _ = []
---    retType (t:s) = if all (==t) s then t else error "If statement return' type is not the same in every block"
---    retType _ = error "If statement return' type is not the same in every block"
-
 
 checkReturn :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]
 checkReturn (ReturnFn o aExpr) analyzer = do
@@ -79,21 +72,22 @@ checkAssignFn :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]
 checkAssignFn (AssignFn o name ret aExpr) analyzer = do
   s <- get
   (type', inject, res) <- analyzer aExpr
-  nType <- case findFirst name (local s) (global s) of
-    Just a@Assign {} -> return $ checkType2 a type'
-    _ -> return type'
-    
+  nType <-
+    case findFirst name (local s) (global s) of
+      Just a@Assign {} -> return $ checkType2 a type'
+      _ -> return type'
   res' <- checkType ret type' nType res
+  replaceInFunc (head res')
   return $ inject ++ res'
   where
-    checkType2 (Assign o' _ t _) b 
+    checkType2 (Assign o' _ t _) b
       | o' == o = b
       | t == b || t == VAuto = VBlank
       | otherwise = throw $ TypesMismatch (show t ++ " =/= " ++ show b)
+--      TODO change this shit when VGenClass will be deleted
     checkType a b nt r
       | a == b || a == VAuto = return [AssignFn o name nt r]
       | otherwise = throw $ TypesMismatch (show a ++ " =/= " ++ show b)
-      
 
 checkAssign :: RawAssign -> RawAssignConst a -> AExprAnalyzer -> Analyzer' a
 --TODO
@@ -117,9 +111,6 @@ checkWhile t@(WhileFn o cond block) analyzer bAnalyzer= do
 checkIfFunction :: FunctionStmt -> FnStmtAnalyzer -> BExprAnalyzer -> Analyzer' [FunctionStmt]
 checkIfFunction t@(IfFn o ifs) analyzer bExprAnalyzer = do
   newIfs <- mapM makeIf ifs
---  let readyRetType = retType types
---  let newCache = [AssignFn "fuckT12" readyRetType Nop, IfFn newIfs]
---  return (readyRetType, newCache, Var "fuckT12" Nothing Nothing)
   return [IfFn o newIfs]
   where
     makeIf (cond, body) = do
@@ -128,13 +119,11 @@ checkIfFunction t@(IfFn o ifs) analyzer bExprAnalyzer = do
       cond' <- bExprAnalyzer cond
       removeFnScope
       return (cond', body')
---    retType (t:s) = if all (==t) s then t else error "If statement return' type is not the same in every block"
---    retType _ = error "If statement return' type is not the same in every block"
 
 
 checkFor :: FunctionStmt -> FnStmtAnalyzer -> AExprAnalyzer -> Analyzer' [FunctionStmt]
 -- TODO
-checkFor (ForFn o (Var n _ _) range body) fnAnalyzer aAnalyzer= do
+checkFor (ForFn o (Var n _ _ _) range body) fnAnalyzer aAnalyzer= do
 --  TODO add aExpr analyzing (range and var)
 --  (_, _, var') <- aAnalyzer var
   addFnScope body

@@ -107,7 +107,7 @@ typeToString t =
     VAuto   -> "auto"
     VChar   -> "char"
     VBlank  -> ""
-    VClass c -> c
+    VClass c _ -> c
     _       -> "void"
 
 blockTranslator :: BodyBlock -> Translator
@@ -127,9 +127,14 @@ newLine x = x ++ "\n"
 assignTranslator :: Stmt -> Translator
 assignTranslator (Assign _ name type' Nop) =
   return [typeToString type' ++ " " ++ name ++ ";\n"]
-assignTranslator (Assign _ name type' (TypedVar cName (VClass t) (Just args) Nothing)) = do
+assignTranslator (Assign _ name type' (TypedVar cName (VClass t []) (Just args) Nothing)) = do
   args' <- intercalate ", " . concat <$> mapM aExprTranslator args
   return ["unique_ptr<" ++ cName ++ "> " ++ name ++ "(new " ++ cName ++ "(" ++ args' ++ "));"]
+assignTranslator (Assign _ name type' (TypedVar cName (VClass t gen) (Just args) Nothing)) = do
+ args' <- intercalate ", " . concat <$> mapM aExprTranslator args
+ return ["unique_ptr<" ++ cName ++ genStr ++ "> " ++ name ++ "(new " ++ cName ++ genStr ++ "(" ++ args' ++ "));"]
+ where
+  genStr = "<" ++ (intercalate ", " . map typeToString) gen ++ ">" 
 assignTranslator (Assign _ name type' expr) = do
   let t = typeToString type'
   e <- aExprTranslator expr
@@ -154,9 +159,12 @@ forTranslator (TypedVar name type' Nothing Nothing) (Range a b) block trans = do
 classTranslator :: Stmt -> Translator
 classTranslator (ClassExpr _ name generics block) = do
   block' <- blockTranslator' classStmtTranslator block
-  return . concat $ [["class " ++ name ++ "{\npublic:\n"], block', ["};\n"]]
+  let generics' = makeGenerics generics
+  return . concat $ [[generics' ++ "class " ++ name ++ "{\npublic:\n"], block', ["};\n"]]
+  where
+    makeGenerics (Just l) = "template<" ++ (intercalate ", " . map (\x -> "typename " ++ x)) l ++ ">\n"
+    makeGenerics Nothing = ""
 
---  tell [show (fromMaybe [] generics)]
 classStmtTranslator :: ClassStmt -> Translator
 classStmtTranslator c =
   case c of
@@ -184,7 +192,7 @@ aExprTranslator :: AExpr -> Translator
 aExprTranslator expr =
   case expr of
     e@TypedVar {} -> varTranslator e
-    Var a b c     -> varTranslator (TypedVar a VAuto b c)
+    Var a _ b c     -> varTranslator (TypedVar a VAuto b c)
     ABracket a ->  aExprTranslator a
     IntConst i    -> return . return $ show i
     FloatConst f  -> return . return $ show f
@@ -240,9 +248,11 @@ varTranslator (TypedVar name type' (Just args) more') = do
   args' <- intercalate ", " . concat <$> mapM aExprTranslator args
   return . return . concat $ (name ++ "(" ++ args' ++ ")") : readyMore
 
+
 moreVarTranslator :: VarType -> Maybe AExpr -> Translator
 -- TODO handle pointers
-moreVarTranslator (VClass _) (Just e) = return . (\[x] -> '-' : '>' : x) <$> varTranslator e
+-- TODO args passed in func application probably are not lexical analyzed 
+moreVarTranslator (VClass _ _) (Just e) = return . (\[x] -> '-' : '>' : x) <$> varTranslator e
 moreVarTranslator _ (Just e) = return . (\[x] -> '.' : x) <$> varTranslator e
 moreVarTranslator _ Nothing = return []
 
