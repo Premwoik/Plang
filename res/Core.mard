@@ -1,5 +1,6 @@
 link_path "Arduino.h"
-//link_path "unique_ptr"
+link_path "unique_ptr.h"
+link_path "ArrayList.h"
 
 //FUNCTIONS
 
@@ -97,3 +98,6 @@ native class "HardwareSerial" HardwareSerial do
 
 native var "Serial" Serial: HardwareSerial
 
+native class "ArrayList" List<T> do
+    def get index: int -> T
+    def add elem: T -> void

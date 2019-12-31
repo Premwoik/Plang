@@ -30,9 +30,12 @@ Main -> int do
     digitalWrite(13, HIGH)
     Serial.println("HIGH")
     sleep(2000)
-    tak: int = 12
+    tak = 12
     Serial.println(mymax(tak, 15))
-
+    myList = List<int>()
+    myList.add(10)
+    res = myList.get(0)
+    Serial.println(res)
   ret 0
 
 

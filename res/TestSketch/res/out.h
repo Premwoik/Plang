@@ -1,6 +1,8 @@
 int mymax(int a, int b);
 int Main();
 #include "Arduino.h"
+#include "ArrayList.h"
+#include "unique_ptr.h"
 int mymax(int a, int b) {
   int fuckT12;
   if (a > b) {
@@ -35,6 +37,10 @@ int Main() {
     delay(2000);
     int tak = 12;
     Serial.println(mymax(tak, 15));
+    unique_ptr<ArrayList<int>> myList(new ArrayList<int>());
+    myList->add(10);
+    int res = myList->get(0);
+    Serial.println(res);
   }
   return 0;
 }
