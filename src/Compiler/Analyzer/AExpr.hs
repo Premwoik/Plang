@@ -22,7 +22,7 @@ checkVar var wantedType analyzer = do
         [Method _ n t _ _] -> makeOutput x (TypedVar n x args) <$> handleMore more (Just x)
         MethodDeclaration _ n t _:_ -> makeOutput x (TypedVar n x args) <$> handleMore more (Just x)
         x -> error (show x ++ " | " ++ name) --throw UnknownMethodName
- 
+
 
 --  previous was class
     (Var name _ args more, Just(VClass cName _ )) ->
@@ -30,7 +30,7 @@ checkVar var wantedType analyzer = do
         [Method _ n t _ _] -> makeOutput t (TypedVar n t args) <$> handleMore more (Just t)
         MethodDeclaration _ n t _:_ -> makeOutput t (TypedVar n t args) <$> handleMore more (Just t)
         x -> error (show x ++ " | " ++ name) --throw UnknownMethodName
-       
+
 --   this is first, so it has to be variable global or local
     (Var name gen args more, Nothing) -> do
       args' <- case args of
@@ -44,7 +44,7 @@ checkVar var wantedType analyzer = do
         [NativeFunction _ p n t _] -> makeOutput t (TypedVar (defaultPath p n) t (if t == VAuto then Nothing else args')) <$> handleMore more (Just t)
         [NativeAssignDeclaration _ p n t] -> makeOutput (classToRef t) (TypedVar (defaultPath p n) (classToRef t) Nothing) <$> handleMore more (Just t)
         p -> throw $ VariableNotExist (show var ++ " | " ++ show p ++ "  |  " ++ show local')
-        
+
 
 --  error previous was not a class
     (Var {}, Just x) -> throw $ NotAClass $ show x
@@ -58,7 +58,17 @@ checkVar var wantedType analyzer = do
     classToRef (VClass n _) = VRef n
     classToRef t = t
 
-checkListVar a = return (VAuto,[], a)
+checkListVar :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
+checkListVar a@(ListVar elems) analyzer = do
+  let len = show $ length elems
+  let t = VClass "ArrayList" [VInt]
+  (types', injs, elems') <-
+    foldr (\(t', inj, res) (ts, injs, ress) -> (t':ts, inj: injs, res:ress)) ([], [], []) <$> mapM analyzer elems
+  if checkType types' then return () else error ("Not all elems are the same type in list: " ++ show elems)
+  let args = Just [a, TypedVar len VInt Nothing Nothing, TypedVar len VInt Nothing Nothing]
+  return (t, [], TypedVar "ArrayList" t args Nothing)
+  where
+    checkType (t:ts) = all (\x -> t == x) ts
 
 checkRange a = return (VAuto,[], a)
 
@@ -72,10 +82,10 @@ checkABinary :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkABinary t@(ABinary op a b) aAnalyzer = do
   (ta, _, a') <- aAnalyzer a
   (tb, _,  b') <- aAnalyzer b
-  let nType = checkType ta tb 
+  let nType = checkType ta tb
   return (nType,[], ABinary op a' b')
   where
-    checkType t1 t2 
+    checkType t1 t2
       | t1 == t2 = t1
       | otherwise = error $ "checkABinary t1 =/ t2  |  " ++ show t1 ++ "   " ++ show t2
 

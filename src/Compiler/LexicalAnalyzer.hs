@@ -55,7 +55,7 @@ aExprAnalyzer expr =
     e@FloatConst {} -> return (VFloat, [], e)
     e@StringVal {}  -> return (VString, [], e)
     e@Var {}        -> checkVar e Nothing aExprAnalyzer
-    e@ListVar {}    -> checkListVar e
+    e@ListVar {}    -> checkListVar e aExprAnalyzer
     e@Range {}      -> checkRange e
     e@Fn {}         -> checkFn e
     e@FnBlock {}    -> checkFnBlock e

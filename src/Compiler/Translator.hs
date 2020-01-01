@@ -129,10 +129,10 @@ assignTranslator (Assign _ name type' Nop) =
   return [typeToString type' ++ " " ++ name ++ ";\n"]
 assignTranslator (Assign _ name type' (TypedVar cName (VClass t []) (Just args) Nothing)) = do
   args' <- intercalate ", " . concat <$> mapM aExprTranslator args
-  return ["unique_ptr<" ++ cName ++ "> " ++ name ++ "(new " ++ cName ++ "(" ++ args' ++ "));"]
+  return ["unique_ptr<" ++ cName ++ "> " ++ name ++ "(new " ++ cName ++ "(" ++ args' ++ "));\n"]
 assignTranslator (Assign _ name type' (TypedVar cName (VClass t gen) (Just args) Nothing)) = do
  args' <- intercalate ", " . concat <$> mapM aExprTranslator args
- return ["unique_ptr<" ++ cName ++ genStr ++ "> " ++ name ++ "(new " ++ cName ++ genStr ++ "(" ++ args' ++ "));"]
+ return ["unique_ptr<" ++ cName ++ genStr ++ "> " ++ name ++ "(new " ++ cName ++ genStr ++ "(" ++ args' ++ "));\n"]
  where
   genStr = "<" ++ (intercalate ", " . map typeToString) gen ++ ">" 
 assignTranslator (Assign _ name type' expr) = do
@@ -219,7 +219,7 @@ binaryTranslator (ABinary op a b) = do
   let op' = binaryOperatorToString op
   a' <- aExprTranslator a
   b' <- aExprTranslator b
-  return . concat $ [a',  [" " ++ op' ++ " "], b']
+  return [head a' ++ " " ++ op' ++ " " ++ head b']
 
 binaryOperatorToString :: ABinOp -> String
 binaryOperatorToString a = case a of
@@ -264,7 +264,7 @@ listVarTranslator (ListVar expr) = do
   let size = length expr
   res <- concat <$> mapM aExprTranslator expr
   let resAsString = intercalate "," res
-  return . return $ "new ArrayList(new " ++ typeToString wantedType ++ "[" ++ show size ++ "]{" ++ resAsString ++ "})"
+  return . return $ "new " ++ typeToString wantedType ++ "[" ++ show size ++ "]{" ++ resAsString ++ "}"
 
 bExprTranslator :: BExpr -> Translator
 bExprTranslator expr =
