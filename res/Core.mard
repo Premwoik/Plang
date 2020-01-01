@@ -1,7 +1,7 @@
 link_path "Arduino.h"
 link_path "unique_ptr.h"
 link_path "ArrayList.h"
-
+link_path "MemoryInfo.h"
 //FUNCTIONS
 
 native "" pinMode pin: int, mode: int -> void
@@ -101,3 +101,11 @@ native var "Serial" Serial: HardwareSerial
 native class "ArrayList" List<T> do
     def get index: int -> T
     def add elem: T -> void
+
+native "getFragmentation" getFragmentation -> float
+
+printMemStats -> void do
+   fragmentation = getFragmentation()
+   Serial.print(F("Fragmentation level: "))
+   Serial.print(fragmentation)
+   Serial.println("%")
