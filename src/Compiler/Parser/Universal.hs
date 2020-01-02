@@ -22,6 +22,8 @@ blockMark = between (symbol "{") (symbol "}")
 generics :: Parser [String]
 generics = between (symbol "<") (symbol ">") (sepBy identifier sep)
 
+array = between (symbol "[") (symbol "]") 
+
 matchType :: String -> VarType
 matchType = matchType' []
 

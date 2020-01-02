@@ -133,9 +133,9 @@ type FnStmtAnalyzer = FunctionStmt -> Analyzer' [FunctionStmt]
 
 type ClassStmtAnalyzer = String -> ClassStmt -> Analyzer' ClassStmt
 
-type RawAssign = (Int, String, VarType, AExpr)
+type RawAssign = (Int, [String], VarType, AExpr)
 
-type RawAssignConst a = (Int -> String -> VarType -> AExpr -> a)
+type RawAssignConst a = (Int -> [String] -> VarType -> AExpr -> a)
 
 type RawWhile b = (BExpr, [b])
 

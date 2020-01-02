@@ -87,17 +87,47 @@ linkPathParser = lexeme $ L.nonIndented sc $ do
   return $ LinkPath o name
 
 
+data MoreAssign = AssignString String (Maybe MoreAssign)
 
-assignParser :: Parser AExpr -> (Int -> String -> VarType -> AExpr -> a) -> Parser a
+assignParser :: Parser AExpr -> (Int -> [String] -> VarType -> AExpr -> a) -> Parser a
 assignParser aExpr wrapper = lexeme $ do
   o <- getOffset
-  var <- identifier
+  var <- toList <$> more
   type' <-
     optional $ do
       void (symbol ":")
       typeParser
   void (symbol "=")
   wrapper o var (fromMaybe VAuto type') <$> aExpr
+  where
+    more :: Parser MoreAssign
+    more = do
+      n <- identifier
+      m <- optional $ do
+        void(symbol ".") 
+        more
+      return $ AssignString n m
+    toList (AssignString s (Just m)) = s : toList m
+    toList (AssignString s Nothing) = [s]
+    
+    valId = AValueId <$> identifier 
+    listId = do
+      n <- identifier
+      i <- numberChar
+      return $ AListId n (ALIndex i)
+    
+ 
+--classAssignParser :: Parser AExpr -> (Int -> String -> VarType -> AExpr -> a) -> Parser a
+--classAssignParser aExpr wrapper = do
+-- o <- getOffset
+-- var <- identifier
+-- type' <-
+--   optional $ do
+--     void (symbol ":")
+--     typeParser
+-- void (symbol "=")
+-- wrapper o var (fromMaybe VAuto type') <$> aExpr
+
   
 nativeAssignDeclParser :: Parser Stmt
 nativeAssignDeclParser = lexeme $ do
@@ -112,16 +142,6 @@ nativeAssignDeclParser = lexeme $ do
   return $ NativeAssignDeclaration o path name (fromMaybe VAuto type')
   
 
-classAssignParser :: Parser AExpr -> (Int -> String -> VarType -> AExpr -> a) -> Parser a
-classAssignParser aExpr wrapper = do
-  o <- getOffset
-  var <- identifier
-  type' <-
-    optional $ do
-      void (symbol ":")
-      typeParser
-  void (symbol "=")
-  wrapper o var (fromMaybe VAuto type') <$> aExpr
 
 
 methodDeclarationParser :: Parser ClassStmt

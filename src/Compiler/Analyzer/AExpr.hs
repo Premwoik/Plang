@@ -17,18 +17,26 @@ checkVar var wantedType analyzer = do
   case (var, wantedType) of
 
 --   TODO merge bottom function with upper (maybe)?
-    (Var name _ args more, Just(VClass cName [x])) ->
+    (Var name _ args more, Just(VClass cName [x])) -> do
+      args' <- case args of
+        (Just a) -> Just . map (\(_, _, x) -> x) <$> mapM analyzer a
+        Nothing -> return Nothing
       case findMethod cName name global' of
-        [Method _ n t _ _] -> makeOutput x (TypedVar n x args) <$> handleMore more (Just x)
-        MethodDeclaration _ n t _:_ -> makeOutput x (TypedVar n x args) <$> handleMore more (Just x)
+        [Method _ n t _ _] -> makeOutput x (TypedVar n x args') <$> handleMore more (Just x)
+        [ClassAssign _ [n] t _] -> makeOutput t (TypedVar n t Nothing) <$> handleMore more (Just t)
+        MethodDeclaration _ n t _:_ -> makeOutput x (TypedVar n x args') <$> handleMore more (Just x)
         x -> error (show x ++ " | " ++ name) --throw UnknownMethodName
 
 
 --  previous was class
-    (Var name _ args more, Just(VClass cName _ )) ->
+    (Var name _ args more, Just(VClass cName _ )) -> do
+      args' <- case args of
+        (Just a) -> Just . map (\(_, _, x) -> x) <$> mapM analyzer a
+        Nothing -> return Nothing
       case findMethod cName name global' of
-        [Method _ n t _ _] -> makeOutput t (TypedVar n t args) <$> handleMore more (Just t)
-        MethodDeclaration _ n t _:_ -> makeOutput t (TypedVar n t args) <$> handleMore more (Just t)
+        [Method _ n t _ _] -> makeOutput t (TypedVar n t args') <$> handleMore more (Just t)
+        [ClassAssign _ [n] t _] -> makeOutput t (TypedVar n t Nothing) <$> handleMore more (Just t)
+        MethodDeclaration _ n t _:_ -> makeOutput t (TypedVar n t args') <$> handleMore more (Just t)
         x -> error (show x ++ " | " ++ name) --throw UnknownMethodName
 
 --   this is first, so it has to be variable global or local
@@ -36,16 +44,28 @@ checkVar var wantedType analyzer = do
       args' <- case args of
         (Just a) -> Just . map (\(_, _, x) -> x) <$> mapM analyzer a
         Nothing -> return Nothing
-      case find name local' global' of
-        Assign _ n t _ : _ -> makeOutput t (TypedVar name t args') <$> handleMore more (Just t)
-        [ClassExpr _ n _ _] -> makeOutput (VClass n gen) (TypedVar name (VClass n gen) args') <$> handleMore more (Just (VClass n gen))
-        [NativeClass _ p n _ _] -> makeOutput (VClass n gen) (TypedVar p (VClass n gen) args') <$> handleMore more (Just (VClass n gen))
-        [Function _ n t _ _] -> makeOutput t (TypedVar name t args') <$> handleMore more (Just t)
-        [NativeFunction _ p n t _] -> makeOutput t (TypedVar (defaultPath p n) t (if t == VAuto then Nothing else args')) <$> handleMore more (Just t)
-        [NativeAssignDeclaration _ p n t] -> makeOutput (classToRef t) (TypedVar (defaultPath p n) (classToRef t) Nothing) <$> handleMore more (Just t)
-        p -> throw $ VariableNotExist (show var ++ " | " ++ show p ++ "  |  " ++ show local')
+      case find [name] local' global' of
+        Assign _ n t _ : _ -> 
+          makeOutput t (TypedVar name t args') <$> handleMore more (Just t)
+        [NativeAssignDeclaration _ p n t] -> 
+          makeOutput (classToRef t) (TypedVar (defaultPath p n) (classToRef t) Nothing) <$> handleMore more (Just t)
+              
+        f@[ClassExpr _ n _ b] -> do 
+          if maybeArgsMatch args' f then return () else error $ makeError var f
+          makeOutput (VClass n gen) (TypedVar name (VClass n gen) args') <$> handleMore more (Just (VClass n gen))
+        f@[NativeClass _ p n _ b] -> do
+          if maybeArgsMatch args' f then return () else error $ makeError var f
+          makeOutput (VClass n gen) (TypedVar p (VClass n gen) args') <$> handleMore more (Just (VClass n gen))
+        f@[Function _ n t _ _] -> do 
+          if maybeArgsMatch args' f then return () else error $ makeError var f
+          makeOutput t (TypedVar name t args') <$> handleMore more (Just t)
+        
+        f@[NativeFunction _ p n t _] -> do
+          if maybeArgsMatch args' f then return () else error $ makeError var f
+          makeOutput t (TypedVar (defaultPath p n) t (if t == VAuto then Nothing else args')) <$> handleMore more (Just t)
 
-
+        p -> 
+          throw $ VariableNotExist (show var ++ " | " ++ show p ++ "  |  " ++ show local')
 --  error previous was not a class
     (Var {}, Just x) -> throw $ NotAClass $ show x
   where
@@ -57,6 +77,8 @@ checkVar var wantedType analyzer = do
     defaultPath p _ = p
     classToRef (VClass n _) = VRef n
     classToRef t = t
+    makeError var l = "Given var: (" ++ show var ++ ") doesn't match with any of following expresions: " ++ show l
+    
 
 checkListVar :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkListVar a@(ListVar elems) analyzer = do
@@ -93,13 +115,13 @@ checkIfStatement :: AExpr -> FnStmtAnalyzer -> BExprAnalyzer -> Analyzer' AExprR
 checkIfStatement (If ifs) analyzer bAnalyzer = do
   (types, newIfs) <- unzip <$> mapM makeIf ifs
   let readyRetType = retType types
-  let newCache = [AssignFn (-1) "fuckT12" readyRetType Nop, IfFn (-1) newIfs]
+  let newCache = [AssignFn (-1) ["fuckT12"] readyRetType Nop, IfFn (-1) newIfs]
   return (readyRetType, newCache, Var "fuckT12" [] Nothing Nothing)
   where
     makeIf (cond, body) = do
       cond' <- bAnalyzer cond
       (aE, rest) <- unpackLastExpr . reverse . concat <$> mapM analyzer body
-      let ret = reverse $ AssignFn (-1) "fuckT12" VBlank aE : rest
+      let ret = reverse $ AssignFn (-1) ["fuckT12"] VBlank aE : rest
       return (aExprToType aE, (cond', ret))
     unpackLastExpr (OtherFn _ aE: rest) = (aE, rest)
     unpackLastExpr (a:_) = throw $ UnsupportedTypeException (show a)

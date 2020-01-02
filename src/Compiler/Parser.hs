@@ -32,7 +32,7 @@ stmt'
   = importParser
   <|> linkPathParser
   <|> skipStmt
-  <|> try (assignParser aExpr Assign)
+  <|> try (assignParser aExprExtended Assign)
   <|> nativeClassParser classStmt
   <|> try nativeFunctionParser
   <|> nativeAssignDeclParser
@@ -55,7 +55,7 @@ otherStmt = do
 
 classStmt :: Parser ClassStmt
 classStmt
-  = try (assignParser aExpr ClassAssign)
+  = try (assignParser aExprExtended ClassAssign)
   <|> methodDeclarationParser
   <|> ((\(Function o a b c d) -> Method o a b c d) <$> functionParser functionStmt)
   

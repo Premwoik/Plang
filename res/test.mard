@@ -1,6 +1,5 @@
 //TODO make import working | import are mocked for now and only core module is always loaded
 
-
 mymax a: int, b: int do
   ret
     if a > b then
@@ -38,6 +37,8 @@ Main -> int do
     res = myList.get(0)
     myList2 = [(1+1), 1, 3]
     Serial.println(res)
+    classTest: ThisTest = ThisTest(12, 100)
+    Serial.println(classTest.a)
   ret 0
 
 

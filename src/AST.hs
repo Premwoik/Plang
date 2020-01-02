@@ -18,7 +18,7 @@ data Stmt
   | Import Int [String]
   | ClassExpr Int String (Maybe [String]) [ClassStmt]
   | Skip Int
-  | Assign Int String VarType AExpr
+  | Assign Int [String] VarType AExpr
   | NativeAssignDeclaration Int String String VarType
   | NativeFunction Int String String VarType (Maybe [FunArg])
   | NativeClass Int String String (Maybe [String]) [ClassStmt]
@@ -29,16 +29,16 @@ data Stmt
 
 --  -------------------------------------------------------
 data ClassStmt
-  = ClassAssign Int String VarType AExpr
+  = ClassAssign Int [String] VarType AExpr
   | ClassAssignDeclaration Int String VarType
   | Method Int String VarType (Maybe [FunArg]) [FunctionStmt]
-  | Constructor Int String [FunctionStmt]
+  | Constructor Int String [FunArg] [FunctionStmt]
   | MethodDeclaration Int String VarType (Maybe [FunArg])
 --  FOR TRANSLATION ONLY
   deriving (Show)
 
 data FunctionStmt
-  = AssignFn Int String VarType AExpr
+  = AssignFn Int [String] VarType AExpr
   | WhileFn Int BExpr [FunctionStmt]
   | ForFn Int AExpr AExpr [FunctionStmt]
   | IfFn Int [(BExpr, [FunctionStmt])]
@@ -47,6 +47,8 @@ data FunctionStmt
   ----
   deriving (Show)
 
+data AssignId a = AListId String (AListGetSet a) | AValueId String
+data AListGetSet a = ALRange a a | ALIndex a
 
 data BExpr
   = BoolConst Bool

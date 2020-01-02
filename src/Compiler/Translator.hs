@@ -125,20 +125,22 @@ newLine :: String -> String
 newLine x = x ++ "\n"
 
 assignTranslator :: Stmt -> Translator
+assignTranslator (Assign o ["this", name] t r) =
+  assignTranslator (Assign o ["this->" ++ name] t r)
 assignTranslator (Assign _ name type' Nop) =
-  return [typeToString type' ++ " " ++ name ++ ";\n"]
+  return [typeToString type' ++ " " ++ intercalate "." name ++ ";\n"]
 assignTranslator (Assign _ name type' (TypedVar cName (VClass t []) (Just args) Nothing)) = do
   args' <- intercalate ", " . concat <$> mapM aExprTranslator args
-  return ["unique_ptr<" ++ cName ++ "> " ++ name ++ "(new " ++ cName ++ "(" ++ args' ++ "));\n"]
+  return ["unique_ptr<" ++ cName ++ "> " ++ intercalate "." name ++ "(new " ++ cName ++ "(" ++ args' ++ "));\n"]
 assignTranslator (Assign _ name type' (TypedVar cName (VClass t gen) (Just args) Nothing)) = do
  args' <- intercalate ", " . concat <$> mapM aExprTranslator args
- return ["unique_ptr<" ++ cName ++ genStr ++ "> " ++ name ++ "(new " ++ cName ++ genStr ++ "(" ++ args' ++ "));\n"]
+ return ["unique_ptr<" ++ cName ++ genStr ++ "> " ++ intercalate "." name ++ "(new " ++ cName ++ genStr ++ "(" ++ args' ++ "));\n"]
  where
   genStr = "<" ++ (intercalate ", " . map typeToString) gen ++ ">" 
 assignTranslator (Assign _ name type' expr) = do
   let t = typeToString type'
   e <- aExprTranslator expr
-  return . return . concat $ ((t ++ " " ++ name ++ " = ") : e) ++ [";\n"]
+  return . return . concat $ ((t ++ " " ++ intercalate "." name ++ " = ") : e) ++ [";\n"]
 
 
 whileTranslator :: BExpr -> [a] -> (a -> Translator) -> Translator
@@ -174,9 +176,10 @@ classStmtTranslator c =
     t@MethodDeclaration {} -> return []
 
 constTranslator :: ClassStmt -> Translator
-constTranslator (Constructor _ name block) = do
+constTranslator (Constructor _ name args block) = do
+  let readyArgs = argumentsTranslator args
   readyBlock <- blockTranslator' functionStmtTranslator block
-  return . concat $ [[name ++ "(){\n"] ++ readyBlock ++ ["}\n"]]
+  return . concat $ [[name ++ "("++ readyArgs ++"){\n"] ++ readyBlock ++ ["}\n"]]
 
 --  TODO replace mock with real feature
 casualExprTranslator :: FunctionStmt -> Translator

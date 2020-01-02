@@ -7,6 +7,7 @@ import           Compiler.Analyzer.Type
 import           Control.Exception      (throw)
 import           Control.Monad.State    (get, gets, modify, put)
 import           Control.Monad.Writer   (tell)
+import Data.Maybe (fromMaybe)
 
 checkImport :: Stmt -> Analyzer' Stmt
 -- TODO check if import path exist
@@ -28,9 +29,10 @@ checkMethod m@(Method o n t a body) bodyAnalyzer = do
   setMethod m
   method <- checkFunction' (o, n, t, a, body) Method bodyAnalyzer
   class' <- getClass
-  return $ if getName class' == n then Constructor o n (getBody method) else method
+  let (args, body') = getBody method
+  return $ if getName class' == n then Constructor o n args body' else method
   where
-    getBody (Method _ _ _ _ b) = b
+    getBody (Method _ _ _ a b) =  (fromMaybe [] a, b)
     getName (ClassExpr _ n _ _) = n
   
   

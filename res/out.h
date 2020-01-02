@@ -11,6 +11,25 @@ void printMemStats(){
    Serial.print(fragmentation)   ;
    Serial.println("%")   ;
 }
+class ThisTest{
+public:
+   int a = 0;
+   int b = 0;
+   ThisTest(int a){
+       this->a = a;
+       this->b = 100;
+   }
+   ThisTest(int a, int b){
+       this->a = a;
+       this->b = b;
+   }
+   int getA(){
+      return a;
+   }
+   void setA(int val){
+       this->a = val;
+   }
+};
 int mymax(int a, int b){
    int fuckT12;
    if(a > b){
@@ -52,6 +71,8 @@ int Main(){
       int res = myList->get(0);
       unique_ptr<ArrayList<int>> myList2(new ArrayList<int>(new int[3]{1 + 1,1,3}, 3, 3));
       Serial.println(res)      ;
+      unique_ptr<ThisTest> classTest(new ThisTest(12, 100));
+      Serial.println(classTest->a)      ;
    }
    return 0;
 }
