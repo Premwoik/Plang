@@ -26,8 +26,7 @@ main :: IO ()
 main = do
   let path = "res/test.mard"
   p <- tryReadAndParseFile path
-  p'<-  importOthers p [path]
-  let res = fst p'
+  res <-  fst <$> importOthers p [path]
   let ((a, w), s) = runState (runWriterT (analyze res)) emptyStorage
   print w
   print a
