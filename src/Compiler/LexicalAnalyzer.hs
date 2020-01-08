@@ -9,7 +9,6 @@ import           Control.Exception
 import           Control.Monad.State         (State, get, gets, put)
 import           Control.Monad.Writer        (WriterT, tell)
 
-
 analyze :: AST -> Analyzer' AST
 analyze (AST stmts) = do
   storage <- get
@@ -20,15 +19,15 @@ analyze (AST stmts) = do
 statementAnalyzer :: Stmt -> Analyzer' Stmt
 statementAnalyzer s =
   case s of
-    t@Import {}         -> checkImport t
-    t@LinkPath {}       -> checkLinkPath t
-    t@Function {}       -> checkFunction t functionStmtAnalyzer
+    t@Import {} -> checkImport t
+    t@LinkPath {} -> checkLinkPath t
+    t@Function {} -> checkFunction t functionStmtAnalyzer
     t@NativeFunction {} -> checkNative t
-    t@NativeClass {} -> return t
+    t@NativeClass {} -> checkNativeClass t classStmtAnalyzer
     t@NativeAssignDeclaration {} -> return t
-    Assign o a b c      -> checkAssign (o, a, b, c) Assign aExprAnalyzer
-    t@ClassExpr {}      -> checkClass t classStmtAnalyzer
-    t@Skip {}           -> return t
+    Assign o a b c -> checkAssign (o, a, b, c) Assign aExprAnalyzer
+    t@ClassExpr {} -> checkClass t classStmtAnalyzer
+    t@Skip {} -> return t
 
 --    TODO be careful with this head, but probably it always should work great
 functionStmtAnalyzer :: FunctionStmt -> Analyzer' [FunctionStmt]
@@ -45,12 +44,15 @@ classStmtAnalyzer :: String -> ClassStmt -> Analyzer' ClassStmt
 classStmtAnalyzer name s =
   case s of
     ClassAssign o a b c -> checkAssign (o, a, b, c) ClassAssign aExprAnalyzer
-    t@Method {}         -> checkMethod t functionStmtAnalyzer
-    t@MethodDeclaration {} -> return t
+--    t@ClassAssignDeclaration {} -> checkClassAssignDecl t
+    t@Method {} -> checkMethod t functionStmtAnalyzer
+    t@NativeMethod {} -> checkMethodDeclaration t
 
 aExprAnalyzer :: AExpr -> Analyzer' AExprRes
 aExprAnalyzer expr =
   case expr of
+    Nop -> return (VBlank, [], Nop)
+    e@ABracket {} -> checkBracket e aExprAnalyzer
     e@IntConst {}   -> return (VInt, [], e)
     e@FloatConst {} -> return (VFloat, [], e)
     e@StringVal {}  -> return (VString, [], e)

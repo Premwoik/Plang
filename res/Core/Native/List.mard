@@ -1,0 +1,27 @@
+link_path "ArrayList.h"
+
+native class "ArrayList" List<T> do
+    def List
+    def List arr: auto, size: int, maxSize: int
+    def get index: int -> T
+    def add elem: T -> void
+    def clear -> void
+    def size -> int
+//
+//class List<T>:
+//
+//    native get pos: int -> T
+//
+//    native replace pos: int, elem: T -> int
+//
+//    native removeLast -> T
+//
+//    native add elem: T -> void
+//
+//    native add elem: T, pos: int -> void
+//
+//    native remove pos: int -> T
+//
+//    native subList start: int, end: int -> List
+//
+//    native size -> int

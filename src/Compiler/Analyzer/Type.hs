@@ -8,6 +8,7 @@ import           Control.Monad.State  (State)
 import           Control.Monad.State  (get, gets, modify, put)
 --import Compiler.Translator.Type
 import           Control.Monad.Writer (WriterT)
+import Debug.Trace
 
 type Analyzer' a = WriterT [String] (State Storage) a
 
@@ -56,6 +57,7 @@ setStmt:: Stmt -> Analyzer' ()
 setStmt s =
   case s of
     class'@ClassExpr {} -> modify (\s -> s {local = LocalClassScope class' Nothing []})
+    class'@NativeClass {} -> modify (\s -> s {local = LocalClassScope class' Nothing []})
     func@Function {} -> modify (\s -> s {local = LocalFunc func []})
     _ -> throw $ UnsupportedTypeException $ "setStmt | " ++ show s
 --    _ -> throw $ NotAClass $ "Function setClass need class as parameter. Indstead of that it got: " ++ show s
@@ -76,18 +78,39 @@ replaceInFunc s = do
   updateFnScopes . map (map tryReplace) $ scopes
   where
     unwrap (LocalFunc _ x ) = x
+    unwrap (LocalClassScope _ _ x) = x
     unwrap _ = error "Accept only LocalFunc wrapper"
     tryReplace a = case (a, s) of
       (l@(AssignFn o1 _ _ _ ), r@(AssignFn o2 _ _ _ )) -> if o1 == o2 then r else l 
       (l, _) ->  l
+
+--replaceInClass :: ClassStmt -> Analyzer'()
+--replaceInClass s = do
+--  class' <- getClass
+--  let (ClassExpr o n g b) = class'
+--  let nBody = map replace b 
+--  return ()
+--  where
+--    replace a = case (a, s) of
+--      (old@(ClassAssign o1 _ _ _), new@(ClassAssign o2 _ _ _)) -> if o1 == o2 then new else old
+--      (old, _) -> old
     
-    
-getClass :: Analyzer' Stmt
+getClass :: Analyzer' (Maybe Stmt)
 getClass = do
   local' <- gets local
   case local' of
-    LocalClassScope c _ _-> return c
-    _ -> fail "Class can't be get"
+    LocalClassScope c _ _-> return $ Just c
+    _ -> return Nothing
+
+getGen :: Analyzer' [String]
+getGen = do
+  class' <- getClass
+  case class' of
+    Just(ClassExpr _ _ g _) -> return g
+    Just(NativeClass _ _ _ g _) -> return g
+    Nothing -> return []
+    
+
 
 addFnScope :: Scope -> Analyzer' ()
 addFnScope scope = modify (\s -> s {local = update (local s) scope })
@@ -109,8 +132,31 @@ updateFnScopes scopes = modify (\s -> s {local = update (local s)})
     update (LocalFunc f _ ) = LocalFunc f scopes
     update (LocalClassScope c f _) = LocalClassScope c f scopes
     update x = error $ show x
-    
 
+updateClassInGlobal :: Stmt -> Analyzer' ()
+updateClassInGlobal t@(NativeClass o _ _ _ _) = do
+  global' <- map update <$> gets global
+  modify (\s -> s {global = global'})
+  where
+    update t2@(NativeClass o' _ _ _ _) =
+      if o' == o then t else t2
+    update x = x
+updateClassInGlobal t@(ClassExpr o _ _ _) = do
+ global' <- map update <$> gets global
+ modify (\s -> s {global = global'})
+ where
+   update t2@(ClassExpr o' _ _ _) =
+     if o' == o then t else t2
+   update x = x
+
+manyFixGenInFuncArgs gen = map (fixGenInFuncArgs gen)
+
+fixGenInFuncArgs x (Function o n t args b) = Function o n t okArgs b
+  where
+    okArgs = map update args
+    update (FunArg (VGen "T") n') = FunArg x n'
+    update x = x
+fixGenInFuncArgs _ f = f
 
 data StorageCache
   = EmptyCache
@@ -141,8 +187,8 @@ type RawWhile b = (BExpr, [b])
 
 type RawWhileConst a b = (BExpr -> [b] -> a)
 
-type RawFunction = (Int, String, VarType, Maybe [FunArg], [FunctionStmt])
+type RawFunction = (Int, String, VarType, [FunArg], [FunctionStmt])
 
-type RawFunctionConst a = Int -> String -> VarType -> Maybe [FunArg] -> [FunctionStmt] -> a
+type RawFunctionConst a = Int -> String -> VarType -> [FunArg] -> [FunctionStmt] -> a
 
 trd (_, _, c) = c

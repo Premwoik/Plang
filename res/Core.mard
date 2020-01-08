@@ -2,6 +2,11 @@ link_path "Arduino.h"
 link_path "unique_ptr.h"
 link_path "ArrayList.h"
 link_path "MemoryInfo.h"
+
+import Core.Native.List
+//import Core.Maybe
+//import Core.Map
+
 //FUNCTIONS
 
 native "" pinMode pin: int, mode: int -> void
@@ -94,35 +99,32 @@ native class "HardwareSerial" HardwareSerial do
     def write val: int -> int // as size
     def write val: string -> int // as size
     def println val: string -> int
+    def println val: float -> int
+    def println val: int -> int
     def print val: string -> int
+    def print val: float -> int
+    def print val: int -> int
 
 native var "Serial" Serial: HardwareSerial
-
-
-native class "ArrayList" List<T> do
-    def List
-    def List arr: auto, size: int, maxSize: int
-    def get index: int -> T
-    def add elem: T -> void
 
 native "getFragmentation" getFragmentation -> float
 
 printMemStats -> void do
-   fragmentation = getFragmentation()
+   fragmentation: float = getFragmentation()
    Serial.print(F("Fragmentation level: "))
    Serial.print(fragmentation)
    Serial.println("%")
 
-class ThisTest do
-   a: int = 0
+class ThisTest<T> do
+   a: T
    b: int = 0
-   ThisTest a: int do
+   ThisTest a: T do
       this.a = a
       this.b = 100
-   ThisTest a: int, b: int do
+   ThisTest a: T, b: int do
       this.a = a
       this.b = b
-   getA -> int do
+   getA -> T do
       ret a
-   setA val: int -> void do
+   setA val: T -> void do
       this.a = val

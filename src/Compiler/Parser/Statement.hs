@@ -1,21 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE TupleSections #-}
 
 module Compiler.Parser.Statement where
 
-import           Compiler.Parser.Universal
-import           Control.Monad.State        (modify)
-import           Text.Megaparsec            hiding (State)
-import           Text.Megaparsec.Char
+import Compiler.Parser.Universal
+import Control.Monad.State (modify)
+import Text.Megaparsec hiding (State)
+import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
-import           AST
-import           Compiler.Parser.AExpr      hiding (elifStmtParser,
-                                             elseStmtParser, ifStmtParser)
-import           Compiler.Parser.Lexer
-import           Control.Monad
-import           Data.Maybe                 (fromMaybe)
-import Text.Megaparsec.Debug(dbg)
+import AST
+import Compiler.Parser.AExpr hiding (elifStmtParser, elseStmtParser, ifStmtParser)
+import Compiler.Parser.Lexer
+import Control.Monad
+import Data.Maybe (fromMaybe)
+import Text.Megaparsec.Debug (dbg)
 
 importParser :: Parser Stmt
 importParser --dbg "import" $
@@ -43,7 +42,7 @@ functionParser functionStmt = lexeme (L.indentBlock scn p)
     p = do
       o <- getOffset
       header <- pItem
-      args <- optional functionArgsParser
+      args <- fromMaybe [] <$> optional functionArgsParser
       type' <-
         optional $ do
           void (symbol "->")
@@ -58,7 +57,7 @@ nativeFunctionParser =
     void $ symbol "native"
     path <- lexeme stringLiteral
     header <- pItem
-    args <- optional functionArgsParser
+    args <- fromMaybe [] <$> optional functionArgsParser
     type' <-
       optional $ do
         void (symbol "->")
@@ -80,43 +79,55 @@ skipStmt = do
   return $ Skip o
 
 linkPathParser :: Parser Stmt
-linkPathParser = lexeme $ L.nonIndented sc $ do
-  o <- getOffset
-  void (symbol "link_path")
-  name <- lexemeEnd stringLiteral
-  return $ LinkPath o name
+linkPathParser =
+  lexeme $
+  L.nonIndented sc $ do
+    o <- getOffset
+    void (symbol "link_path")
+    name <- lexemeEnd stringLiteral
+    return $ LinkPath o name
 
-
-data MoreAssign = AssignString String (Maybe MoreAssign)
+data MoreAssign =
+  AssignString String (Maybe MoreAssign)
 
 assignParser :: Parser AExpr -> (Int -> [String] -> VarType -> AExpr -> a) -> Parser a
-assignParser aExpr wrapper = lexeme $ do
-  o <- getOffset
-  var <- toList <$> more
-  type' <-
-    optional $ do
-      void (symbol ":")
-      typeParser
-  void (symbol "=")
-  wrapper o var (fromMaybe VAuto type') <$> aExpr
+assignParser aExpr wrapper =
+  lexeme $ do
+    o <- getOffset
+    var <- toList <$> more
+    type' <-
+      optional $ do
+        void (symbol ":")
+        typeParser
+    void (symbol "=")
+    wrapper o var (fromMaybe VAuto type') <$> aExpr
   where
     more :: Parser MoreAssign
     more = do
       n <- identifier
-      m <- optional $ do
-        void(symbol ".") 
-        more
+      m <-
+        optional $ do
+          void (symbol ".")
+          more
       return $ AssignString n m
     toList (AssignString s (Just m)) = s : toList m
     toList (AssignString s Nothing) = [s]
-    
-    valId = AValueId <$> identifier 
+    valId = AValueId <$> identifier
     listId = do
       n <- identifier
       i <- numberChar
       return $ AListId n (ALIndex i)
-    
- 
+
+defaultAssignParser :: Parser ClassStmt
+defaultAssignParser =
+  lexeme $ do
+    o <- getOffset
+    var <- identifier
+    type' <-
+      do void (symbol ":")
+         typeParser
+    return $ ClassAssign o [var] type' Nop
+
 --classAssignParser :: Parser AExpr -> (Int -> String -> VarType -> AExpr -> a) -> Parser a
 --classAssignParser aExpr wrapper = do
 -- o <- getOffset
@@ -127,22 +138,18 @@ assignParser aExpr wrapper = lexeme $ do
 --     typeParser
 -- void (symbol "=")
 -- wrapper o var (fromMaybe VAuto type') <$> aExpr
-
-  
 nativeAssignDeclParser :: Parser Stmt
-nativeAssignDeclParser = lexeme $ do
-  o <- getOffset
-  void (symbol "native var")
-  path <- lexeme stringLiteral
-  name <- identifier
-  type' <-
-    optional $ do
-      void (symbol ":")
-      matchType <$> pItem
-  return $ NativeAssignDeclaration o path name (fromMaybe VAuto type')
-  
-
-
+nativeAssignDeclParser =
+  lexeme $ do
+    o <- getOffset
+    void (symbol "native var")
+    path <- lexeme stringLiteral
+    name <- identifier
+    type' <-
+      optional $ do
+        void (symbol ":")
+        matchType <$> pItem
+    return $ NativeAssignDeclaration o path name (fromMaybe VAuto type')
 
 methodDeclarationParser :: Parser ClassStmt
 methodDeclarationParser =
@@ -150,13 +157,12 @@ methodDeclarationParser =
     o <- getOffset
     void (symbol "def")
     header <- pItem
-    args <- optional functionArgsParser
+    args <- fromMaybe [] <$> optional functionArgsParser
     type' <-
       optional $ do
         void (symbol "->")
         matchType <$> pItem
-    return $ MethodDeclaration o header (fromMaybe VAuto type') args
-
+    return $ NativeMethod o header (fromMaybe VAuto type') args
 
 classParser :: Parser ClassStmt -> Parser Stmt
 classParser classStmt = lexeme $ L.indentBlock scn p
@@ -165,7 +171,7 @@ classParser classStmt = lexeme $ L.indentBlock scn p
       o <- getOffset
       void (symbol "class")
       name <- identifier
-      gen <- optional generics
+      gen <- fromMaybe [] <$> optional generics
       void (symbolEnd "do")
       return (L.IndentSome Nothing (return . ClassExpr o name gen) classStmt)
 
@@ -178,7 +184,7 @@ nativeClassParser classStmt = lexeme $ L.indentBlock scn p
       void (symbol "native class")
       path <- lexeme stringLiteral
       name <- identifier
-      gen <- optional generics
+      gen <- fromMaybe [] <$> optional generics
       void (symbolEnd "do")
       return (L.IndentSome Nothing (return . NativeClass o path name gen) classStmt)
 
@@ -234,5 +240,7 @@ fullIfFuncParser bExpr functionStmt = do
   o <- getOffset
   if' <- ifStmtParser bExpr functionStmt
   elif' <- Text.Megaparsec.many (elifStmtParser bExpr functionStmt)
-  else' <- elseStmtParser functionStmt
-  return . IfFn o $ if' : elif' ++ [else']
+  else' <- optional (elseStmtParser functionStmt)
+  case else' of
+    (Just e) -> return . IfFn o $ if' : elif' ++ [e]
+    Nothing -> return . IfFn o $ if' : elif'

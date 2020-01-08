@@ -1,6 +1,0 @@
-
-
-class Maybe<T>:
-    link_path "core/Maybe.h"
-
-//    ifJust (fun: Func)

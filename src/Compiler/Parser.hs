@@ -56,6 +56,7 @@ otherStmt = do
 classStmt :: Parser ClassStmt
 classStmt
   = try (assignParser aExprExtended ClassAssign)
+  <|> try defaultAssignParser
   <|> methodDeclarationParser
   <|> ((\(Function o a b c d) -> Method o a b c d) <$> functionParser functionStmt)
   
@@ -85,12 +86,13 @@ bOperators =
 
 aTerm :: Parser AExpr
 aTerm
-  = parens aExpr
+  = bracketParser aExpr
   <|> try (varParser aExpr)
   <|> try (ListVar <$> listParser aExpr)
   <|> rangeParser aExpr
   <|> try (FloatConst <$> float')
   <|> IntConst <$> integer
+--  <|> ABool <$> bExpr
   <|> StringVal <$> stringLiteral
   <|> anonymousFunctionBlockParser functionArgsParser functionStmt
   <|> anonymousFunctionParser functionArgsParser aExpr
@@ -98,7 +100,7 @@ aTerm
   
 aTermExtended :: Parser AExpr
 aTermExtended
-  = parens aExpr
+  = bracketParser aExpr
   <|> try (varExtendedParser aExpr)
   <|> try (ListVar <$> listParser aExpr)
   <|> rangeParser aExpr

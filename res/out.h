@@ -1,6 +1,30 @@
 void printMemStats();
 int mymax(int a, int b);
 int Main();
+template<typename K, typename V>
+class Pair{
+public:
+   K k;
+   V v;
+   Pair(K k, V v){
+       this->k = k;
+       this->v = v;
+   }
+};
+template<typename T>
+class Maybe{
+public:
+   T value;
+   int hasValue = 0;
+   Maybe(){
+       this->hasValue = 0;
+   }
+   Maybe(T val){
+       this->hasValue = 1;
+       this->value = val;
+   }
+};
+#include "ArrayList.h"
 #include "Arduino.h"
 #include "unique_ptr.h"
 #include "ArrayList.h"
@@ -11,22 +35,23 @@ void printMemStats(){
    Serial.print(fragmentation)   ;
    Serial.println("%")   ;
 }
+template<typename T>
 class ThisTest{
 public:
-   int a = 0;
+   T a;
    int b = 0;
-   ThisTest(int a){
+   ThisTest(T a){
        this->a = a;
        this->b = 100;
    }
-   ThisTest(int a, int b){
+   ThisTest(T a, int b){
        this->a = a;
        this->b = b;
    }
-   int getA(){
+   T getA(){
       return a;
    }
-   void setA(int val){
+   void setA(T val){
        this->a = val;
    }
 };
@@ -43,36 +68,15 @@ int mymax(int a, int b){
 int Main(){
    Serial.begin(9600)   ;
    pinMode(13, OUTPUT)   ;
+   unique_ptr<ArrayList<int>> myList(new ArrayList<int>());
    int i = 0;
-   int top = 5;
-   while(i < top){
-      int tak = 30;
-       i = i + 1;
-      Serial.println(F("Tak czy siak"))      ;
-   }
    while(true){
       printMemStats()      ;
-      digitalWrite(13, LOW)      ;
-      Serial.println(F("LOW"))      ;
-      delay(1000)      ;
-      digitalWrite(13, HIGH)      ;
-      Serial.println(F("HIGH"))      ;
-      delay(500)      ;
-      digitalWrite(13, LOW)      ;
-      Serial.println("LOW")      ;
-      delay(500)      ;
-      digitalWrite(13, HIGH)      ;
-      Serial.println("HIGH")      ;
-      delay(2000)      ;
-      int tak = 12;
-      Serial.println(mymax(tak, 15))      ;
-      unique_ptr<ArrayList<int>> myList(new ArrayList<int>());
       myList->add(10)      ;
-      int res = myList->get(0);
-      unique_ptr<ArrayList<int>> myList2(new ArrayList<int>(new int[3]{1 + 1,1,3}, 3, 3));
-      Serial.println(res)      ;
-      unique_ptr<ThisTest> classTest(new ThisTest(12, 100));
-      Serial.println(classTest->a)      ;
+      if(i > 100){
+   myList->clear()   ;
+   Serial.println(F("Wyczyszczono liste!"))   ;
+}
    }
    return 0;
 }

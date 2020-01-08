@@ -27,20 +27,17 @@ findInScopes :: String -> [Scope] -> [Stmt]
 findInScopes name = varToGlobal . concatMap (findVar name)
 
 findVarInFunc :: String -> Stmt -> [Stmt]
-findVarInFunc name (Function _ _ _ args l) =
-  checkArgs args ++ varToGlobal (findVar name l)
+findVarInFunc name (Function _ _ _ args l) = checkArgs args -- ++ varToGlobal (findVar name l)
   where
-    checkArgs (Just args) = map (\(FunArg t n) -> Assign 0 [n] t Nop) . filter (\(FunArg t n) -> n == name) $ args
-    checkArgs Nothing = []
+    checkArgs = map (\(FunArg t n) -> Assign 0 [n] t Nop) . filter (\(FunArg t n) -> n == name)
 
 findVarInClass :: String -> Stmt -> [Stmt]
 findVarInClass name (ClassExpr _ n _ body) = classVarToGlobal . filter cond $ body
   where
     cond (ClassAssign _ [vName] _ _) =  vName == name
     cond (ClassAssign _ ["this", vName] _ _) =  vName == name
-    cond (ClassAssignDeclaration _ vName _) = vName == name
     cond (Method _ mName _ _ _) = mName == name
-    cond (MethodDeclaration _ mName _ _) = mName == name
+    cond (NativeMethod _ mName _ _) = mName == name
     cond _ = False
 
 findVar :: String -> [FunctionStmt] -> [FunctionStmt]
@@ -57,7 +54,7 @@ classVarToGlobal = map to
   where
     to (ClassAssign o a b c ) = Assign o a b c
     to (Method o a b c d) = Function o a b c d
-    to (MethodDeclaration o a b c) = Function o a b c []
+    to (NativeMethod o a b c) = Function o a b c []
     
 
 findGlobal :: String -> [Stmt] -> [Stmt]
@@ -81,49 +78,58 @@ findClassGlobal name = filter cond
 unwrapClass (ClassExpr _ _ _ body) = body
 unwrapClass (NativeClass _ _ _ _ body) = body
 
-findMethod :: String -> String -> [Stmt] -> [ClassStmt]
-findMethod className methodName = filter cond . concatMap unwrapClass . findClassGlobal className
+findMethod :: String -> String -> [Stmt] -> [Stmt]
+findMethod className methodName = classVarToGlobal . filter cond . concatMap unwrapClass . findClassGlobal className
   where
     cond (Method _ mName _ _ _) = methodName == mName
-    cond (MethodDeclaration _ mName _ _) = methodName == mName
+    cond (NativeMethod _ mName _ _) = methodName == mName
     cond (ClassAssign _ [aName] _ _) = aName == methodName
     cond _                    = False
     
     
 --    MATCH
 
-maybeArgsMatch :: Maybe [AExpr] -> [Stmt] -> Bool
-maybeArgsMatch (Just args) s = any (argsMatch prepareArgs) s
+maybeArgsMatch :: Maybe [AExpr] -> [VarType] -> [Stmt] -> Bool
+maybeArgsMatch (Just args) gen s = any (argsMatch prepareArgs gen) s
   where
     prepareArgs = map aExprExtractType args
-maybeArgsMatch Nothing _ = True
+maybeArgsMatch Nothing _ _ = True
 
-argsMatch :: [VarType] -> Stmt -> Bool
-argsMatch t (NativeFunction _ _ _ _ Nothing) = True
-argsMatch t (NativeFunction _ _ _ _ (Just args)) =
-  argsMatch' t args
-argsMatch t (Function _ _ _  Nothing _) = True
-argsMatch t (Function _ _ _ (Just args) _) =
-  argsMatch' t args
+argsMatch :: [VarType] -> [VarType] -> Stmt -> Bool
+argsMatch t gen (NativeFunction _ _ _ _ args) =
+  argsMatch' t (fixArgs gen args)
+argsMatch t gen (Function _ _ _ args _) =
+  argsMatch' t (fixArgs gen args)
 --  CLASS
-argsMatch t s = any match (getConstructors s)
+argsMatch t gen s = any match (getConstructors s)
   where
-    match (Method _ _ _ Nothing _) = 
-      argsMatch' t []
-    match (Method _ _ _ (Just args) _) =
-      argsMatch' t args
-    match (MethodDeclaration _ _ _ Nothing) =
-      argsMatch' t []
-    match (MethodDeclaration _ _ _ (Just args)) =
-      argsMatch' t args
+    match (Method _ _ _ args _) =
+      argsMatch' t (fixArgs gen args)
+    match (NativeMethod _ _ _ args) =
+      argsMatch' t (fixArgs gen args)
+    match (Constructor _ _ args _) =
+      argsMatch' t (fixArgs gen args)
     match _ = False
 
 argsMatch' :: [VarType] -> [FunArg] -> Bool
 argsMatch' t args = (length t == length args) && all (\(w, FunArg ot _) -> w == ot) (zip t args)
 
+fixArgs :: [VarType] -> [FunArg] -> [FunArg]
+fixArgs [] args = args
+fixArgs gen args = map (\(FunArg t n) -> FunArg (fixType gen t) n) args
+
+fixType :: [VarType] -> VarType -> VarType
+fixType gen (VGen tName) = trace (show gen) $ makeOutput . filter (\(VGenPair tName' _) -> tName == tName') $ gen
+  where
+    makeOutput (VGenPair _ t: _) = t
+    makeOutput _ = error $ "Cannont find type for template: " ++ tName
+fixType gen t = t
+
+fixError t =  error ("Generics are for now implemented only for T = " ++ show t)
 
 aExprExtractType :: AExpr -> VarType
-aExprExtractType (TypedVar _ t _ _) = t
+aExprExtractType (TypedVar _ _ _ (Just more)) = aExprExtractType more
+aExprExtractType (TypedVar _ t _ Nothing) = t
 aExprExtractType IntConst {} = VInt
 aExprExtractType FloatConst {} = VFloat
 aExprExtractType StringVal {} = VString
@@ -131,11 +137,13 @@ aExprExtractType StringVal {} = VString
 getConstructors :: Stmt -> [ClassStmt]
 getConstructors (NativeClass o _ n g b) = filter cond b
   where
-    cond (MethodDeclaration _ n' _ _) = n' == n
+    cond (NativeMethod _ n' _ _) = n' == n
     cond _ = False
 getConstructors (ClassExpr o n g b) = filter cond b
   where
-    cond (Method _ n' _ _ _) = n' == n
+    cond Constructor {} = True
     cond _ = False
 getConstructors x = error $ "Given object: " ++ show x ++ "have no constructors"
 
+
+--  GET

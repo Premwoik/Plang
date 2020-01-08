@@ -17,26 +17,18 @@ checkVar var wantedType analyzer = do
   case (var, wantedType) of
 
 --   TODO merge bottom function with upper (maybe)?
-    (Var name _ args more, Just(VClass cName [x])) -> do
+--  previous was a class
+    (Var name _ args more, Just(VClass cName gen)) -> do
       args' <- case args of
         (Just a) -> Just . map (\(_, _, x) -> x) <$> mapM analyzer a
         Nothing -> return Nothing
+        
       case findMethod cName name global' of
-        [Method _ n t _ _] -> makeOutput x (TypedVar n x args') <$> handleMore more (Just x)
-        [ClassAssign _ [n] t _] -> makeOutput t (TypedVar n t Nothing) <$> handleMore more (Just t)
-        MethodDeclaration _ n t _:_ -> makeOutput x (TypedVar n x args') <$> handleMore more (Just x)
-        x -> error (show x ++ " | " ++ name) --throw UnknownMethodName
-
-
---  previous was class
-    (Var name _ args more, Just(VClass cName _ )) -> do
-      args' <- case args of
-        (Just a) -> Just . map (\(_, _, x) -> x) <$> mapM analyzer a
-        Nothing -> return Nothing
-      case findMethod cName name global' of
-        [Method _ n t _ _] -> makeOutput t (TypedVar n t args') <$> handleMore more (Just t)
-        [ClassAssign _ [n] t _] -> makeOutput t (TypedVar n t Nothing) <$> handleMore more (Just t)
-        MethodDeclaration _ n t _:_ -> makeOutput t (TypedVar n t args') <$> handleMore more (Just t)
+        [Assign _ [n] t _] -> makeOutput t (TypedVar n t Nothing) <$> handleMore more (Just t)
+        f@(Function _ n t _ _:_) -> do
+         checkArgs args' gen f
+         let nType = fixType gen t
+         makeOutput nType (TypedVar n nType args') <$> handleMore more (Just nType)
         x -> error (show x ++ " | " ++ name) --throw UnknownMethodName
 
 --   this is first, so it has to be variable global or local
@@ -45,29 +37,32 @@ checkVar var wantedType analyzer = do
         (Just a) -> Just . map (\(_, _, x) -> x) <$> mapM analyzer a
         Nothing -> return Nothing
       case find [name] local' global' of
-        Assign _ n t _ : _ -> 
+        f@(Assign _ n t _ : _) -> trace ("ASSIGN" ++ show local') $
           makeOutput t (TypedVar name t args') <$> handleMore more (Just t)
-        [NativeAssignDeclaration _ p n t] -> 
+        [NativeAssignDeclaration _ p n t] ->
           makeOutput (classToRef t) (TypedVar (defaultPath p n) (classToRef t) Nothing) <$> handleMore more (Just t)
-              
-        f@[ClassExpr _ n _ b] -> do 
-          if maybeArgsMatch args' f then return () else error $ makeError var f
-          makeOutput (VClass n gen) (TypedVar name (VClass n gen) args') <$> handleMore more (Just (VClass n gen))
-        f@[NativeClass _ p n _ b] -> do
-          if maybeArgsMatch args' f then return () else error $ makeError var f
-          makeOutput (VClass n gen) (TypedVar p (VClass n gen) args') <$> handleMore more (Just (VClass n gen))
-        f@[Function _ n t _ _] -> do 
-          if maybeArgsMatch args' f then return () else error $ makeError var f
+
+        f@[ClassExpr _ n g b] -> do
+          let gen' = makeGenPair g gen
+          let newType = VClass n gen'
+          checkArgs args' gen' f
+          makeOutput newType (TypedVar name newType args') <$> handleMore more (Just newType)
+        f@[NativeClass _ p n g b] -> do
+          let gen' = makeGenPair g gen
+          let newType = VClass n gen'
+          checkArgs args' gen' f
+          makeOutput newType (TypedVar p newType args') <$> handleMore more (Just newType)
+        f@[Function _ n t _ _] -> do
+          checkArgs args' [] f
           makeOutput t (TypedVar name t args') <$> handleMore more (Just t)
         
         f@[NativeFunction _ p n t _] -> do
-          if maybeArgsMatch args' f then return () else error $ makeError var f
+          checkArgs args' [] f
           makeOutput t (TypedVar (defaultPath p n) t (if t == VAuto then Nothing else args')) <$> handleMore more (Just t)
-
-        p -> 
+        p ->
           throw $ VariableNotExist (show var ++ " | " ++ show p ++ "  |  " ++ show local')
 --  error previous was not a class
-    (Var {}, Just x) -> throw $ NotAClass $ show x
+    (v@Var {}, Just x) -> throw $ NotAClass $ (show x ++ " | " ++ show v)
   where
     handleMore (Just m) x = Just <$> checkVar m x analyzer
     handleMore Nothing _ = return Nothing
@@ -77,8 +72,14 @@ checkVar var wantedType analyzer = do
     defaultPath p _ = p
     classToRef (VClass n _) = VRef n
     classToRef t = t
-    makeError var l = "Given var: (" ++ show var ++ ") doesn't match with any of following expresions: " ++ show l
-    
+    checkArgs args gen f =  
+      if maybeArgsMatch args gen f then return () 
+      else error $ makeError var f
+    makeGenPair = zipWith VGenPair
+    makeError var l = "WRONG ARGUMENTS PASSED TO FUNCTION \n Given var: ("
+      ++ show var ++ ")\n doesn't match with any of following expresions: \n"
+      ++ show l
+
 
 checkListVar :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkListVar a@(ListVar elems) analyzer = do
@@ -99,6 +100,11 @@ checkFn a = return (VAuto,[], a)
 checkFnBlock a = return (VAuto,[], a)
 
 checkNegBlock a = return (VAuto,[], a)
+
+checkBracket :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
+checkBracket (ABracket aExpr) analyzer = do
+  (t', inc, aExpr') <- analyzer aExpr
+  return (t', inc, ABracket aExpr)
 
 checkABinary :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkABinary t@(ABinary op a b) aAnalyzer = do

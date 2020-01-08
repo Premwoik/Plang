@@ -11,7 +11,14 @@ import Compiler.Parser.Lexer
 import Control.Monad
 import Compiler.Parser.Universal
 import Data.Maybe(fromMaybe)
+import Debug.Trace
 
+
+bracketParser :: Parser AExpr -> Parser AExpr
+bracketParser aExpr = do 
+  p <- parens aExpr
+  trace "BRACKET" return () 
+  return $ ABracket p
 
 anonymousFunctionParser :: Parser [FunArg] -> Parser AExpr -> Parser AExpr
 anonymousFunctionParser functionArgsParser aExpr = lexeme p

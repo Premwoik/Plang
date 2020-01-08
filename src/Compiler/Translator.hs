@@ -29,8 +29,7 @@ translate' (AST stmts) = do
 declareFunctions :: [Stmt]-> Translator
 declareFunctions = return . map trans . filter cond
   where
-    trans (Function _ n t args _) =
-      typeToString t ++ " " ++ n ++ "(" ++ (argumentsTranslator . M.fromMaybe [] $ args) ++ ");\n"
+    trans (Function _ n t args _) = typeToString t ++ " " ++ n ++ "(" ++ argumentsTranslator args ++ ");\n"
     cond Function {} = True
     cond _ = False
 
@@ -42,7 +41,7 @@ initialImports modules = return $ map merge modules
 translateStatement :: Stmt -> Translator
 translateStatement s =
   case s of
-    t@Import {}         -> importTranslator t
+    t@Import {}         -> return [] --importTranslator t
     t@LinkPath {}       -> linkPathTranslator t
     t@Function {}       -> functionTranslator t
     t@Assign {}         -> assignTranslator t
@@ -62,7 +61,7 @@ linkPathTranslator (LinkPath _ name) = return ["#include \"" ++ name ++ "\"\n"]
 
 functionTranslator :: Stmt -> Translator
 functionTranslator (Function _ name ret args block) = do
-  let readyArgs = argumentsTranslator . M.fromMaybe [] $ args
+  let readyArgs = argumentsTranslator args
   readyBlock <- blockTranslator' functionStmtTranslator block
   return . concat $ [[typeToString ret ++ " " ++ name ++ "(" ++ readyArgs ++ "){\n"], readyBlock, ["}\n"]]
 
@@ -87,8 +86,8 @@ ifTranslator (IfFn _ l) = mapM build $ zip [1 ..] l
       res <- concat <$> blockTranslator' functionStmtTranslator body
       return $ "else {\n" ++ res ++ "}\n"
     build (x, p)
-      | x == length l = translateElse p
       | x == 1 = translateIf "if(" p
+      | x == length l = translateElse p
       | otherwise = translateIf "else if(" p
 
 nativeTranslator :: Stmt -> Translator
@@ -108,7 +107,9 @@ typeToString t =
     VChar   -> "char"
     VBlank  -> ""
     VClass c _ -> c
-    _       -> "void"
+    VGen t  -> t
+    VGenPair _ t -> typeToString t
+    x -> error (show x)
 
 blockTranslator :: BodyBlock -> Translator
 blockTranslator = blockTranslator' translateStatement
@@ -164,8 +165,8 @@ classTranslator (ClassExpr _ name generics block) = do
   let generics' = makeGenerics generics
   return . concat $ [[generics' ++ "class " ++ name ++ "{\npublic:\n"], block', ["};\n"]]
   where
-    makeGenerics (Just l) = "template<" ++ (intercalate ", " . map (\x -> "typename " ++ x)) l ++ ">\n"
-    makeGenerics Nothing = ""
+    makeGenerics [] = ""
+    makeGenerics l = "template<" ++ (intercalate ", " . map (\x -> "typename " ++ x)) l ++ ">\n"
 
 classStmtTranslator :: ClassStmt -> Translator
 classStmtTranslator c =
@@ -173,7 +174,7 @@ classStmtTranslator c =
     ClassAssign o a b c -> assignTranslator $ Assign o a b c
     Method o a b c d    -> functionTranslator $ Function o a b c d
     t@Constructor {} -> constTranslator t
-    t@MethodDeclaration {} -> return []
+    t@NativeMethod {} -> return []
 
 constTranslator :: ClassStmt -> Translator
 constTranslator (Constructor _ name args block) = do
@@ -196,7 +197,7 @@ aExprTranslator expr =
   case expr of
     e@TypedVar {} -> varTranslator e
     Var a _ b c     -> varTranslator (TypedVar a VAuto b c)
-    ABracket a ->  aExprTranslator a
+    e@ABracket {} ->  bracketTranslator e
     IntConst i    -> return . return $ show i
     FloatConst f  -> return . return $ show f
     StringVal s   -> return . return $ show s
@@ -215,7 +216,7 @@ aExprNegTranslator (Neg a) = do
 
 bracketTranslator (ABracket aExpr) = do
   res <- aExprTranslator aExpr
-  return . concat $ ["("] ++ res ++ [")"]
+  return ["(" ++ head res ++ ")"]
 
 binaryTranslator :: AExpr -> Translator
 binaryTranslator (ABinary op a b) = do

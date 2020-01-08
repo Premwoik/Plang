@@ -14,14 +14,14 @@ newtype AST =
   deriving (Show)
 
 data Stmt
-  = Function Int String VarType (Maybe [FunArg]) [FunctionStmt]
+  = Function Int String VarType [FunArg] [FunctionStmt]
   | Import Int [String]
-  | ClassExpr Int String (Maybe [String]) [ClassStmt]
+  | ClassExpr Int String [String] [ClassStmt]
   | Skip Int
   | Assign Int [String] VarType AExpr
   | NativeAssignDeclaration Int String String VarType
-  | NativeFunction Int String String VarType (Maybe [FunArg])
-  | NativeClass Int String String (Maybe [String]) [ClassStmt]
+  | NativeFunction Int String String VarType [FunArg]
+  | NativeClass Int String String [String] [ClassStmt]
   | LinkPath Int String
 --  FOR TRANSLATION ONLY
   | FunctionDecl String VarType (Maybe [FunArg])
@@ -30,11 +30,10 @@ data Stmt
 --  -------------------------------------------------------
 data ClassStmt
   = ClassAssign Int [String] VarType AExpr
-  | ClassAssignDeclaration Int String VarType
-  | Method Int String VarType (Maybe [FunArg]) [FunctionStmt]
-  | Constructor Int String [FunArg] [FunctionStmt]
-  | MethodDeclaration Int String VarType (Maybe [FunArg])
+  | Method Int String VarType [FunArg] [FunctionStmt]
+  | NativeMethod Int String VarType [FunArg]
 --  FOR TRANSLATION ONLY
+  | Constructor Int String [FunArg] [FunctionStmt]
   deriving (Show)
 
 data FunctionStmt
@@ -82,6 +81,7 @@ data AExpr
   | FnBlock (Maybe [FunArg]) [FunctionStmt]
   | Neg AExpr
   | ABinary ABinOp AExpr AExpr
+  | ABool BExpr
   | If [(BExpr, [FunctionStmt])]
 --  FOR TRANSLATION ONLY
   | DefineVar String (Maybe [AExpr])
@@ -108,6 +108,8 @@ data VarType
   | VAuto
   | VChar
   | VClass String [VarType]
+  | VGen String
+  | VGenPair String VarType
   | VRef String
   | Pointer VarType
   | VBlank

@@ -1,6 +1,6 @@
-//TODO make import working | import are mocked for now and only core module is always loaded
+import Core
 
-mymax a: int, b: int do
+mymax a: int, b: int -> int do
   ret
     if a > b then
       a
@@ -10,35 +10,17 @@ mymax a: int, b: int do
 Main -> int do
   Serial.begin(9600)
   pinMode(13, OUTPUT)
-  i: int = 0
-  top: int = 5
-  while i < top do
-    tak: int = 30
-    i = i + 1
-    Serial.println(F("Tak czy siak"))
+  myList = List<int>()
+  i = 0
   while true do
     printMemStats()
-    digitalWrite(13, LOW)
-    Serial.println(F("LOW"))
-    sleep(1000)
-    digitalWrite(13, HIGH)
-    Serial.println(F("HIGH"))
-    sleep(500)
-    digitalWrite(13, LOW)
-    Serial.println("LOW")
-    sleep(500)
-    digitalWrite(13, HIGH)
-    Serial.println("HIGH")
-    sleep(2000)
-    tak = 12
-    Serial.println(mymax(tak, 15))
-    myList = List<int>()
     myList.add(10)
-    res = myList.get(0)
-    myList2 = [(1+1), 1, 3]
-    Serial.println(res)
-    classTest: ThisTest = ThisTest(12, 100)
-    Serial.println(classTest.a)
+    if i > 100 then
+      myList.clear()
+      Serial.println(F("Wyczyszczono liste!"))
+
+//    classTest = ThisTest<float>(13.0, 100)
+//    Serial.println(classTest.getA())
   ret 0
 
 

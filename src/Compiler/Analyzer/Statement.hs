@@ -7,7 +7,8 @@ import           Compiler.Analyzer.Type
 import           Control.Exception      (throw)
 import           Control.Monad.State    (get, gets, modify, put)
 import           Control.Monad.Writer   (tell)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, fromJust)
+import Debug.Trace
 
 checkImport :: Stmt -> Analyzer' Stmt
 -- TODO check if import path exist
@@ -28,17 +29,21 @@ checkMethod :: ClassStmt -> FnStmtAnalyzer -> Analyzer' ClassStmt
 checkMethod m@(Method o n t a body) bodyAnalyzer = do
   setMethod m
   method <- checkFunction' (o, n, t, a, body) Method bodyAnalyzer
-  class' <- getClass
-  let (args, body') = getBody method
-  return $ if getName class' == n then Constructor o n args body' else method
+  let (Method o' n' t' a' body') = method
+  class' <- fromJust <$> getClass
+  let nType = markGen t' (getGen' class')
+  let nArgs = markGenInArgs (getGen' class') a'
+  return $ if getName class' == n then Constructor o' n' nArgs body' else Method o' n' nType nArgs body'
   where
-    getBody (Method _ _ _ a b) =  (fromMaybe [] a, b)
     getName (ClassExpr _ n _ _) = n
-  
-  
+    getGen' (ClassExpr _ _ g _) = g
+
+
+
 checkFunction' :: RawFunction -> RawFunctionConst a -> FnStmtAnalyzer -> Analyzer' a
--- TODO check if arguments are good
 checkFunction' (o, name, type', args, body) wrapper bodyAnalyzer = do
+--  TODO fix this maybe
+  addFnScope body
   checkedBody' <- concat <$> mapM bodyAnalyzer body
   nType <- getType <$> gets local
   return $ wrapper o name nType args checkedBody'
@@ -65,9 +70,27 @@ checkNative t@(NativeFunction o path name ret args') =
 --    VAuto -> throw IncorrectExprException
    _     -> NativeFunction o path name ret <$> checkArgs args'
 
-
-checkArgs :: Maybe [FunArg] -> Analyzer' (Maybe [FunArg])
+checkArgs :: [FunArg] -> Analyzer' [FunArg]
 checkArgs = return
+
+checkMethodDeclaration :: ClassStmt -> Analyzer' ClassStmt
+checkMethodDeclaration ttt@(NativeMethod o n t args) = do
+  gen <- getGen
+  let nType = markGen t gen
+  let nArgs = markGenInArgs gen args
+  return $ NativeMethod o n nType nArgs
+
+
+markGen (VClass g []) gen = if g `elem` gen then VGen g else VClass g []
+markGen x _ = x
+
+markGenInArgs gen = map checkType
+  where
+    checkType i@(FunArg (VClass g []) n) =
+      if g `elem` gen
+        then FunArg (VGen g) n
+        else i
+    checkType i = i
 
 checkAssignFn :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]
 --TODO
@@ -76,31 +99,40 @@ checkAssignFn (AssignFn o name ret aExpr) analyzer = do
   (type', inject, res) <- analyzer aExpr
   nType <-
     case findFirst name (local s) (global s) of
-      Just a@Assign {} -> return $ checkType2 a type'
+      Just a@Assign {} -> return $ checkType2 a type' name
       _ -> return type'
   res' <- checkType ret type' nType res
-  replaceInFunc (head res')
-  return $ inject ++ res'
+  trace (show name ++ " | " ++ show res') $ return ()
+  replaceInFunc res'
+  return $ inject ++ [res']
   where
-    checkType2 (Assign o' _ t _) b
+    checkType2 (Assign o' n t _) b nn
       | o' == o = b
       | t == b || t == VAuto = VBlank
-      | otherwise = throw $ TypesMismatch (show t ++ " =/= " ++ show b)
+      | otherwise = throw $ TypesMismatch (show t ++ " =1 "++ show nn ++ "/= " ++ show b)
 --      TODO change this shit when VGenClass will be deleted
     checkType a b nt r
-      | a == b || a == VAuto = return [AssignFn o name nt r]
-      | otherwise = throw $ TypesMismatch (show a ++ " =/= " ++ show b)
+      | a == b || a == VAuto = return $ AssignFn o name nt r
+      | otherwise = throw $ TypesMismatch (show a ++ " =2/= " ++ show b)
 
 checkAssign :: RawAssign -> RawAssignConst a -> AExprAnalyzer -> Analyzer' a
 --TODO
 checkAssign (o, name, ret, aExpr) wrapper analyzer = do
   (type', inject, res) <- analyzer aExpr
-  nType <- checkType ret type'
+  gen <- getGen
+  nType <- flip markGen gen <$> checkType ret type'
   return $ wrapper o name nType res
   where
     checkType a b
+      | b == VBlank = return a
       | a == b || a == VAuto = return b
-      | otherwise = throw $ TypesMismatch (show a ++ " =/= " ++ show b)
+      | otherwise = throw $ TypesMismatch (show a ++ " =3/= " ++ show b)
+
+--checkClassAssignDecl :: ClassStmt -> Analyzer' ClassStmt
+--checkClassAssignDecl (ClassAssignDeclaration o n t) = do
+--  class' <- getClass
+--  let nType = markGen t (getGen class')
+--  return $ ClassAssignDeclaration o n nType 
 
 checkWhile :: FunctionStmt -> FnStmtAnalyzer -> BExprAnalyzer ->Analyzer' [FunctionStmt]
 checkWhile t@(WhileFn o cond block) analyzer bAnalyzer= do
@@ -140,7 +172,19 @@ checkClass :: Stmt -> ClassStmtAnalyzer -> Analyzer' Stmt
 checkClass c@(ClassExpr o name cast body) analyzer = do
   setStmt c
   body' <- mapM (analyzer name) body
-  return $ ClassExpr o name cast body'
+  let res = ClassExpr o name cast body'
+  updateClassInGlobal res
+  return res
+  
+checkNativeClass :: Stmt -> ClassStmtAnalyzer -> Analyzer' Stmt
+-- TODO
+checkNativeClass c@(NativeClass o p name cast body) analyzer = do
+  setStmt c
+  body' <- mapM (analyzer name) body
+  let res = NativeClass o p name cast body'
+  updateClassInGlobal res
+  return res
+
 
 --  loadClass name
 checkOtherExpr :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]
