@@ -19,6 +19,10 @@ parens = between (symbol "(") (symbol ")")
 blockMark :: Parser a -> Parser a
 blockMark = between (symbol "{") (symbol "}")
 
+--data Gene = Simple String | Complex [Gene]
+--generics :: Parser [Gene]
+--generics = between (symbol "<") (symbol ">") (sepBy ((Complex <$> generics) <|> (Simple <$> identifier)) sep)
+
 generics :: Parser [String]
 generics = between (symbol "<") (symbol ">") (sepBy identifier sep)
 
@@ -36,7 +40,7 @@ matchType' g t =
     "float" -> VFloat
     "string" -> VString
     "char" -> VChar
-    x -> VClass x (map (matchType' []) g)
+    x -> VClass x (map (matchType' []) g) False
 
 typeParser :: Parser VarType
 typeParser = do

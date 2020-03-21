@@ -2,7 +2,7 @@
 
 module Compiler.Translator.Type where
 
-import           AST                    (VarType(..), FunctionStmt)
+import           AST                    (FunctionStmt, VarType (..))
 import           Control.Exception
 import           Control.Monad.Identity (Identity)
 import           Control.Monad.Reader   (ReaderT)
@@ -29,44 +29,19 @@ data ExecutableType
 
 data Storage =
   Storage
-    { global   :: [DeclarationTree]
-    , local :: DeclarationTree
-    , cache :: StorageCache
+    { toImport :: [String]
     }
   deriving (Show)
 
-data DeclarationTree =
-  Decl
-    { decType  :: DecType
-    , name     :: String
-    , argTypes :: [DeclarationTree]
-    , retType  :: VarType
-    , children :: [DeclarationTree]
-    } | EmptyDecl
-  deriving (Show)
+emptyStorage = Storage []
 
-checkRetType :: VarType -> DeclarationTree -> Bool
-checkRetType v (Decl _ _ _ t _) = v == t || t == VAuto 
-checkRetType _ EmptyDecl = True
-
-data DecType
-  = ClassT
-  | FunctionT
-  | VariableT
-  deriving (Show, Eq)
-
-
-data StorageCache
-  = EmptyCache
-  | TypeCache [VarType]
-  | InjectBefore [FunctionStmt]
-  deriving (Show)
-
-emptyStorage = Storage [] EmptyDecl EmptyCache
+addImport :: String -> Translator
+addImport n = do
+  modify (\s -> s {toImport = n : toImport s})
+  return []
 
 data TranslatorException =
   UnsupportedTypeException String
   deriving (Show)
 
 instance Exception TranslatorException
-

@@ -1,29 +1,11 @@
-void printMemStats();
-int mymax(int a, int b);
-int Main();
-template <typename K, typename V> class Pair {
-public:
-  K k;
-  V v;
-  Pair(K k, V v) {
-    this->k = k;
-    this->v = v;
-  }
-};
-template <typename T> class Maybe {
-public:
-  T value;
-  int hasValue = 0;
-  Maybe() { this->hasValue = 0; }
-  Maybe(T val) {
-    this->hasValue = 1;
-    this->value = val;
-  }
-};
 #include "Arduino.h"
 #include "ArrayList.h"
 #include "MemoryInfo.h"
 #include "unique_ptr.h"
+namespace CoreNativeList {}
+namespace Core {
+void printMemStats();
+using namespace CoreNativeList;
 void printMemStats() {
   float fragmentation = getFragmentation();
   Serial.print(F("Fragmentation level: "));
@@ -45,6 +27,10 @@ public:
   T getA() { return a; }
   void setA(T val) { this->a = val; }
 };
+} // namespace Core
+int mymax(int a, int b);
+int Main();
+using namespace Core;
 int mymax(int a, int b) {
   int fuckT12;
   if (a > b) {
@@ -66,6 +52,10 @@ int Main() {
       myList->clear();
       Serial.println(F("Wyczyszczono liste!"));
     }
+    unique_ptr<ThisTest<float>> classTest(new ThisTest<float>(13.0, 100));
+    float z = classTest->getA();
+    Serial.println(z);
+    Serial.println(classTest->getA());
   }
   return 0;
 }

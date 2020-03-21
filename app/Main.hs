@@ -21,13 +21,15 @@ import Data.List(intercalate)
 import qualified Control.Exception as E
 import Data.Void(Void)
 import Debug.Trace
+import Compiler.Importer
+
 
 main :: IO ()
 main = do
   let path = "res/test.mard"
   p <- tryReadAndParseFile path
-  res <-  fst <$> importOthers p [path]
-  let ((a, w), s) = runState (runWriterT (analyze res)) emptyStorage
+  res <- importMain p
+  let ((a, w), s) = runState (runWriterT (analyze' res)) emptyStorage
   print w
   print a
   let (a', w') = evalState (runWriterT (translate' a)) TT.emptyStorage
@@ -78,13 +80,4 @@ importOthers (AST s) imported = foldM aggregate acc (filter filterImport s)
 
 newtype ParseException = ParseException (ParseErrorBundle T.Text Void) deriving (Show)
 instance E.Exception ParseException
-
-tryReadAndParseFile :: String -> IO AST
-tryReadAndParseFile path = do
-  input <- T.pack <$> readFile path
-  case parse langParser path input of
-    Right res -> return res
-    Left e -> do 
-      putStrLn $ Err.errorBundlePretty e
-      error ""
 

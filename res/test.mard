@@ -1,11 +1,12 @@
 import Core
+//import Core.Map
 
 mymax a: int, b: int -> int do
   ret
-    if a > b then
-      a
-    else
-      b
+      if a > b then
+        a
+      else
+        b
 
 Main -> int do
   Serial.begin(9600)
@@ -19,8 +20,10 @@ Main -> int do
       myList.clear()
       Serial.println(F("Wyczyszczono liste!"))
 
-//    classTest = ThisTest<float>(13.0, 100)
-//    Serial.println(classTest.getA())
+    classTest = ThisTest<float>(13.0, 100)
+    z = classTest.getA()
+    Serial.println(z)
+    Serial.println(classTest.getA())
   ret 0
 
 

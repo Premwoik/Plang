@@ -78,6 +78,11 @@ skipStmt = do
   void (symbol "skip")
   return $ Skip o
 
+passStmt :: Parser FunctionStmt
+passStmt = do
+  void (symbol "pass")
+  return Pass
+
 linkPathParser :: Parser Stmt
 linkPathParser =
   lexeme $

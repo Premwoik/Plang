@@ -2,15 +2,19 @@
 
 module AST where
 
-import Data.Text (Text)
-import Data.Void
-import Text.Megaparsec hiding (State)
-import Control.Monad.State(StateT)
+import           Control.Monad.State (StateT)
+import           Data.Text           (Text)
+import           Data.Void
+import           Text.Megaparsec     hiding (State)
 
 type Parser = Parsec Void Text
 
 newtype AST =
   AST [Stmt]
+  deriving (Show)
+
+data Imported =
+  IFile String AST
   deriving (Show)
 
 data Stmt
@@ -19,23 +23,25 @@ data Stmt
   | ClassExpr Int String [String] [ClassStmt]
   | Skip Int
   | Assign Int [String] VarType AExpr
+  -- | NATIVE
   | NativeAssignDeclaration Int String String VarType
   | NativeFunction Int String String VarType [FunArg]
   | NativeClass Int String String [String] [ClassStmt]
   | LinkPath Int String
---  FOR TRANSLATION ONLY
-  | FunctionDecl String VarType (Maybe [FunArg])
   deriving (Show)
 
+--  | FunctionDecl String VarType (Maybe [FunArg])
+--  FOR TRANSLATION ONLY
 --  -------------------------------------------------------
 data ClassStmt
   = ClassAssign Int [String] VarType AExpr
   | Method Int String VarType [FunArg] [FunctionStmt]
-  | NativeMethod Int String VarType [FunArg]
---  FOR TRANSLATION ONLY
   | Constructor Int String [FunArg] [FunctionStmt]
+  -- | NATIVE
+  | NativeMethod Int String VarType [FunArg]
   deriving (Show)
 
+--  FOR TRANSLATION ONLY
 data FunctionStmt
   = AssignFn Int [String] VarType AExpr
   | WhileFn Int BExpr [FunctionStmt]
@@ -43,11 +49,16 @@ data FunctionStmt
   | IfFn Int [(BExpr, [FunctionStmt])]
   | ReturnFn Int AExpr
   | OtherFn Int AExpr
-  ----
+  | Pass
   deriving (Show)
 
-data AssignId a = AListId String (AListGetSet a) | AValueId String
-data AListGetSet a = ALRange a a | ALIndex a
+data AssignId a
+  = AListId String (AListGetSet a)
+  | AValueId String
+
+data AListGetSet a
+  = ALRange a a
+  | ALIndex a
 
 data BExpr
   = BoolConst Bool
@@ -83,14 +94,11 @@ data AExpr
   | ABinary ABinOp AExpr AExpr
   | ABool BExpr
   | If [(BExpr, [FunctionStmt])]
---  FOR TRANSLATION ONLY
-  | DefineVar String (Maybe [AExpr])
+ -- | Only for translation
   | TypedVar String VarType (Maybe [AExpr]) (Maybe AExpr)
   | Nop
   deriving (Show)
 
--- ONLY FOR TRANSLATION
---  | 
 type Cond = (BExpr, [FunctionStmt])
 
 data ABinOp
@@ -107,7 +115,9 @@ data VarType
   | VVoid
   | VAuto
   | VChar
-  | VClass String [VarType]
+  -- | VClass name type isPointer
+  | VClass String [VarType] Bool
+  -- | Not for parsing
   | VGen String
   | VGenPair String VarType
   | VRef String
@@ -121,8 +131,6 @@ data BoolOp =
 
 type BodyBlock = [Stmt]
 
---newtype IndentedBlock = IndentedBlock
 data FunArg =
   FunArg VarType String
   deriving (Show)
-

@@ -6,15 +6,40 @@ import           Compiler.Analyzer.BExpr
 import           Compiler.Analyzer.Statement
 import           Compiler.Analyzer.Type
 import           Control.Exception
-import           Control.Monad.State         (State, get, gets, put)
+import           Control.Monad               (forM)
+import           Control.Monad.State         (State, get, gets, modify, put)
 import           Control.Monad.Writer        (WriterT, tell)
+import           Data.Maybe                  (fromMaybe)
+
+import qualified          Compiler.Importer as Im
+
+analyze' :: [Imported] -> Analyzer' [Imported]
+analyze' a =
+  forM a $ \(IFile n ast) -> do
+    res <- analyze ast
+    saveFile n
+    return $ IFile n res
 
 analyze :: AST -> Analyzer' AST
 analyze (AST stmts) = do
-  storage <- get
-  put $ storage {global = stmts}
+  fields <- loadFiles . map Im.getImportName . Im.filterImport $ AST stmts
+  let globalScope = Scope "global" $ catalogueDecl (AST stmts) ++ fields
+  modify (\storage -> storage {scopes = [globalScope]})
   stmts' <- mapM statementAnalyzer stmts
   return (AST stmts')
+
+catalogueDecl :: AST -> [ScopeField]
+catalogueDecl (AST stmts) = map mapper . filter cond $ stmts
+  where
+    cond Function {}  = True
+    cond ClassExpr {} = True
+    cond NativeClass {} = True
+    cond NativeFunction {} = True
+    cond _            = False
+    mapper (Function o n t a _) = SFunction o n Nothing t a
+    mapper (NativeFunction o p n t a) = SFunction o n (Just p) t a  
+    mapper (NativeClass o p n g _) = SClass o n (Just p) g (Scope n [])
+    mapper (ClassExpr o n g _)  = SClass o n Nothing g (Scope n [])
 
 statementAnalyzer :: Stmt -> Analyzer' Stmt
 statementAnalyzer s =
@@ -24,7 +49,7 @@ statementAnalyzer s =
     t@Function {} -> checkFunction t functionStmtAnalyzer
     t@NativeFunction {} -> checkNative t
     t@NativeClass {} -> checkNativeClass t classStmtAnalyzer
-    t@NativeAssignDeclaration {} -> return t
+    t@NativeAssignDeclaration {} -> checkNativeAssign t aExprAnalyzer
     Assign o a b c -> checkAssign (o, a, b, c) Assign aExprAnalyzer
     t@ClassExpr {} -> checkClass t classStmtAnalyzer
     t@Skip {} -> return t
@@ -39,20 +64,21 @@ functionStmtAnalyzer s =
     t@IfFn {}     -> checkIfFunction t functionStmtAnalyzer bExprAnalyzer
     t@ReturnFn {} -> checkReturn t aExprAnalyzer
     t@OtherFn {}  -> checkOtherExpr t aExprAnalyzer
+    Pass          -> return . return $ Pass
 
 classStmtAnalyzer :: String -> ClassStmt -> Analyzer' ClassStmt
 classStmtAnalyzer name s =
   case s of
     ClassAssign o a b c -> checkAssign (o, a, b, c) ClassAssign aExprAnalyzer
---    t@ClassAssignDeclaration {} -> checkClassAssignDecl t
-    t@Method {} -> checkMethod t functionStmtAnalyzer
-    t@NativeMethod {} -> checkMethodDeclaration t
+    t@Method {}         -> checkMethod t functionStmtAnalyzer
+    t@NativeMethod {}   -> checkMethodDeclaration t
 
+--    t@ClassAssignDeclaration {} -> checkClassAssignDecl t
 aExprAnalyzer :: AExpr -> Analyzer' AExprRes
 aExprAnalyzer expr =
   case expr of
-    Nop -> return (VBlank, [], Nop)
-    e@ABracket {} -> checkBracket e aExprAnalyzer
+    Nop             -> return (VBlank, [], Nop)
+    e@ABracket {}   -> checkBracket e aExprAnalyzer
     e@IntConst {}   -> return (VInt, [], e)
     e@FloatConst {} -> return (VFloat, [], e)
     e@StringVal {}  -> return (VString, [], e)
