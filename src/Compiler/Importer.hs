@@ -27,7 +27,7 @@ type Counter = Map.Map String Int
 snd3 (_, y, _) = y
 trd (_, _, z) = z
 
-importMain :: AST -> IO [Imported] 
+importMain :: AST -> IO [Imported]
 importMain main = do 
   res <- importAll 1 [] "main" (Map.fromList [("main", 0)]) main 
   let files = snd3 res

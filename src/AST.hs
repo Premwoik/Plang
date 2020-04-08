@@ -6,16 +6,17 @@ import           Control.Monad.State (StateT)
 import           Data.Text           (Text)
 import           Data.Void
 import           Text.Megaparsec     hiding (State)
+import Debug.Trace
 
 type Parser = Parsec Void Text
 
 newtype AST =
   AST [Stmt]
-  deriving (Show)
+  deriving (Show, Eq)
 
 data Imported =
   IFile String AST
-  deriving (Show)
+  deriving (Show, Eq)
 
 data Stmt
   = Function Int String VarType [FunArg] [FunctionStmt]
@@ -28,7 +29,7 @@ data Stmt
   | NativeFunction Int String String VarType [FunArg]
   | NativeClass Int String String [String] [ClassStmt]
   | LinkPath Int String
-  deriving (Show)
+  deriving (Show, Eq)
 
 --  | FunctionDecl String VarType (Maybe [FunArg])
 --  FOR TRANSLATION ONLY
@@ -39,7 +40,7 @@ data ClassStmt
   | Constructor Int String [FunArg] [FunctionStmt]
   -- | NATIVE
   | NativeMethod Int String VarType [FunArg]
-  deriving (Show)
+  deriving (Show, Eq)
 
 --  FOR TRANSLATION ONLY
 data FunctionStmt
@@ -50,7 +51,7 @@ data FunctionStmt
   | ReturnFn Int AExpr
   | OtherFn Int AExpr
   | Pass
-  deriving (Show)
+  deriving (Show, Eq)
 
 data AssignId a
   = AListId String (AListGetSet a)
@@ -65,12 +66,12 @@ data BExpr
   | Not BExpr
   | BBinary BBinOp BExpr BExpr
   | RBinary RBinOp AExpr AExpr
-  deriving (Show)
+  deriving (Show, Eq)
 
 data BBinOp
   = And
   | Or
-  deriving (Show)
+  deriving (Show, Eq)
 
 data RBinOp
   = Greater
@@ -78,14 +79,16 @@ data RBinOp
   | Equal
   | EqLess
   | EqGreater
-  deriving (Show)
+  deriving (Show, Eq)
 
 data AExpr
+-- | Var name generics (func args/if is a func) more
   = Var String [VarType] (Maybe [AExpr]) (Maybe AExpr)
+  | ScopeMark String AExpr
   | ABracket AExpr
   | IntConst Integer
   | FloatConst Float
-  | ListVar [AExpr]
+  | ListVar Int [AExpr] (Maybe VarType)
   | StringVal String
   | Range AExpr AExpr
   | Fn Bool (Maybe [FunArg]) AExpr
@@ -95,9 +98,18 @@ data AExpr
   | ABool BExpr
   | If [(BExpr, [FunctionStmt])]
  -- | Only for translation
-  | TypedVar String VarType (Maybe [AExpr]) (Maybe AExpr)
+  | TypedVar VarName VarType (Maybe [AExpr]) (Maybe AExpr)
+  | TypedListVar [AExpr] VarType
   | Nop
-  deriving (Show)
+  deriving (Show, Eq)
+
+
+data VarName 
+-- | VName name
+  = VName String
+-- | VNameNative name native_name
+  | VNameNative String String
+  deriving (Show, Eq)
 
 type Cond = (BExpr, [FunctionStmt])
 
@@ -106,7 +118,7 @@ data ABinOp
   | Subtract
   | Multiply
   | Divide
-  deriving (Show)
+  deriving (Show, Eq)
 
 data VarType
   = VInt
@@ -115,22 +127,51 @@ data VarType
   | VVoid
   | VAuto
   | VChar
-  -- | VClass name type isPointer
+  -- | VClass name type isPointer (isPointer - default value is false)
   | VClass String [VarType] Bool
   -- | Not for parsing
   | VGen String
   | VGenPair String VarType
-  | VRef String
-  | Pointer VarType
+  | VRef VarType
+  | VPointer VarType PointerType
   | VBlank
-  deriving (Show, Eq)
+  deriving (Show)
+
+instance Eq VarType where
+  VInt  == VInt = True
+  VFloat == VFloat = True
+  VString == VString = True
+  VVoid == VVoid = True
+  VAuto == VAuto = True
+  VBlank == VBlank = True
+  (VClass n g p) == (VClass n2 g2 p2) = n == n && g == g2 && p == p2
+  (VGen n) == (VGen n2) = n == n2 
+  (VGenPair n t) == (VGenPair n2 t2) = n == n2 && t == t2
+  (VGenPair _ t) == t2 = t == t2
+  t2 == (VGenPair _ t) = t == t2
+  (VRef n) == (VRef n2) = n == n2
+  (VRef t) == t2 = t == t2
+  t2 == (VRef t) = t == t2
+  (VPointer t pt) == (VPointer t2 pt2) = t == t2 && pt == pt2
+  (VPointer t _) == t2 = t == t2
+  t2 == (VPointer t _) = t == t2
+  a == b = trace ("Eq error ### left = " ++ show a ++ " | right = " ++ show b) False
+
+data PointerType = UniquePtr | SharedPtr | SharedPtrStar deriving(Show, Eq)
 
 data BoolOp =
   BoolOp
-  deriving (Show)
+  deriving (Show, Eq)
 
 type BodyBlock = [Stmt]
 
 data FunArg =
   FunArg VarType String
-  deriving (Show)
+  deriving (Show, Eq)
+
+unwrapVarName (VName n) = n
+unwrapVarName (VNameNative _ p) = p
+
+unwrapVarNameForce (VName n) = n
+unwrapVarNameForce (VNameNative n _) = n
+

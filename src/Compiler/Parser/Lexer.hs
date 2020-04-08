@@ -12,6 +12,8 @@ import           Data.Void
 import           Text.Megaparsec            hiding (State)
 import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
+import Data.Maybe(fromMaybe)
+import Debug.Trace
 
 lineCmnt = L.skipLineComment "//"
 
@@ -29,6 +31,15 @@ rws = ["if", "then", "else", "while", "do", "skip", "true", "false", "not", "and
 rword :: String -> Parser ()
 rword w = (lexeme . try) (string (T.pack w) *> notFollowedBy alphaNumChar)
 
+identifiers :: Parser [String]
+identifiers = do
+  scope <- optional . try $ do
+    s <- identifier
+    void (symbol "|")
+    return s
+  ids<- sepBy identifier "."
+  return $ fromMaybe "" scope : ids
+  
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
   where

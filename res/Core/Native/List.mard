@@ -1,8 +1,9 @@
 link_path "ArrayList.h"
+import Core.Native.Maybe
 
-native class "ArrayList" List<T> do
-    def List
-    def List arr: auto, size: int, maxSize: int
+native class "ArrayList" ArrayList<T> do
+    def ArrayList
+    def ArrayList arr: auto, size: int, maxSize: int
     def get index: int -> T
     def add elem: T -> void
     def clear -> void

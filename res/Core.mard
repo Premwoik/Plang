@@ -104,8 +104,11 @@ native class "HardwareSerial" HardwareSerial do
     def print val: float -> int
     def print val: int -> int
 
-//it is noot pointer
+//it is not a pointer
 native var "Serial" Serial: HardwareSerial
+
+native "Serial.println" println t: string -> void
+native "Serial.print" print t: string -> void
 
 native "getFragmentation" getFragmentation -> float
 
@@ -118,13 +121,15 @@ printMemStats -> void do
 class ThisTest<T> do
    a: T
    b: int = 0
+   ThisTest do
+      pass
    ThisTest a: T do
-      this.a = a
-      this.b = 100
+      this|a = a
+      this|b = 100
    ThisTest a: T, b: int do
-      this.a = a
-      this.b = b
+      this|a = a
+      this|b = b
    getA -> T do
       ret a
    setA val: T -> void do
-      this.a = val
+      this|a = val

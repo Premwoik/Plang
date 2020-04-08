@@ -26,12 +26,22 @@ blockMark = between (symbol "{") (symbol "}")
 generics :: Parser [String]
 generics = between (symbol "<") (symbol ">") (sepBy identifier sep)
 
+generics' :: Parser [VarType]
+generics' = between (symbol "<") (symbol ">") (sepBy p sep)
+  where
+    p = do
+      id <- identifier
+      gens <- optional generics'
+      case gens of
+        Just g -> return $ matchType' g id
+        Nothing -> return $ matchType id
+
 array = between (symbol "[") (symbol "]") 
 
 matchType :: String -> VarType
 matchType = matchType' []
 
-matchType' :: [String] -> String -> VarType
+matchType' :: [VarType] -> String -> VarType
 matchType' g t =
   case t of
     "int" -> VInt
@@ -40,10 +50,11 @@ matchType' g t =
     "float" -> VFloat
     "string" -> VString
     "char" -> VChar
-    x -> VClass x (map (matchType' []) g) False
+    "ptr" -> VPointer (head g) UniquePtr
+    x -> VClass x g False
 
 typeParser :: Parser VarType
 typeParser = do
   t <- pItem
-  gen <- fromMaybe [] <$> optional generics
+  gen <- fromMaybe [] <$> optional generics'
   return $ matchType' gen t

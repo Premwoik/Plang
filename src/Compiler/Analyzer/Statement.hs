@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Compiler.Analyzer.Statement where
 
 import           AST
@@ -5,11 +6,11 @@ import           AST
 --import           Compiler.Analyzer.Pre
 import           Compiler.Analyzer.Browser
 import           Compiler.Analyzer.Type
-import           Control.Exception         (throw)
 import           Control.Monad.State       (get, gets, modify, put)
 import           Control.Monad.Writer      (tell)
 import           Data.Maybe                (fromJust, fromMaybe, listToMaybe)
 import           Debug.Trace
+import Control.Monad.Except(throwError)
 
 checkImport :: Stmt -> Analyzer' Stmt
 -- TODO check if import path exist
@@ -41,6 +42,7 @@ checkMethod m@(Method o n t a body) bodyAnalyzer = do
 
 checkFunction' :: RawFunction -> RawFunctionConst a -> FnStmtAnalyzer -> Analyzer' a
 checkFunction' (o, name, type', args, body) wrapper bodyAnalyzer = do
+  args' <- checkArgs args
   setType type'
   addArgsScope args
   setFunName name
@@ -49,21 +51,21 @@ checkFunction' (o, name, type', args, body) wrapper bodyAnalyzer = do
   nType <- gets rType
   removeScope
   removeScope
-  return $ wrapper o name nType args checkedBody'
+  return $ wrapper o name nType args' checkedBody'
 
 --  addFnScope body
 checkReturn :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]
 checkReturn (ReturnFn o aExpr) analyzer = do
   funcType <- gets rType
   (t, inject, res) <- analyzer aExpr
-  nType <- checkTypes funcType t
+  nType <- checkTypes o funcType t
   setType nType
   return $ inject ++ [ReturnFn o res]
 
-checkTypes wanted actual
+checkTypes o wanted actual
   | wanted == actual || wanted == VAuto = return wanted
   | otherwise =
-    throw $ TypesMismatch ("return missmatch: FuncDeclType = " ++ show wanted ++ " =/= FuncRetType " ++ show actual)
+    throwError $ AException o ("return missmatch: FuncDeclType = " ++ show wanted ++ " =/= FuncRetType " ++ show actual)
 
 --checkTypes t _ = throw $ TypesMismatch $ "Local don't contain function struct, so types cant be checked!!! { " ++ show t
 checkNative :: Stmt -> Analyzer' Stmt
@@ -75,7 +77,7 @@ checkNative t@(NativeFunction o path name ret args) = do
 
 --    VAuto -> throw IncorrectExprException
 checkArgs :: [FunArg] -> Analyzer' [FunArg]
-checkArgs = return
+checkArgs = return . map (\(FunArg t n) -> FunArg t (concat (scaleNameWithScope ["args", n])))
 
 checkMethodDeclaration :: ClassStmt -> Analyzer' ClassStmt
 checkMethodDeclaration ttt@(NativeMethod o n t args) = do
@@ -99,62 +101,52 @@ markGenInArgs gen = map checkType
         else i
     checkType i = i
 
---checkAssignFn :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]
-----TODO
---checkAssignFn (AssignFn o name ret aExpr) analyzer = do
---  s <- get
---  (type', inject, res) <- analyzer aExpr
---  nType <-
---    case findFirst name (local s) (global s) of
---      Just a@Assign {} -> return $ checkType2 a type' name
---      _ -> return type'
---  res' <- checkType ret type' nType res
-----  trace (show name ++ " | " ++ show res') $ return ()
-----  replaceInFunc res'
---  return $ inject ++ [res']
---  where
---    checkType2 (Assign o' n t _) b nn
---      | o' == o = b
---      | t == b || t == VAuto = VBlank
---      | otherwise = throw $ TypesMismatch (show t ++ " =1 "++ show nn ++ "/= " ++ show b)
-----      TODO change this shit when VGenClass will be deleted
---    checkType a b nt r
---      | a == b || a == VAuto = return $ AssignFn o name nt r
---      | otherwise = throw $ TypesMismatch (show a ++ " =2/= " ++ show b)
+
+
 checkAssignFn :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]
-checkAssignFn (AssignFn o name ret aExpr) analyzer = do
+checkAssignFn a@(AssignFn o name ret aExpr) analyzer = do
   s <- get
   (type', inject, res) <- analyzer aExpr
+--  trace ("DIS S " ++ show type') $ return ()
   firstSig <- listToMaybe <$> find' name
   nType <-
-    case firstSig of
-      Just (SVar o n _ t) -> check t ret type' VBlank
-      Nothing -> addField (SVar o (last name) Nothing type') >> check type' ret type' type'
-  return $ inject ++ [AssignFn o name nType res]
+    case (firstSig, head name) of
+      (_, "args") -> throwError $ AException o ("Function argument can't be reassign in: " ++ show a)
+      (Just (SVar o n _ t s), s') ->
+        if s == s'
+          then check t ret type' VBlank
+          else add type'
+      (Nothing, "") -> add type'
+      x -> error $ show x ++ " Dis to kurwa elo"
+--  trace ("ASSIGN to" ++ show name ++ " = type " ++ show nType) $ return ()
+  return $ inject ++ [AssignFn o (scaleNameWithScope name) nType res]
   where
+    add type' = addField (SVar o (last name) Nothing type' "") >> check type' ret type' type'
     check wantedDecl wanted actual res
       | wantedDecl == actual && (wanted == actual || wanted == VAuto) = return res
-      | otherwise = throw $ TypesMismatch (show wanted ++ " =/= " ++ show actual)
+      | otherwise = throwError $ AException o ("Types don't match. You tried to assign " ++ show actual  ++ " when should be " ++ show wanted ++ ".\n" ++ show actual ++ " =/= " ++ show wanted)
 
 checkNativeAssign :: Stmt -> AExprAnalyzer -> Analyzer' Stmt
 checkNativeAssign s@(NativeAssignDeclaration o p n t) analyzer = do
-  addField $ SVar o n (Just p) t
+  addField $ SVar o n (Just p) t ""
   return s
 
---      TODO change this shit when VGenClass will be deleted
-checkAssign :: RawAssign -> RawAssignConst a -> AExprAnalyzer -> Analyzer' a
---TODO
-checkAssign (o, name, ret, aExpr) wrapper analyzer = do
+
+
+checkAssign :: Stmt -> AExprAnalyzer -> Analyzer' Stmt
+checkAssign (Assign o name ret aExpr) analyzer = do
   (type', inject, res) <- analyzer aExpr
   gen <- getClassGens
   nType <- flip markGen gen <$> checkType ret type'
-  addField $ SVar o (head name) Nothing ret
-  return $ wrapper o name nType res
+  addField $ SVar o (last name) Nothing nType "g"
+  let mergedNameWithScope = (scaleNameWithScope ("g" : name))
+  return $ Assign o mergedNameWithScope nType res
   where
     checkType a b
       | b == VBlank = return a
       | a == b || a == VAuto = return b
-      | otherwise = throw $ TypesMismatch (show a ++ " =3/= " ++ show b)
+      | otherwise = throwError $ AException o ("Types don't match. You tried to assign " ++ show b  ++ " when should be " ++ show a ++ ".\n" ++ show a ++ " =/= " ++ show b)
+
 
 checkWhile :: FunctionStmt -> FnStmtAnalyzer -> BExprAnalyzer -> Analyzer' [FunctionStmt]
 checkWhile t@(WhileFn o cond block) analyzer bAnalyzer = do
@@ -183,7 +175,7 @@ checkFor (ForFn o (Var n _ _ _) range body) fnAnalyzer aAnalyzer = do
   (t, _, range') <- aAnalyzer range
   body' <- concat <$> mapM fnAnalyzer body
   removeScope
-  return [ForFn o (TypedVar n VInt Nothing Nothing) range' body']
+  return [ForFn o (TypedVar (VName n) VInt Nothing Nothing) range' body']
 
 -- | CLASS
 --  TODO add aExpr analyzing (range and var)
@@ -209,6 +201,21 @@ checkNativeClass c@(NativeClass o p name cast body) analyzer = do
   cScope <- removeScope
   addField (SClass o name (Just p) cast cScope)
   return $ NativeClass o p name cast body'
+
+checkClassAssign :: ClassStmt -> AExprAnalyzer -> Analyzer' ClassStmt
+checkClassAssign (ClassAssign o name ret aExpr) analyzer = do
+  (type', inject, res) <- analyzer aExpr
+  gen <- getClassGens
+  nType <- flip markGen gen <$> checkType ret type'
+  addField $ SVar o (last name) Nothing ret "this"
+  let mergedNameWithScope = (scaleNameWithScope ("this" : name))
+  return $ ClassAssign o mergedNameWithScope nType res
+  where
+    checkType a b
+      | b == VBlank = return a
+      | a == b || a == VAuto = return b
+      | otherwise = throwError $ AException o ("Types don't match. You tried to assign " ++ show b  ++ " when should be " ++ show a ++ ".\n" ++ show a ++ " =/= " ++ show b)
+
 
 -- | OTHER EXPR
 checkOtherExpr :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]

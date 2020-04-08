@@ -4,4 +4,4 @@ import           Test.Hspec
 import           Test.Hspec.Megaparsec
 
 main = do
-  describe "t" $ it "can parser int" $ shouldBe 1 1
+  describe "" $ it "can parser int" $ shouldBe 1 1

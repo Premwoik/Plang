@@ -1,29 +1,63 @@
 import Core
+//import Core.Native.List
 //import Core.Map
 
-mymax a: int, b: int -> int do
+myMax a: int, b: int -> int do
   ret
       if a > b then
         a
       else
         b
 
+b = 12.3
+
+testFunction c: float -> void do
+  b = b + 12.3
+  c = c
+  myC = g|b + args|c
+  pass
+
+funcThatReceiveClass c: ThisTest<float> -> void do
+  pass
+
+
 Main -> int do
   Serial.begin(9600)
   pinMode(13, OUTPUT)
-  myList = List<int>()
+  myList = ArrayList<int>()
   i = 0
   while true do
+    sleep(1000)
     printMemStats()
     myList.add(10)
-    if i > 100 then
+    if i > 100 and true then
       myList.clear()
       Serial.println(F("Wyczyszczono liste!"))
 
     classTest = ThisTest<float>(13.0, 100)
     z = classTest.getA()
     Serial.println(z)
+    i = i + 20
     Serial.println(classTest.getA())
+    Serial.println(i)
+
+    bClass = classTest
+    bClass = classTest
+    bClass = classTest
+    bClass = classTest
+    println("sees")
+    print("HEHEH")
+    mList = [ThisTest<float>| ThisTest<float>(13.0, 100), ThisTest<float>(13.0, 100)]
+//    mList[12]
+//    [mList|0] = 123
+//    [mList|] = 123
+    result = mList.get(1)
+    funcThatReceiveClass(classTest)
+
+  intList = [int| 20]
+  lTest = ArrayList<ThisTest<float>>()
+  lTest.add(ThisTest<float>(10.1, 100))
+  lTest.get(1)
   ret 0
 
 

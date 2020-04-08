@@ -1,0 +1,8 @@
+class Obj<T> do
+
+  Obj do
+    pass
+
+testFunc a: const Obj<int> -> void do
+  pass
+

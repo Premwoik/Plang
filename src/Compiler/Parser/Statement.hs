@@ -33,9 +33,9 @@ functionArgsParser = sepBy1 p sep
       type' <-
         optional $ do
           void (symbol ":")
-          matchType <$> pItem
+          optional (symbol "const" <|> symbol "copy")
+          typeParser
       return $ FunArg (fromMaybe VAuto type') n
-
 functionParser :: Parser FunctionStmt -> Parser Stmt
 functionParser functionStmt = lexeme (L.indentBlock scn p)
   where
@@ -46,7 +46,7 @@ functionParser functionStmt = lexeme (L.indentBlock scn p)
       type' <-
         optional $ do
           void (symbol "->")
-          matchType <$> pItem
+          typeParser
       void (symbolEnd "do")
       return (L.IndentSome Nothing (return . Function o header (fromMaybe VAuto type') args) functionStmt)
 
@@ -61,7 +61,8 @@ nativeFunctionParser =
     type' <-
       optional $ do
         void (symbol "->")
-        matchType <$> pItem
+        typeParser
+--        matchType <$> pItem
     return $ NativeFunction o path header (fromMaybe VAuto type') args
 
 returnParser :: Parser AExpr -> Parser FunctionStmt
@@ -92,36 +93,18 @@ linkPathParser =
     name <- lexemeEnd stringLiteral
     return $ LinkPath o name
 
-data MoreAssign =
-  AssignString String (Maybe MoreAssign)
 
 assignParser :: Parser AExpr -> (Int -> [String] -> VarType -> AExpr -> a) -> Parser a
 assignParser aExpr wrapper =
   lexeme $ do
     o <- getOffset
-    var <- toList <$> more
+    var <- identifiers
     type' <-
       optional $ do
         void (symbol ":")
         typeParser
     void (symbol "=")
     wrapper o var (fromMaybe VAuto type') <$> aExpr
-  where
-    more :: Parser MoreAssign
-    more = do
-      n <- identifier
-      m <-
-        optional $ do
-          void (symbol ".")
-          more
-      return $ AssignString n m
-    toList (AssignString s (Just m)) = s : toList m
-    toList (AssignString s Nothing) = [s]
-    valId = AValueId <$> identifier
-    listId = do
-      n <- identifier
-      i <- numberChar
-      return $ AListId n (ALIndex i)
 
 defaultAssignParser :: Parser ClassStmt
 defaultAssignParser =
@@ -131,7 +114,7 @@ defaultAssignParser =
     type' <-
       do void (symbol ":")
          typeParser
-    return $ ClassAssign o [var] type' Nop
+    return $ ClassAssign o ["", var] type' Nop
 
 --classAssignParser :: Parser AExpr -> (Int -> String -> VarType -> AExpr -> a) -> Parser a
 --classAssignParser aExpr wrapper = do

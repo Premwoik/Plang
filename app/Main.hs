@@ -12,7 +12,7 @@ import           Compiler.Parser
 import           Compiler.Translator
 import Control.Monad.Writer(runWriterT)
 import Control.Monad.State(evalState, runState, runStateT)
-
+import Control.Monad.Reader(runReaderT)
 import Compiler.Analyzer.Type(emptyStorage)
 import qualified Compiler.Translator.Type as TT
 import Compiler.LexicalAnalyzer
@@ -22,61 +22,19 @@ import qualified Control.Exception as E
 import Data.Void(Void)
 import Debug.Trace
 import Compiler.Importer
-
+import Compiler
 
 main :: IO ()
 main = do
   let path = "res/test.mard"
-  p <- tryReadAndParseFile path
-  res <- importMain p
-  let ((a, w), s) = runState (runWriterT (analyze' res)) emptyStorage
-  print w
-  print a
-  let (a', w') = evalState (runWriterT (translate' a)) TT.emptyStorage
-  let res = concat a'
-  writeFile "res/out.h" res
-  return ()
+  res <- compile path 
+  print $ fst res
+  print $ snd res
+  writeFile "res/out.h" $ concat $ snd res
+ 
+--compile :: String -> IO ()
 
---main = do
---  let path = "res/test.mard"
---  let corePath = "res/Core.mard"
---  input <- T.pack <$> readFile path
---  inputCore <- T.pack <$> readFile corePath
---  let p = parse langParser path (T.append inputCore input)
---  case p of
-----    Right res -> translate res
---    Right res -> do
-----      print $ findAllDeclaredNames $ (\(AST x) -> x) res
---      let ((a, w), s) = runState (runWriterT (analyze res)) emptyStorage
---      print w
---      print a
---      let (a', w') = evalState (runWriterT (translate' a)) TT.emptyStorage
---      let res = concat a'
---      writeFile "res/out.h" res
---      return ()
---    Left err  -> putStrLn $ Err.errorBundlePretty err
---parseFile :: String -> IO _
---parseFile path = do
---  input <- T.pack <$> readFile path
---  case parse langParser path input of
-
-importOthers :: AST -> [String] -> IO (AST, [String])
-importOthers (AST []) _ = return (AST [], [])
-importOthers (AST s) imported = foldM aggregate acc (filter filterImport s)
-  where
-    aggregate :: (AST, [String]) -> Stmt -> IO (AST, [String])
-    aggregate (asts, paths) (Import _ path) = do
-      fileAst <-
-        if makePath path `elem` paths
-          then return (AST [])
-          else tryReadAndParseFile (makePath path)
-      (asts', paths') <- importOthers fileAst (makePath path : paths)
-      return (appendAST asts asts', paths')
-    acc = (AST s, imported)
-    makePath p = "res/" ++ intercalate "/" p ++ ".mard"
-    filterImport Import {} = True
-    filterImport _ = False
-    appendAST (AST all) (AST f) = AST $ f ++ all
+--translate
 
 newtype ParseException = ParseException (ParseErrorBundle T.Text Void) deriving (Show)
 instance E.Exception ParseException

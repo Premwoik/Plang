@@ -38,21 +38,20 @@ stmt'
   <|> nativeAssignDeclParser
   <|> classParser classStmt
   <|> functionParser functionStmt
---  <|> CasualExpr <$> aExpr
 
 functionStmt :: Parser FunctionStmt
 functionStmt
   = returnParser aExpr
   <|> passStmt
   <|> whileStmt bExpr WhileFn functionStmt
-  <|> forStmt aExpr ForFn functionStmt
+  <|> forStmt aExprExtended ForFn functionStmt
   <|> fullIfFuncParser bExpr functionStmt
   <|> try (assignParser aExprExtended AssignFn)
   <|> otherStmt
 
 otherStmt = do
   o <- getOffset
-  OtherFn o <$> aExpr
+  OtherFn o <$> aExprExtended
 
 classStmt :: Parser ClassStmt
 classStmt
@@ -89,7 +88,7 @@ aTerm :: Parser AExpr
 aTerm
   = bracketParser aExpr
   <|> try (varParser aExpr)
-  <|> try (ListVar <$> listParser aExpr)
+  <|> try (listParser aExpr)
   <|> rangeParser aExpr
   <|> try (FloatConst <$> float')
   <|> IntConst <$> integer
@@ -102,8 +101,9 @@ aTerm
 aTermExtended :: Parser AExpr
 aTermExtended
   = bracketParser aExpr
-  <|> try (varExtendedParser aExpr)
-  <|> try (ListVar <$> listParser aExpr)
+  <|> try (scopeMarkParser aExprExtended)
+  <|> try (varExtendedParser aExprExtended)
+  <|> try (listParser aExprExtended)
   <|> rangeParser aExpr
   <|> try (FloatConst <$> float')
   <|> IntConst <$> integer
