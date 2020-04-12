@@ -1,5 +1,5 @@
 link_path "ArrayList.h"
-import Core.Native.Maybe
+import Core.MyFile
 
 native class "ArrayList" ArrayList<T> do
     def ArrayList

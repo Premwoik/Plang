@@ -24,47 +24,60 @@ import Data.Maybe(fromJust)
 
 
 type Counter = Map.Map String Int
+type Memory = Map.Map String [String]
 snd3 (_, y, _) = y
 trd (_, _, z) = z
 
 importMain :: AST -> IO [Imported]
-importMain main = do 
-  res <- importAll 1 [] "main" (Map.fromList [("main", 0)]) main 
+importMain main = do
+  res <- importAll [] "main" Map.empty main
   let files = snd3 res
-  let order = map fst . sortBy (\(_, v1) (_, v2) -> compare v2 v1) . Map.toList $ trd res
+  let order = map fst . sortBy (\(_, v1) (_, v2) -> compare v2 v1) . Map.toList . countOccurrence $ trd res
+  trace (show (order)) $ return ()
   return $ map (\n -> fromJust (find (\(IFile n' _) -> n == n') files)) order
 
-importAll :: Int -> [String] -> String -> Counter -> AST -> IO ([String], [Imported], Counter)
-importAll depth loaded n counter main = do
+countOccurrence :: Memory -> Counter
+countOccurrence mem = count startKey 1 (Map.fromList [("main", 0)])
+  where
+    startKey = fromJust . Map.lookup "main" $ mem
+    get k = fromJust . Map.lookup k $ mem
+    count i depth c = foldl (\c k -> count (get k) (depth + 1) (updateCounter k depth c)) c i
+    updateCounter k v c= case Map.lookup k c of
+      Just v' -> if v' < v then Map.insert k v c else c
+      Nothing -> Map.insert k v c
+    
+importAll :: [String] -> String -> Memory -> AST -> IO ([String], [Imported], Memory)
+importAll loaded name mem main = do
   let allImports = filterImport main
-  let counter' = foldl (\acc i -> Map.insert i depth acc) counter . map getImportName $ allImports
+  let mem' = Map.insert name (map getImportName allImports) mem
   let notLoadedImports = filterNotLoaded loaded allImports
   let paths = map getImportPath notLoadedImports
   let names = map getImportName notLoadedImports
   let loaded' = names ++ loaded
   asts <- mapM tryReadAndParseFile paths
-  res <-
-    foldM (\(ld, res, c) (n', a) -> (\(ld', res', c') -> (ld', res ++ res', c')) <$> importAll (depth+1) ld n' c a) (loaded', [], counter') $
-    zip names asts
+  res <- foldM (\(ld, res, c) (n', a) -> (\(ld', res', c') -> (ld', res ++ res', c')) <$> importAll ld n' c a) (loaded', [], mem') $ zip names asts
   let (fLoaded, files, counter'') = res
-  return (fLoaded, IFile n main : files, counter'')
+  return (fLoaded, IFile name main : files, counter'')
+
 
 --  zipWithM importAll names asts
 filterNotLoaded :: [String] -> [Stmt] -> [Stmt]
 filterNotLoaded loaded = filter (\x -> getImportName x `notElem` loaded)
 
+getImportAlias:: Stmt -> String
+getImportAlias (Import _ alias _) = alias
+
 getImportName :: Stmt -> String
-getImportName (Import _ path) = intercalate "" path
+getImportName (Import _ _ path) = intercalate "" path
 
 getImportPath :: Stmt -> String
-getImportPath (Import _ path) = "res/" ++ intercalate "/" path ++ ".mard"
+getImportPath (Import _ _ path) = "res/" ++ intercalate "/" path ++ ".mard"
 
 filterImport :: AST -> [Stmt]
 filterImport (AST stmt) = filter cond stmt
   where
-    cond (Import o path) = True
+    cond Import {}       = True
     cond _               = False
-
 
 tryReadAndParseFile :: String -> IO AST
 tryReadAndParseFile path = do
@@ -74,3 +87,4 @@ tryReadAndParseFile path = do
     Left e -> do
       putStrLn $ Err.errorBundlePretty e
       error ""
+

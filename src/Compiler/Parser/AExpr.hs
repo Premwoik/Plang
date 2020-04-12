@@ -16,26 +16,29 @@ import           Debug.Trace
 
 bracketParser :: Parser AExpr -> Parser AExpr
 bracketParser aExpr = do
+  o <- getOffset
   p <- parens aExpr
-  return $ ABracket p
+  return $ ABracket o p
 
 anonymousFunctionParser :: Parser [FunArg] -> Parser AExpr -> Parser AExpr
 anonymousFunctionParser functionArgsParser aExpr = lexeme p
   where
     p = do
+      o <- getOffset
       void (symbol "\\")
       args <- optional functionArgsParser
       void (symbol "->")
-      Fn True args <$> aExpr
+      Fn o True args <$> aExpr
 
 anonymousFunctionBlockParser :: Parser [FunArg] -> Parser FunctionStmt -> Parser AExpr
 anonymousFunctionBlockParser functionArgsParser functionStmt = blockMark $ lexeme $ L.indentBlock scn p
   where
     p = do
+      o <- getOffset
       void (symbol "\\")
       args <- optional functionArgsParser
       void (symbolEnd "->")
-      return (L.IndentMany Nothing (return . FnBlock args) functionStmt)
+      return (L.IndentMany Nothing (return . FnBlock o args) functionStmt)
 
 -- TODO as
 functionExecutionArgParser :: Parser AExpr -> Parser [AExpr]
@@ -46,17 +49,19 @@ functionExecutionArgParser aExpr = do
 --  returns empty list if there were no args to parse
 scopeMarkParser :: Parser AExpr -> Parser AExpr
 scopeMarkParser aExpr = do
+  o <- getOffset
   s <- identifier
   void (symbol "|")
   var <- varExtendedParser aExpr
-  return $ ScopeMark s var
+  return $ ScopeMark o s var
 
 varParser :: Parser AExpr -> Parser AExpr
 varParser aExpr = do
+  o <- getOffset
   fun <- identifier
   args <- optional (parens (functionExecutionArgParser aExpr))
   m <- optional more'
-  return $ Var fun [] args m
+  return $ Var o fun [] args m
   where
     more' = do
       void (symbol ".")
@@ -65,11 +70,12 @@ varParser aExpr = do
 --  trace (show fun) $ return ()
 varExtendedParser :: Parser AExpr -> Parser AExpr
 varExtendedParser aExpr = do
+  o <- getOffset
   fun <- identifier
   gen <- fromMaybe [] <$> optional generics'
   args <- optional (parens (functionExecutionArgParser aExpr))
   m <- optional more'
-  return $ Var fun gen args m
+  return $ Var o fun gen args m
   where
     more' = do
       void (symbol ".")
@@ -102,16 +108,17 @@ elseStmtParser functionStmt = L.indentBlock scn p
 
 fullIfStmt :: Parser BExpr -> Parser FunctionStmt -> Parser AExpr
 fullIfStmt bExpr functionStmt = do
+  o <- getOffset
   if' <- ifStmtParser bExpr functionStmt
   elif' <- Text.Megaparsec.many (elifStmtParser bExpr functionStmt)
   else' <- elseStmtParser functionStmt
-  return . If $ if' : elif' ++ [else']
+  return . If o $ if' : elif' ++ [else']
 
 guardedVar :: Parser AExpr -> Parser AExpr
 guardedVar expr = do
   uExpr <- expr
   case uExpr of
-    Var n g e m -> return $ Var n g e m
+    v@Var {} -> return v
     _           -> fail "aExpr should be Var here"
 
 listParser :: Parser AExpr -> Parser AExpr
@@ -131,6 +138,22 @@ rangeParser :: Parser AExpr -> Parser AExpr
 rangeParser aExpr = between (symbol "[") (symbol "]") p
   where
     p = do
+      o <- getOffset
       start <- aExpr
       void (symbol "..")
-      Range start <$> aExpr
+      Range o start <$> aExpr
+
+intParser :: Parser AExpr
+intParser = do
+  o <- getOffset
+  IntConst o <$> integer
+
+floatParser :: Parser AExpr
+floatParser = do
+  o<- getOffset
+  FloatConst o <$> float'
+
+stringParser :: Parser AExpr
+stringParser = do
+  o <- getOffset
+  StringVal o <$> stringLiteral

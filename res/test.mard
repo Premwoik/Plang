@@ -1,6 +1,6 @@
 import Core
-//import Core.Native.List
-//import Core.Map
+import Core.Native.List
+import Core.MyFile as my
 
 myMax a: int, b: int -> int do
   ret
@@ -17,9 +17,21 @@ testFunction c: float -> void do
   myC = g|b + args|c
   pass
 
+funcThatReceiveClass -> void do
+  pass
+
+getNumber -> void do
+  pass
+
 funcThatReceiveClass c: ThisTest<float> -> void do
   pass
 
+class MyClass do
+  MyClass do
+    pass
+
+  getNumber -> void do
+    g|getNumber()
 
 Main -> int do
   Serial.begin(9600)
@@ -53,11 +65,13 @@ Main -> int do
 //    [mList|] = 123
     result = mList.get(1)
     funcThatReceiveClass(classTest)
+//    funcThatReceiveClass(100)
 
   intList = [int| 20]
   lTest = ArrayList<ThisTest<float>>()
   lTest.add(ThisTest<float>(10.1, 100))
   lTest.get(1)
+  print(my|myFileFn())
   ret 0
 
 

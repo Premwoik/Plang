@@ -5,7 +5,7 @@ link_path "MemoryInfo.h"
 
 import Core.Native.List
 //import Core.Maybe
-
+//
 //FUNCTIONS
 
 native "" pinMode pin: int, mode: int -> void
@@ -108,7 +108,12 @@ native class "HardwareSerial" HardwareSerial do
 native var "Serial" Serial: HardwareSerial
 
 native "Serial.println" println t: string -> void
+native "Serial.println" println t: int -> void
+native "Serial.println" println t: float -> void
+
 native "Serial.print" print t: string -> void
+native "Serial.print" print t: int -> void
+native "Serial.print" print t: float -> void
 
 native "getFragmentation" getFragmentation -> float
 

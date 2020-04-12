@@ -20,7 +20,7 @@ data Imported =
 
 data Stmt
   = Function Int String VarType [FunArg] [FunctionStmt]
-  | Import Int [String]
+  | Import Int String [String]
   | ClassExpr Int String [String] [ClassStmt]
   | Skip Int
   | Assign Int [String] VarType AExpr
@@ -83,26 +83,28 @@ data RBinOp
 
 data AExpr
 -- | Var name generics (func args/if is a func) more
-  = Var String [VarType] (Maybe [AExpr]) (Maybe AExpr)
-  | ScopeMark String AExpr
-  | ABracket AExpr
-  | IntConst Integer
-  | FloatConst Float
-  | ListVar Int [AExpr] (Maybe VarType)
-  | StringVal String
-  | Range AExpr AExpr
-  | Fn Bool (Maybe [FunArg]) AExpr
-  | FnBlock (Maybe [FunArg]) [FunctionStmt]
+  = Var Offset String [VarType] (Maybe [AExpr]) (Maybe AExpr)
+  | ScopeMark Offset String AExpr
+  | ABracket Offset AExpr
+  | IntConst Offset Integer
+  | FloatConst Offset Float
+  | ListVar Offset [AExpr] (Maybe VarType)
+  | StringVal Offset String
+  | Range Offset AExpr AExpr
+  | Fn Offset Bool (Maybe [FunArg]) AExpr
+  | FnBlock Offset (Maybe [FunArg]) [FunctionStmt]
+  | If Offset [(BExpr, [FunctionStmt])]
+  
   | Neg AExpr
   | ABinary ABinOp AExpr AExpr
   | ABool BExpr
-  | If [(BExpr, [FunctionStmt])]
  -- | Only for translation
   | TypedVar VarName VarType (Maybe [AExpr]) (Maybe AExpr)
   | TypedListVar [AExpr] VarType
   | Nop
   deriving (Show, Eq)
 
+type Offset = Int
 
 data VarName 
 -- | VName name

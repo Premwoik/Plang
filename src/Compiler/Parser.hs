@@ -29,7 +29,7 @@ langParser = AST <$> (some stmt' <* eof)
 
 stmt' :: Parser Stmt
 stmt'
-  = importParser
+  =  importParser
   <|> linkPathParser
   <|> skipStmt
   <|> try (assignParser aExprExtended Assign)
@@ -90,10 +90,9 @@ aTerm
   <|> try (varParser aExpr)
   <|> try (listParser aExpr)
   <|> rangeParser aExpr
-  <|> try (FloatConst <$> float')
-  <|> IntConst <$> integer
---  <|> ABool <$> bExpr
-  <|> StringVal <$> stringLiteral
+  <|> try floatParser
+  <|> intParser
+  <|> stringParser
   <|> anonymousFunctionBlockParser functionArgsParser functionStmt
   <|> anonymousFunctionParser functionArgsParser aExpr
   <|> fullIfStmt bExpr functionStmt
@@ -105,9 +104,9 @@ aTermExtended
   <|> try (varExtendedParser aExprExtended)
   <|> try (listParser aExprExtended)
   <|> rangeParser aExpr
-  <|> try (FloatConst <$> float')
-  <|> IntConst <$> integer
-  <|> StringVal <$> stringLiteral
+  <|> try floatParser
+  <|> intParser
+  <|> stringParser
   <|> anonymousFunctionBlockParser functionArgsParser functionStmt
   <|> anonymousFunctionParser functionArgsParser aExpr
   <|> fullIfStmt bExpr functionStmt

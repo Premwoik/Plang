@@ -23,7 +23,12 @@ importParser --dbg "import" $
     p = do
       o <- getOffset
       void (symbol "import")
-      Import o <$> lexeme (sepBy1 identifier (symbol "."))
+      n <- lexeme (sepBy1 identifier (symbol "."))
+      as <- optional $ do
+            void (symbol "as")
+            identifier       
+      return $ Import o (fromMaybe [] as) n 
+
 
 functionArgsParser :: Parser [FunArg]
 functionArgsParser = sepBy1 p sep

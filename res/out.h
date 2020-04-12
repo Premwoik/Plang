@@ -6,8 +6,15 @@
 #include "Maybe.h"
 namespace CoreNativeMaybe{
 }
-namespace CoreNativeList{
+namespace CoreMyFile{
 using namespace CoreNativeMaybe;
+String myFileFn();
+String myFileFn(){
+   return "ala";
+}
+}
+namespace CoreNativeList{
+using namespace CoreMyFile;
 }
 namespace Core{
 using namespace CoreNativeList;
@@ -42,8 +49,11 @@ public:
 };
 }
 using namespace Core;
+using namespace CoreNativeList;
 int myMax(int args___a, int args___b);
 void testFunction(float args___c);
+void funcThatReceiveClass();
+void getNumber();
 void funcThatReceiveClass(ThisTest<float>& args___c);
 int Main();
 int myMax(int args___a, int args___b){
@@ -62,8 +72,20 @@ void testFunction(float args___c){
    float c = args___c;
    float myC = g___b + args___c;
    }
+void funcThatReceiveClass(){
+   }
+void getNumber(){
+   }
 void funcThatReceiveClass(ThisTest<float>& args___c){
    }
+class MyClass{
+public:
+   MyClass(){
+         }
+   void getNumber(){
+      ::getNumber()      ;
+   }
+};
 int Main(){
    Serial.begin(9600)   ;
    pinMode(13, OUTPUT)   ;
@@ -97,5 +119,6 @@ int Main(){
    ArrayList<shared_ptr<ThisTest<float>>> lTest = ArrayList<shared_ptr<ThisTest<float>>>();
    lTest.add(shared_ptr<ThisTest<float>>(new ThisTest<float>(10.1, 100)))   ;
    lTest.get(1)   ;
+   Serial.print(CoreMyFile::myFileFn())   ;
    return 0;
 }

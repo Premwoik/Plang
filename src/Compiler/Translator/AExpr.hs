@@ -11,7 +11,7 @@ aExprNegTranslator (Neg a) = do
   a' <- injectTranslator aExprTranslatorGetter a
   return . concat $ [["(-"], a', [")"]]
 
-bracketTranslator (ABracket aExpr) = do
+bracketTranslator (ABracket _ aExpr) = do
   res <- injectTranslator aExprTranslatorGetter aExpr
   return ["(" ++ head res ++ ")"]
 
@@ -61,8 +61,8 @@ moreVarTranslator _ (Just e) = return . (\[x] -> '.' : x) <$> varTranslator e
 moreVarTranslator _ Nothing = return []
 
 scopeMarkTranslator :: AExpr -> Translator
-scopeMarkTranslator (ScopeMark sName (TypedVar n t a m)) = do
-  let newName = sName ++ "___" ++ unwrapVarName n
+scopeMarkTranslator (ScopeMark _ sName (TypedVar n t a m)) = do
+  trace ("SCOPE_TRANSLATOR " ++ sName ++ " | name: " ++ show n ++ " |> ") $ return ()
   injectTranslator aExprTranslatorGetter $ TypedVar n t a m
 
 listVarTranslator :: AExpr -> Translator

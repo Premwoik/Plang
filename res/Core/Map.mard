@@ -1,4 +1,4 @@
-import Core.Maybe
+import Core.Native.Maybe
 import Core.Native.List
 //class Pair<K, V> do
 //  k: K
@@ -18,7 +18,7 @@ import Core.Native.List
 
 
 class Map<K, V> do
-  storage = List<int>()
+  storage = ArrayList<int>()
 
   Map do
     pass

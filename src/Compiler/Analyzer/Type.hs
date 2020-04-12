@@ -9,7 +9,7 @@ import Control.Monad.Except
 import Control.Monad.Writer (WriterT)
 import Data.List
 import Data.Map (Map)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, fromJust)
 import Debug.Trace
 import Control.Monad.Identity(Identity)
 
@@ -35,6 +35,7 @@ data Storage =
     , rType :: VarType
     , cName :: String
     , fName :: String
+    , offsets :: [Int] 
     , varId :: Int
 --    , sName :: [String]
     }
@@ -42,8 +43,11 @@ data Storage =
 
 type Scopes = [Scope]
 
-data Scope =
-  Scope String [ScopeField]
+data Scope
+  -- | Scope alias fields
+  = Scope String [ScopeField]
+  -- | FScope alias fullName fields
+  | FScope String String [ScopeField]
   deriving (Show)
 
 data FileScopes =
@@ -61,7 +65,22 @@ data ScopeField
   | SGen String
   deriving (Show)
 
-emptyStorage = Storage [] [] VBlank "" "" 0
+emptyStorage = Storage [] [] VBlank "" "" [] 0
+
+addOffset :: Int -> Analyzer' ()
+addOffset o =
+  modify (\s -> s {offsets = o: offsets s})
+
+getOffset :: Analyzer' Int
+getOffset = head <$> gets offsets
+
+removeOffset :: Analyzer' Int
+removeOffset = do
+  o <- head <$> gets offsets
+  modify(\s -> s {offsets = tail (offsets s)})
+  return o
+  
+
 
 takeId :: Analyzer' Int
 takeId = do
@@ -91,6 +110,8 @@ scaleNameWithScope :: [String] -> [String]
 -- | TODO do something with this fucking shit that I created to test scopes
 --scaleNameWithScope ("this": xn) = "this->" : xn
 scaleNameWithScope ("" : xn) = xn
+scaleNameWithScope s@("::" : xn) = s
+scaleNameWithScope s@(_ :"::" : xn) = s
 scaleNameWithScope (x :"" : xn) = scaleNameWithScope $ x : xn
 scaleNameWithScope (s : n : xn) = (s ++ "___"  ++ n) : xn
 scaleNameWithScope [n] =  [n]
@@ -118,12 +139,23 @@ addField field = do
       | otherwise = Scope n (field : f)
 
 saveFile :: String -> Analyzer' ()
-saveFile n = modify (\s -> s {imports = FileScope n (scopes s) : imports s})
+saveFile n = do
+  g <- getGlobalScope
+  modify (\s -> s {imports = FileScope n [g] : imports s})
+  
 
-loadFiles :: [String] -> Analyzer' [ScopeField]
+loadFiles :: [(String, String)] -> Analyzer' ([ScopeField], Scopes)
 loadFiles names = do
+  let global = map fst . filter isGlobal $ names
+  let alias = filter (not . isGlobal) names
   i <- gets imports
-  concatMap (\(FileScope _ [Scope _ x]) -> x) . filter (\(FileScope n _) -> n `elem` names) <$> gets imports
+  let resGlobal = concatMap unwrapFields . filter (\(FileScope n _) -> n `elem` global) $ i
+  let resAlias =  map (\(n, a) -> FScope a n (unwrapFields (fromJust (find (\(FileScope n' _) -> n == n') i)))) alias
+  return (resGlobal, resAlias)
+  where
+    isGlobal (n, "") = True
+    isGlobal _ = False
+    unwrapFields (FileScope _ [Scope _ x]) = x
 
 setType :: VarType -> Analyzer' ()
 setType t = modify (\s -> s {rType = t})
@@ -139,6 +171,12 @@ getClassScope = do
 --  cl <- gets cName
   let cl = "this"
   find (\(Scope n _) -> n == cl) <$> gets scopes
+  
+getGlobalScope :: Analyzer' Scope
+getGlobalScope = do
+ let cl = "global"
+ fromJust . find (\(Scope n _) -> n == cl) <$> gets scopes
+
 
 getClassGens :: Analyzer' [String]
 getClassGens = do
@@ -165,11 +203,23 @@ updateField f (Scope n fs) = Scope n $ map (updater f) fs
 isInScope :: ScopeField -> Scope -> Bool
 isInScope field (Scope _ f) = any (cond field) f
   where
-    cond (SFunction o1 _ _ _ _) (SFunction o2 _ _ _ _) = o1 == o2
+    cond (SFunction o1 n1 _ _ _) (SFunction o2 n2 _ _ _) = o1 == o2 && n1 == n2
     cond (SVar o1 _ _ _ _) (SVar o2 _ _ _ _) = o1 == o2
     cond (SClass o1 _ _ _ _) (SClass o2 _ _ _ _) = o1 == o2
     cond _ _ = False
 
+
+isFunction :: ScopeField -> Bool
+isFunction SFunction {} = True
+isFunction _ = False
+
+isVar :: ScopeField -> Bool
+isVar SVar {} = True
+isVar _ = False
+
+isClass :: ScopeField -> Bool
+isClass SClass {} = True
+isClass _ = False
 
 instance Exception AnalyzerException
 

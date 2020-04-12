@@ -6,7 +6,8 @@ import           Data.List                (intercalate)
 import           Debug.Trace
 
 importTranslator :: Stmt -> Translator
-importTranslator (Import _ name) = return ["using namespace " ++ intercalate "" name ++ ";\n"]
+importTranslator (Import _ [] name) = return ["using namespace " ++ intercalate "" name ++ ";\n"]
+importTranslator (Import _ _ name) = return []
 
 linkPathTranslator :: Stmt -> Translator
 linkPathTranslator (LinkPath _ name) = addImport $ "#include \"" ++ name ++ "\"\n"
@@ -34,7 +35,7 @@ whileTranslator bExpr block trans = do
   return . concat $ [["while(" ++ head bExpr' ++ "){\n"], block', ["}\n"]]
 
 forTranslator :: AExpr -> AExpr -> [a] -> (a -> Translator) -> Translator
-forTranslator (TypedVar name type' Nothing Nothing) (Range a b) block trans = do
+forTranslator (TypedVar name type' Nothing Nothing) (Range _ a b) block trans = do
   let uName = unwrapVarName name
   a' <- injectTranslator aExprTranslatorGetter a
   b' <- injectTranslator aExprTranslatorGetter b

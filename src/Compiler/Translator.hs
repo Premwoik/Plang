@@ -98,11 +98,11 @@ aExprTranslator expr =
   case expr of
     e@TypedVar {} -> varTranslator e
     e@ScopeMark {} -> scopeMarkTranslator e 
-    Var a _ b c   -> varTranslator (TypedVar (VName a) VAuto b c)
+    Var _ a _ b c   -> varTranslator (TypedVar (VName a) VAuto b c)
     e@ABracket {} -> bracketTranslator e
-    IntConst i    -> return . return $ show i
-    FloatConst f  -> return . return $ show f
-    StringVal s   -> return . return $ show s
+    IntConst _ i    -> return . return $ show i
+    FloatConst _ f  -> return . return $ show f
+    StringVal _ s   -> return . return $ show s
     e@TypedListVar {}  -> listVarTranslator e
     e@Range {}    -> return ["\"TODO\""]
     e@Fn {}       -> return ["\"TODO\""]

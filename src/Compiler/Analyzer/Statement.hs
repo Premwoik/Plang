@@ -14,7 +14,7 @@ import Control.Monad.Except(throwError)
 
 checkImport :: Stmt -> Analyzer' Stmt
 -- TODO check if import path exist
-checkImport t@(Import _ _) = return t
+checkImport t@(Import _ _ _) = return t
 
 checkLinkPath :: Stmt -> Analyzer' Stmt
 -- TODO check if import path exist
@@ -24,6 +24,7 @@ checkFunction :: Stmt -> FnStmtAnalyzer -> Analyzer' Stmt
 checkFunction f@(Function o n t a body) bodyAnalyzer = do
   res <- checkFunction' (o, n, t, a, body) Function bodyAnalyzer
   addField $ SFunction o n Nothing t a
+  checkFunctionUniqueness o ["", n] t a
   return res 
 
 checkMethod :: ClassStmt -> FnStmtAnalyzer -> Analyzer' ClassStmt
@@ -35,6 +36,7 @@ checkMethod m@(Method o n t a body) bodyAnalyzer = do
   let nArgs = markGenInArgs gens a'
   className <- gets cName
   addField $ SFunction o' n' Nothing nType nArgs
+  checkFunctionUniqueness o' ["this", n'] nType nArgs
   return $
     if className == n
       then Constructor o' n' nArgs body'
@@ -170,7 +172,7 @@ checkIfFunction t@(IfFn o ifs) analyzer bExprAnalyzer = do
 
 checkFor :: FunctionStmt -> FnStmtAnalyzer -> AExprAnalyzer -> Analyzer' [FunctionStmt]
 -- TODO
-checkFor (ForFn o (Var n _ _ _) range body) fnAnalyzer aAnalyzer = do
+checkFor (ForFn o (Var _ n _ _ _) range body) fnAnalyzer aAnalyzer = do
   addScope "for"
   (t, _, range') <- aAnalyzer range
   body' <- concat <$> mapM fnAnalyzer body

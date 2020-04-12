@@ -10,11 +10,13 @@ import           Control.Monad               (forM)
 import           Control.Monad.State         (State, get, gets, modify, put)
 import           Control.Monad.Writer        (WriterT, tell)
 import           Data.Maybe                  (fromMaybe)
+import Debug.Trace
 
 import qualified          Compiler.Importer as Im
 
 analyze' :: [Imported] -> Analyzer' [Imported]
-analyze' a =
+analyze' a = do
+  trace (show (map (\(IFile n _) -> n) a)) $ return ()
   forM a $ \(IFile n ast) -> do
     res <- analyze ast
     saveFile n
@@ -22,9 +24,13 @@ analyze' a =
 
 analyze :: AST -> Analyzer' AST
 analyze (AST stmts) = do
-  fields <- loadFiles . map Im.getImportName . Im.filterImport $ AST stmts
-  let globalScope = Scope "global" $ catalogueDecl (AST stmts) ++ fields
-  modify (\storage -> storage {scopes = [globalScope]})
+  fields <- loadFiles . map (\i -> (Im.getImportName i, Im.getImportAlias i)) . Im.filterImport $ AST stmts
+  let (globalFields, fileScopes) = fields
+  let globalScope = Scope "global" $ catalogueDecl (AST stmts)
+  let importScope = Scope "import" globalFields
+  modify (\storage -> storage {scopes = globalScope : importScope : fileScopes})
+  s <- gets scopes
+  trace (show s) $ return ()
   stmts' <- mapM statementAnalyzer stmts
   return (AST stmts')
 
