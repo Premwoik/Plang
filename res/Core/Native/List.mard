@@ -6,6 +6,7 @@ native class "ArrayList" ArrayList<T> do
     def ArrayList arr: auto, size: int, maxSize: int
     def get index: int -> T
     def add elem: T -> void
+    def set elem: T, index: int -> void
     def clear -> void
     def size -> int
 //

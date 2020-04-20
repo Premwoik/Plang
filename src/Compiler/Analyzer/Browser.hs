@@ -92,7 +92,12 @@ getScope :: String -> Scopes -> Maybe Scope
 getScope name = L.find (\s -> name == unwrapName s)
 
 ----    MATCH
-checkFunctionUniqueness offset name t args = do
+checkFunctionUniqueness' o name t args = do
+  mod <- gets moduleName
+  checkFunctionUniqueness (FileInfo o mod)  name t args
+
+
+checkFunctionUniqueness info name t args = do
   fns <- find' name
   noVarWithSameName fns
   allReturnTheSame fns
@@ -101,22 +106,22 @@ checkFunctionUniqueness offset name t args = do
     noVarWithSameName fns =
       if all isFunction fns
         then return ()
-        else throwError $ AException offset ("There exists a variable with same name - " ++ show name)
+        else throwError $ AException (fOffset info) ("There exists a variable with same name - " ++ show name)
     allReturnTheSame fns =
       if all (\(SFunction o n p t' a) -> t == t') fns
         then return ()
         else throwError $
              AException
-               offset
+               (fOffset info)
                ("Not each function with same name return the same type. " ++
                 show fns ++ "\nAll above declarations should return: " ++ show t)
     noSameArguments fns =
       if all (\g -> length g == 1) .
          group .
-         map (\(SFunction _ _ _ _ a) -> map (\(FunArg t _) -> t) a) . filter (\(SFunction o _ _ _ _) -> o <= offset) $
+         map (\(SFunction _ _ _ _ a) -> map (\(FunArg t _) -> t) a) . filter (\(SFunction i _ _ _ _) -> i <= info) $
          fns
         then return ()
-        else throwError $ AException offset ("The same function just exists!\n" ++ show fns)
+        else throwError $ AException (fOffset info) ("The same function just exists!\n" ++ show fns)
 
 maybeArgsMatch :: Maybe [AExpr] -> [VarType] -> [ScopeField] -> Bool
 maybeArgsMatch (Just args) gen s = any (argsMatch prepareArgs gen) s
@@ -133,8 +138,11 @@ argsMatch t gen (SClass _ n _ _ (Scope _ s)) = any match s
     match _                         = False
 
 argsMatch' :: [VarType] -> [FunArg] -> Bool
-argsMatch' t args = (length t == length args) && all (\(w, FunArg ot _) -> w == ot) (zip t args)
-
+argsMatch' t args = (length t == length args) && all match (zip t args)
+  where
+    match (VClass "ArrayList" [t] _, FunArg (VPointer t2 NativePtr) _) = t == t2
+    match (w, FunArg ot _)      = w == ot
+    
 constructorArgsMatch :: [VarType] -> [FunArg] -> Bool
 constructorArgsMatch t args = (length t == length args) && all match (zip t args)
   where

@@ -41,10 +41,6 @@ anonymousFunctionBlockParser functionArgsParser functionStmt = blockMark $ lexem
       return (L.IndentMany Nothing (return . FnBlock o args) functionStmt)
 
 -- TODO as
-functionExecutionArgParser :: Parser AExpr -> Parser [AExpr]
-functionExecutionArgParser aExpr = do
-  v <- optional $ sepBy1 aExpr sep
-  return $ fromMaybe [] v
 
 --  returns empty list if there were no args to parse
 scopeMarkParser :: Parser AExpr -> Parser AExpr
@@ -67,6 +63,30 @@ varParser aExpr = do
       void (symbol ".")
       varParser aExpr
 
+varLeftAssignParser :: Parser AExpr -> Parser AExpr
+varLeftAssignParser aExpr = do
+  o <- getOffset
+  fun <- identifier
+  gen <- fromMaybe [] <$> optional generics'
+  args <- optional (parens (functionExecutionArgParser aExpr))
+  accessor <- optional accParser
+  accO <- getOffset
+  m <- optional more'
+  return $ case (accessor, m) of
+    (Just a, Just {}) ->
+      Var o fun gen args (Just (Var accO "get" [] (Just a) m))
+    (Just a, Nothing) ->
+      Var o fun gen args (Just (Var accO "set" [] (Just a) m))
+    (Nothing, _) -> 
+      Var o fun gen args m
+  where
+    accParser = 
+      between (symbol "[") (symbol "]") (functionExecutionArgParser aExpr)
+    more' = do
+      void (symbol ".")
+      varParser aExpr
+
+
 --  trace (show fun) $ return ()
 varExtendedParser :: Parser AExpr -> Parser AExpr
 varExtendedParser aExpr = do
@@ -74,12 +94,20 @@ varExtendedParser aExpr = do
   fun <- identifier
   gen <- fromMaybe [] <$> optional generics'
   args <- optional (parens (functionExecutionArgParser aExpr))
+  accessor <- optional accParser
   m <- optional more'
-  return $ Var o fun gen args m
+  return $ case accessor of
+    Just a ->
+      Var o fun gen args (Just (Var o "get" [] (Just a) m))
+    Nothing -> 
+      Var o fun gen args m
   where
+    accParser = 
+      between (symbol "[") (symbol "]") (functionExecutionArgParser aExpr)
     more' = do
       void (symbol ".")
       varParser aExpr
+
 
 ifStmtParser :: Parser BExpr -> Parser FunctionStmt -> Parser Cond
 ifStmtParser bExpr functionStmt = lexeme $ L.indentBlock scn p
@@ -140,8 +168,11 @@ rangeParser aExpr = between (symbol "[") (symbol "]") p
     p = do
       o <- getOffset
       start <- aExpr
+      step <- optional $ do
+        void (symbol ",")
+        aExpr
       void (symbol "..")
-      Range o start <$> aExpr
+      Range o step start <$> aExpr
 
 intParser :: Parser AExpr
 intParser = do

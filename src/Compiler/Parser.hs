@@ -29,10 +29,11 @@ langParser = AST <$> (some stmt' <* eof)
 
 stmt' :: Parser Stmt
 stmt'
-  =  importParser
+  = moduleParser 
+  <|> importParser
   <|> linkPathParser
   <|> skipStmt
-  <|> try (assignParser aExprExtended Assign)
+  <|> try (assignParser varLeftAssignParser aExprExtended Assign)
   <|> nativeClassParser classStmt
   <|> try nativeFunctionParser
   <|> nativeAssignDeclParser
@@ -41,13 +42,17 @@ stmt'
 
 functionStmt :: Parser FunctionStmt
 functionStmt
-  = returnParser aExpr
+  = returnParser aExprExtended
   <|> passStmt
   <|> whileStmt bExpr WhileFn functionStmt
   <|> forStmt aExprExtended ForFn functionStmt
   <|> fullIfFuncParser bExpr functionStmt
-  <|> try (assignParser aExprExtended AssignFn)
+  <|> try (assignParser leftParser aExprExtended AssignFn)
   <|> otherStmt
+
+leftParser x 
+  = try ((scopeMarkParser . varLeftAssignParser)  x)
+  <|> varLeftAssignParser x
 
 otherStmt = do
   o <- getOffset
@@ -55,7 +60,7 @@ otherStmt = do
 
 classStmt :: Parser ClassStmt
 classStmt
-  = try (assignParser aExprExtended ClassAssign)
+  = try (assignParser varLeftAssignParser aExprExtended ClassAssign)
   <|> try defaultAssignParser
   <|> methodDeclarationParser
   <|> ((\(Function o a b c d) -> Method o a b c d) <$> functionParser functionStmt)
@@ -99,7 +104,7 @@ aTerm
   
 aTermExtended :: Parser AExpr
 aTermExtended
-  = bracketParser aExpr
+  = bracketParser aExprExtended
   <|> try (scopeMarkParser aExprExtended)
   <|> try (varExtendedParser aExprExtended)
   <|> try (listParser aExprExtended)

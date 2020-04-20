@@ -1,11 +1,13 @@
+module Core where
+
+import Core.Native.List
+
 link_path "Arduino.h"
 link_path "unique_ptr.h"
 link_path "ArrayList.h"
 link_path "MemoryInfo.h"
+link_path "Core.h"
 
-import Core.Native.List
-//import Core.Maybe
-//
 //FUNCTIONS
 
 native "" pinMode pin: int, mode: int -> void
@@ -117,11 +119,32 @@ native "Serial.print" print t: float -> void
 
 native "getFragmentation" getFragmentation -> float
 
+native "getPointer" getPointer -> cptr int
+native "needPointer" needPointer p: cptr int -> void
+
 printMemStats -> void do
    fragmentation: float = getFragmentation()
    Serial.print(F("Fragmentation level: "))
    Serial.print(fragmentation)
    Serial.println("%")
+
+class range do
+  start = 0
+  end = 0
+  step = 1
+
+  range start: int, end: int do
+    this|start = start
+    this|end = end
+
+  range start: int, end: int, step: int do
+     this|start = start
+     this|end = end
+     this|step = step
+
+  toList -> ArrayList<int> do
+    len = (this|end - this|start)
+    ret [int|]
 
 class ThisTest<T> do
    a: T
@@ -138,3 +161,4 @@ class ThisTest<T> do
       ret a
    setA val: T -> void do
       this|a = val
+

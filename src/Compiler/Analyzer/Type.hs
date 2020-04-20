@@ -35,6 +35,7 @@ data Storage =
     , rType :: VarType
     , cName :: String
     , fName :: String
+    , moduleName :: String
     , offsets :: [Int] 
     , varId :: Int
 --    , sName :: [String]
@@ -54,18 +55,30 @@ data FileScopes =
   FileScope String Scopes
   deriving (Show)
 
+data FileInfo = FileInfo
+  { fOffset :: Int
+  , fileName :: String
+  } deriving (Show, Eq)
+
+instance Ord FileInfo where
+  compare (FileInfo o1 _) (FileInfo o2 _) = compare o1 o2
+
 data ScopeField
   -- | SFunction ord name path type args
-  = SFunction Int String (Maybe String) VarType [FunArg]
+  = SFunction FileInfo String (Maybe String) VarType [FunArg]
   -- | SVar ord name path type scope
-  | SVar Int String (Maybe String) VarType String
+  | SVar FileInfo String (Maybe String) VarType String
   -- | SClass ord name path gen scope
-  | SClass Int String (Maybe String) [String] Scope
+  | SClass FileInfo String (Maybe String) [String] Scope
   -- | SGen name
   | SGen String
   deriving (Show)
 
-emptyStorage = Storage [] [] VBlank "" "" [] 0
+emptyStorage = Storage [] [] VBlank "" "" "" [] 0
+
+setModuleName :: String -> Analyzer' ()
+setModuleName name =
+  modify (\s -> s {moduleName = name})
 
 addOffset :: Int -> Analyzer' ()
 addOffset o =
@@ -81,7 +94,6 @@ removeOffset = do
   return o
   
 
-
 takeId :: Analyzer' Int
 takeId = do
   id <- (+1) <$> gets varId
@@ -93,10 +105,12 @@ takeVarName = do
   id <- takeId
   return $ "var" ++ show id
 
-addArgsScope :: [FunArg] -> Analyzer' ()
-addArgsScope args = modify (\s -> s {scopes = Scope "args" argsToFields : scopes s})
+addArgsScope :: Int -> [FunArg] -> Analyzer' ()
+addArgsScope o args = do
+  modName <- gets moduleName
+  modify (\s -> s {scopes = Scope "args" (argsToFields modName) : scopes s})
   where
-    argsToFields = map (\(FunArg t n) -> SVar (-1) n Nothing t "args") args
+    argsToFields modName = map (\(FunArg t n) -> SVar (FileInfo o modName) n Nothing t "args") args
 
 addScope :: String -> Analyzer' ()
 addScope sName = modify (\s -> s {scopes = Scope sName [] : scopes s})
@@ -138,11 +152,26 @@ addField field = do
       | isInScope field s = updateField field s
       | otherwise = Scope n (field : f)
 
+addFunction :: Int -> String -> Maybe String -> VarType -> [FunArg] -> Analyzer' ()
+addFunction offset name path type' args = do
+  modName <- gets moduleName
+  addField $ SFunction (FileInfo offset modName) name path type' args
+
+addVar :: Int -> String -> Maybe String -> VarType -> String -> Analyzer' ()
+addVar offset name path type' scopeName = do
+  modName <- gets moduleName
+  addField $ SVar (FileInfo offset modName) name path type' scopeName
+
+addClass :: Int -> String -> Maybe String -> [String] -> Scope -> Analyzer' ()
+addClass offset name path gen scope = do
+  modName <- gets moduleName
+  addField $ SClass (FileInfo offset modName) name path gen scope
+
 saveFile :: String -> Analyzer' ()
 saveFile n = do
   g <- getGlobalScope
   modify (\s -> s {imports = FileScope n [g] : imports s})
-  
+
 
 loadFiles :: [(String, String)] -> Analyzer' ([ScopeField], Scopes)
 loadFiles names = do
@@ -160,6 +189,9 @@ loadFiles names = do
 setType :: VarType -> Analyzer' ()
 setType t = modify (\s -> s {rType = t})
 
+cleanType :: Analyzer' ()
+cleanType = modify (\s -> s {rType = VBlank})
+
 setClassName :: String -> Analyzer' ()
 setClassName n = modify (\s -> s {cName = n})
 
@@ -171,7 +203,7 @@ getClassScope = do
 --  cl <- gets cName
   let cl = "this"
   find (\(Scope n _) -> n == cl) <$> gets scopes
-  
+
 getGlobalScope :: Analyzer' Scope
 getGlobalScope = do
  let cl = "global"
@@ -203,7 +235,7 @@ updateField f (Scope n fs) = Scope n $ map (updater f) fs
 isInScope :: ScopeField -> Scope -> Bool
 isInScope field (Scope _ f) = any (cond field) f
   where
-    cond (SFunction o1 n1 _ _ _) (SFunction o2 n2 _ _ _) = o1 == o2 && n1 == n2
+    cond (SFunction o1 _ _ _ _) (SFunction o2 _ _ _ _) = o1 == o2
     cond (SVar o1 _ _ _ _) (SVar o2 _ _ _ _) = o1 == o2
     cond (SClass o1 _ _ _ _) (SClass o2 _ _ _ _) = o1 == o2
     cond _ _ = False

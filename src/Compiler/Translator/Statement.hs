@@ -35,7 +35,7 @@ whileTranslator bExpr block trans = do
   return . concat $ [["while(" ++ head bExpr' ++ "){\n"], block', ["}\n"]]
 
 forTranslator :: AExpr -> AExpr -> [a] -> (a -> Translator) -> Translator
-forTranslator (TypedVar name type' Nothing Nothing) (Range _ a b) block trans = do
+forTranslator (TypedVar name type' Nothing Nothing) (Range _ _ a b) block trans = do
   let uName = unwrapVarName name
   a' <- injectTranslator aExprTranslatorGetter a
   b' <- injectTranslator aExprTranslatorGetter b
@@ -75,9 +75,11 @@ blockTranslator' trans x = concat' <$> mapM trans x
 
 assignTranslator :: Stmt -> Translator
 -- This
-assignTranslator (Assign o ["this", name] t r) = assignTranslator (Assign o ["this->" ++ name] t r)
+--assignTranslator (Assign o ["this", name] t r) = assignTranslator (Assign o ["this->" ++ name] t r)
 -- Only declaration without assigning value
-assignTranslator (Assign _ name type' Nop) = return [typeToString type' ++ " " ++ intercalate "." name ++ ";\n"]
+assignTranslator (Assign _ name type' Nop) = do
+  n <- injectTranslator aExprTranslatorGetter name
+  return [typeToString type' ++ " " ++ head n ++ ";\n"]
 -- Generic Pointer 
 --assignTranslator as@(Assign _ name type' (TypedVar cName (VClass t gen isPtr) (Just args) Nothing)) = do
 --    args' <- intercalate ", " . concat <$> mapM (injectTranslator aExprTranslatorGetter) args
@@ -95,7 +97,8 @@ assignTranslator (Assign _ name type' Nop) = return [typeToString type' ++ " " +
 -- assign without declaration
 assignTranslator (Assign _ name type' expr) = do
   e <- injectTranslator aExprTranslatorGetter expr
-  return . return . concat $ ((nType ++ " " ++ intercalate "." name ++ " = ") : e) ++ [";\n"]
+  n <- head <$> injectTranslator aExprTranslatorGetter name
+  return . return . concat $ ((nType ++ " " ++ n ++ " = ") : e) ++ [";\n"]
   where
     nType = unwrapType type'
     unwrapType (VPointer c SharedPtr) = "shared_ptr<" ++ typeToString c ++ ">"

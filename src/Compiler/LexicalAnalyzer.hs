@@ -18,15 +18,16 @@ analyze' :: [Imported] -> Analyzer' [Imported]
 analyze' a = do
   trace (show (map (\(IFile n _) -> n) a)) $ return ()
   forM a $ \(IFile n ast) -> do
-    res <- analyze ast
+    res <- analyze n ast
     saveFile n
     return $ IFile n res
 
-analyze :: AST -> Analyzer' AST
-analyze (AST stmts) = do
+analyze :: String -> AST -> Analyzer' AST
+analyze modName (AST stmts) = do
+  setModuleName modName
   fields <- loadFiles . map (\i -> (Im.getImportName i, Im.getImportAlias i)) . Im.filterImport $ AST stmts
   let (globalFields, fileScopes) = fields
-  let globalScope = Scope "global" $ catalogueDecl (AST stmts)
+  let globalScope = Scope "global" $ catalogueDecl modName (AST stmts)
   let importScope = Scope "import" globalFields
   modify (\storage -> storage {scopes = globalScope : importScope : fileScopes})
   s <- gets scopes
@@ -34,18 +35,18 @@ analyze (AST stmts) = do
   stmts' <- mapM statementAnalyzer stmts
   return (AST stmts')
 
-catalogueDecl :: AST -> [ScopeField]
-catalogueDecl (AST stmts) = map mapper . filter cond $ stmts
+catalogueDecl :: String -> AST -> [ScopeField]
+catalogueDecl modName (AST stmts) = map mapper . filter cond $ stmts
   where
     cond Function {}  = True
     cond ClassExpr {} = True
     cond NativeClass {} = True
     cond NativeFunction {} = True
     cond _            = False
-    mapper (Function o n t a _) = SFunction o n Nothing t a
-    mapper (NativeFunction o p n t a) = SFunction o n (Just p) t a
-    mapper (NativeClass o p n g _) = SClass o n (Just p) g (Scope n [])
-    mapper (ClassExpr o n g _)  = SClass o n Nothing g (Scope n [])
+    mapper (Function o n t a _) = SFunction (FileInfo o modName) n Nothing t a
+    mapper (NativeFunction o p n t a) = SFunction (FileInfo o modName) n (Just p) t a
+    mapper (NativeClass o p n g _) = SClass (FileInfo o modName) n (Just p) g (Scope n [])
+    mapper (ClassExpr o n g _)  = SClass (FileInfo o modName) n Nothing g (Scope n [])
 
 statementAnalyzer :: Stmt -> Analyzer' Stmt
 statementAnalyzer s =
@@ -84,9 +85,9 @@ aExprAnalyzer expr =
     Nop             -> return (VBlank, [], Nop)
     e@ScopeMark {} -> checkScopeMark e aExprAnalyzer
     e@ABracket {}   -> checkBracket e aExprAnalyzer
-    e@IntConst {}   -> return (VInt, [], e)
-    e@FloatConst {} -> return (VFloat, [], e)
-    e@StringVal {}  -> return (VString, [], e)
+    e@IntConst {}   -> checkIntConst e 
+    e@FloatConst {} -> checkFloatConst e
+    e@StringVal {}  -> checkStringConst e
     e@Var {}        -> checkVar e Nothing "" aExprAnalyzer
     e@ListVar {}    -> checkListVar e aExprAnalyzer
     e@Range {}      -> checkRange e

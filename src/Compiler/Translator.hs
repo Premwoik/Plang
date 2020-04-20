@@ -103,6 +103,8 @@ aExprTranslator expr =
     IntConst _ i    -> return . return $ show i
     FloatConst _ f  -> return . return $ show f
     StringVal _ s   -> return . return $ show s
+    e@NativePtrInput {} -> nativePtrInputWrapper e
+    e@NativePtrRes {} -> nativePtrResWrapper e
     e@TypedListVar {}  -> listVarTranslator e
     e@Range {}    -> return ["\"TODO\""]
     e@Fn {}       -> return ["\"TODO\""]

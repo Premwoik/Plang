@@ -9,6 +9,7 @@ import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 import Data.Maybe (fromMaybe)
 import           AST
+import Control.Monad (void)
 
 sep :: Parser Text
 sep = symbol ","
@@ -19,9 +20,26 @@ parens = between (symbol "(") (symbol ")")
 blockMark :: Parser a -> Parser a
 blockMark = between (symbol "{") (symbol "}")
 
---data Gene = Simple String | Complex [Gene]
---generics :: Parser [Gene]
---generics = between (symbol "<") (symbol ">") (sepBy ((Complex <$> generics) <|> (Simple <$> identifier)) sep)
+functionExecutionArgParser :: Parser AExpr -> Parser [AExpr]
+functionExecutionArgParser aExpr = do
+  v <- optional $ sepBy1 aExpr sep
+  return $ fromMaybe [] v
+
+identifiers :: Parser AExpr -> Parser [String]
+-- TODO add parsing for list accessor <?
+identifiers aExpr = do
+  scope <- optional . try $ do
+    s <- identifier
+    void (symbol "|")
+    return s
+  ids<- sepBy identifier "."
+  return $ fromMaybe "" scope : ids
+  where
+    id = do
+      i <- identifier
+      optional $ 
+        between (symbol "[") (symbol "]") (functionExecutionArgParser aExpr)
+
 
 generics :: Parser [String]
 generics = between (symbol "<") (symbol ">") (sepBy identifier sep)
@@ -38,6 +56,13 @@ generics' = between (symbol "<") (symbol ">") (sepBy p sep)
 
 array = between (symbol "[") (symbol "]") 
 
+matchTypeTypeWithAccess :: [VarType] -> String -> String -> VarType
+matchTypeTypeWithAccess g t "ref" = VRef $ matchType' g t
+matchTypeTypeWithAccess g t "copy" = VCopy $ matchType' g t
+matchTypeTypeWithAccess g t "ptr" = VPointer (matchType' g t) SharedPtr
+matchTypeTypeWithAccess g t "cptr" = VPointer (matchType' g t) NativePtr 
+matchTypeTypeWithAccess g t "" = matchType' g t
+
 matchType :: String -> VarType
 matchType = matchType' []
 
@@ -50,11 +75,26 @@ matchType' g t =
     "float" -> VFloat
     "string" -> VString
     "char" -> VChar
-    "ptr" -> VPointer (head g) UniquePtr
+    "list" -> VClass "ArrayList" g False
+--    "ptr" -> VPointer (head g) UniquePtr
     x -> VClass x g False
 
 typeParser :: Parser VarType
 typeParser = do
+  access <- fromMaybe [] <$> optional (refParser <|> copyParser <|> pointerParser <|> cPointerParser)
   t <- pItem
   gen <- fromMaybe [] <$> optional generics'
-  return $ matchType' gen t
+  return $ matchTypeTypeWithAccess gen t access
+  where
+    refParser = do
+      void (symbol "ref")
+      return "ref"
+    copyParser = do
+      void (symbol "copy")
+      return "copy"
+    pointerParser = do
+      void (symbol "ptr")
+      return "ptr"
+    cPointerParser = do
+      void (symbol "cptr")
+      return "cptr"

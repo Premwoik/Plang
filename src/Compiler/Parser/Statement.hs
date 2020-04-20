@@ -16,6 +16,18 @@ import Control.Monad
 import Data.Maybe (fromMaybe)
 import Text.Megaparsec.Debug (dbg)
 
+
+moduleParser :: Parser Stmt
+moduleParser = L.nonIndented sc p
+  where
+    p = do
+      o <- getOffset
+      void (symbol "module")
+      lexeme (sepBy1 identifier (symbol "."))
+      void (symbol "where")
+      return $ Skip o
+
+
 importParser :: Parser Stmt
 importParser --dbg "import" $
  = L.nonIndented sc p
@@ -38,7 +50,7 @@ functionArgsParser = sepBy1 p sep
       type' <-
         optional $ do
           void (symbol ":")
-          optional (symbol "const" <|> symbol "copy")
+--          optional (symbol "const" <|> symbol "copy")
           typeParser
       return $ FunArg (fromMaybe VAuto type') n
 functionParser :: Parser FunctionStmt -> Parser Stmt
@@ -99,11 +111,11 @@ linkPathParser =
     return $ LinkPath o name
 
 
-assignParser :: Parser AExpr -> (Int -> [String] -> VarType -> AExpr -> a) -> Parser a
-assignParser aExpr wrapper =
+assignParser :: (Parser AExpr -> Parser AExpr) -> Parser AExpr -> (Int -> AExpr -> VarType -> AExpr -> a) -> Parser a
+assignParser lAExpr aExpr wrapper =
   lexeme $ do
     o <- getOffset
-    var <- identifiers
+    var <- lAExpr aExpr
     type' <-
       optional $ do
         void (symbol ":")
@@ -119,18 +131,8 @@ defaultAssignParser =
     type' <-
       do void (symbol ":")
          typeParser
-    return $ ClassAssign o ["", var] type' Nop
+    return $ ClassAssign o (Var o var [] Nothing Nothing) type' Nop
 
---classAssignParser :: Parser AExpr -> (Int -> String -> VarType -> AExpr -> a) -> Parser a
---classAssignParser aExpr wrapper = do
--- o <- getOffset
--- var <- identifier
--- type' <-
---   optional $ do
---     void (symbol ":")
---     typeParser
--- void (symbol "=")
--- wrapper o var (fromMaybe VAuto type') <$> aExpr
 nativeAssignDeclParser :: Parser Stmt
 nativeAssignDeclParser =
   lexeme $ do

@@ -21,19 +21,23 @@ classTranslator (ClassExpr _ name generics block) = do
     
 classAssignTranslator :: ClassStmt -> Translator
 -- Only declaration without assigning value
-classAssignTranslator (ClassAssign _ name type' Nop) = return [typeToString type' ++ " " ++ intercalate "." name ++ ";\n"]
+classAssignTranslator (ClassAssign _ name type' Nop) = do
+  n <- head <$> injectTranslator aExprTranslatorGetter name
+  return [typeToString type' ++ " " ++ n ++ ";\n"]
 -- Pointer
 classAssignTranslator (ClassAssign _ name type' (TypedVar cName (VClass t [] _) (Just args) Nothing)) = do
   let uName = unwrapVarName cName
   args' <- intercalate ", " . concat <$> mapM (injectTranslator aExprTranslatorGetter) args
-  return ["unique_ptr<" ++ uName ++ "> " ++ intercalate "." name ++ "{new " ++ uName ++ "{" ++ args' ++ "}};\n"]
+  n <- head <$> injectTranslator aExprTranslatorGetter name
+  return ["unique_ptr<" ++ uName ++ "> " ++ n ++ "{new " ++ uName ++ "{" ++ args' ++ "}};\n"]
 -- Generic Pointer
 classAssignTranslator (ClassAssign _ name type' (TypedVar cName (VClass t gen _) (Just args) Nothing)) = do
   let uName = unwrapVarName cName
+  n <- head <$> injectTranslator aExprTranslatorGetter name
   args' <- intercalate ", " . concat <$> mapM (injectTranslator aExprTranslatorGetter) args
   return
     [ "unique_ptr<" ++
-      uName ++ genStr ++ "> " ++ intercalate "." name ++ "{new " ++ uName ++ genStr ++ "{" ++ args' ++ "}};\n"
+      uName ++ genStr ++ "> " ++ n ++ "{new " ++ uName ++ genStr ++ "{" ++ args' ++ "}};\n"
     ]
   where
      genStr = genStr' gen
@@ -45,7 +49,8 @@ classAssignTranslator (ClassAssign _ name type' (TypedVar cName (VClass t gen _)
 classAssignTranslator (ClassAssign _ name type' expr) = do
   let t = typeToString type'
   e <- injectTranslator aExprTranslatorGetter expr
-  return . return . concat $ ((t ++ " " ++ intercalate "." name ++ " = ") : e) ++ [";\n"]
+  n <- head <$> injectTranslator aExprTranslatorGetter name
+  return . return . concat $ ((t ++ " " ++ n ++ " = ") : e) ++ [";\n"]
 
 
 constTranslator :: ClassStmt -> Translator

@@ -24,7 +24,12 @@ markVarClassAsPointer = map mapper
     mapper (TypedVar n c@VClass {} a m) = TypedVar n (VPointer c SharedPtr) a m
     mapper x = x
 
-
+markNativePtr :: [FunArg] -> [AExpr] -> [AExpr]
+markNativePtr = zipWith extractPtr
+  where
+    extractPtr (FunArg (VPointer _ NativePtr) _) v = NativePtrInput v
+    extractPtr _ v = v
+ 
 extractPtr (Just (VPointer t _)) = Just t
 extractPtr t = t
 
@@ -50,20 +55,38 @@ filterArgsMatch Nothing [] (SFunction _ _ _ _ [])= True
 filterArgsMatch Just {} _ SVar {} = False
 filterArgsMatch (Just args) gen f = maybeArgsMatch (Just args) gen [f]
 
-checkVarFirst var@(Var offset name gen args more) args' retBuilder obj scopeName=
+   
+wrapAllocationMethod :: VarType -> Analyzer' VarType
+wrapAllocationMethod v = do
+  ret <- gets rType
+  
+  trace ("DUDEK RPK" ++ show v ++ "  " ++ show ret) $ return ()
+  return $ case (v, ret) of
+    (VPointer t _, VCopy {}) -> VCopy v
+    (VPointer {}, _ ) -> v
+    (VClass {}, VPointer {}) -> VPointer (VCopy v) SharedPtr
+    (_, VPointer {}) -> VPointer v SharedPtr
+    (VRef {}, VRef {}) -> v 
+    (_, VRef {}) -> VRef v 
+    _ -> v
+
+checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName=
   case obj of
-    Just (SVar _ n p t s) -> retBuilder t (TypedVar (defaultPath p (scaleNameWithScope' [s, n])) t args') more
+    Just (SVar _ n p t s) -> do
+     trace (show n ) $ return ()
+     t' <- if more == Nothing then wrapAllocationMethod t else return t
+     retBuilder t' (TypedVar (defaultPath p (scaleNameWithScope' [s, n])) t' args') more
 
     Just (SClass _ n p g b) -> do
       if length g == length gen then return () else throwError $ AException offset ("Generic is missing! - " ++ show g)
---          TODO make this generics to zip recurrently not only on actual layer ready
       let gen' = zipWith VGenPair g gen
-      let newType = VClass n (markClassAsPointer gen') False
+      newType <- wrapAllocationMethod $ VClass n (markClassAsPointer gen') False
       retBuilder newType (TypedVar (defaultPath p n) newType args') more
 
-    Just(SFunction _ n p t _)-> do
+    Just(SFunction _ n p t a)-> do
+      let args'' = args' >>= (Just . markNativePtr a)
       scope <- getFileName scopeName
-      retBuilder t (TypedVar (defaultPath p (newName scope)) t args') more
+      retBuilder t (TypedVar (defaultPath p (newName scope)) t args'') more
       where
         newName scope = case scopeName of
           "" -> n
@@ -77,10 +100,11 @@ checkVarFirst var@(Var offset name gen args more) args' retBuilder obj scopeName
 checkVarMore (Var offset name _ args more) (VClass cName gen _) args' retBuilder method =
       case method of
         Just (SVar _ n p t _) -> retBuilder t (TypedVar (defaultPath p n) t Nothing) more
-        Just (SFunction _ n p t _) -> do
+        Just (SFunction _ n p t a) -> do
+--          let args'' = Just $ markNativePtr a (fromMaybe [] args')
           let nType = fixType gen t
           retBuilder nType (TypedVar (defaultPath p n) nType args') more
-        x -> throwError $ AException offset ("Can't find that method or field in given class. " ++ show x ++ " | " ++ name ++ " | " ++ cName)
+        x -> throwError $ AException offset ("Can't find that method or field in given class. " ++ show x ++ " | " ++ name ++ " | " ++ cName ++ " | " ++ show gen ++ " | " ++ show args')
 
 
 checkVar :: AExpr -> Maybe VarType -> String -> AExprAnalyzer -> Analyzer' AExprRes

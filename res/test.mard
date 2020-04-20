@@ -1,6 +1,8 @@
+module Test where
 import Core
 import Core.Native.List
 import Core.MyFile as my
+import Core.Native.Ethernet
 
 myMax a: int, b: int -> int do
   ret
@@ -10,10 +12,12 @@ myMax a: int, b: int -> int do
         b
 
 b = 12.3
+c = ThisTest<int>(10,10)
 
-testFunction c: float -> void do
+testFunction c: ref float -> void do
   b = b + 12.3
   c = c
+  c = 12.0
   myC = g|b + args|c
   pass
 
@@ -23,7 +27,7 @@ funcThatReceiveClass -> void do
 getNumber -> void do
   pass
 
-funcThatReceiveClass c: ThisTest<float> -> void do
+funcThatReceiveClass c: copy ThisTest<float> -> void do
   pass
 
 class MyClass do
@@ -32,6 +36,10 @@ class MyClass do
 
   getNumber -> void do
     g|getNumber()
+
+fThatReturnPtr -> ptr ThisTest<float> do
+  ret ThisTest<float>(10.1, 100)
+
 
 Main -> int do
   Serial.begin(9600)
@@ -60,18 +68,38 @@ Main -> int do
     println("sees")
     print("HEHEH")
     mList = [ThisTest<float>| ThisTest<float>(13.0, 100), ThisTest<float>(13.0, 100)]
-//    mList[12]
-//    [mList|0] = 123
-//    [mList|] = 123
     result = mList.get(1)
     funcThatReceiveClass(classTest)
 //    funcThatReceiveClass(100)
 
+  a1: ptr auto = ThisTest<float>(13.0, 100)
+  a2: copy auto = a1
+  a3: ref auto = a1
+  a4: ref auto = a1
+  a5: ref auto = a1
+
   intList = [int| 20]
+  intList[0]
+  intList[1] = 10
   lTest = ArrayList<ThisTest<float>>()
   lTest.add(ThisTest<float>(10.1, 100))
-  lTest.get(1)
+  lTest.add(ThisTest<float>(10.1, 100))
+  lTest.add(ThisTest<float>(10.1, 100))
+  lTest.add(ThisTest<float>(10.1, 100))
+  lTest[1]
+  lTest[1] = ThisTest<float>(10.2, 101)
   print(my|myFileFn())
+  c = 10.0
+  testFunction(c)
+  print(c)
+  intPtr = [10]
+  needPointer(intPtr)
+  gotPtr = getPointer()
+//
+  xd = ThisTest<float>(10.1, 100)
+  x2 : ptr auto = xd
+  haha = ThisTest<float>(10.1, 1000)
+
   ret 0
 
 

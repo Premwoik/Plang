@@ -23,7 +23,7 @@ data Stmt
   | Import Int String [String]
   | ClassExpr Int String [String] [ClassStmt]
   | Skip Int
-  | Assign Int [String] VarType AExpr
+  | Assign Int AExpr VarType AExpr
   -- | NATIVE
   | NativeAssignDeclaration Int String String VarType
   | NativeFunction Int String String VarType [FunArg]
@@ -35,7 +35,7 @@ data Stmt
 --  FOR TRANSLATION ONLY
 --  -------------------------------------------------------
 data ClassStmt
-  = ClassAssign Int [String] VarType AExpr
+  = ClassAssign Int AExpr VarType AExpr
   | Method Int String VarType [FunArg] [FunctionStmt]
   | Constructor Int String [FunArg] [FunctionStmt]
   -- | NATIVE
@@ -44,7 +44,7 @@ data ClassStmt
 
 --  FOR TRANSLATION ONLY
 data FunctionStmt
-  = AssignFn Int [String] VarType AExpr
+  = AssignFn Int AExpr VarType AExpr
   | WhileFn Int BExpr [FunctionStmt]
   | ForFn Int AExpr AExpr [FunctionStmt]
   | IfFn Int [(BExpr, [FunctionStmt])]
@@ -82,7 +82,7 @@ data RBinOp
   deriving (Show, Eq)
 
 data AExpr
--- | Var name generics (func args/if is a func) more
+-- | Var offset name generics (func args/if is a func) more
   = Var Offset String [VarType] (Maybe [AExpr]) (Maybe AExpr)
   | ScopeMark Offset String AExpr
   | ABracket Offset AExpr
@@ -90,7 +90,7 @@ data AExpr
   | FloatConst Offset Float
   | ListVar Offset [AExpr] (Maybe VarType)
   | StringVal Offset String
-  | Range Offset AExpr AExpr
+  | Range Offset (Maybe AExpr) AExpr AExpr
   | Fn Offset Bool (Maybe [FunArg]) AExpr
   | FnBlock Offset (Maybe [FunArg]) [FunctionStmt]
   | If Offset [(BExpr, [FunctionStmt])]
@@ -99,6 +99,8 @@ data AExpr
   | ABinary ABinOp AExpr AExpr
   | ABool BExpr
  -- | Only for translation
+  | NativePtrRes AExpr
+  | NativePtrInput AExpr
   | TypedVar VarName VarType (Maybe [AExpr]) (Maybe AExpr)
   | TypedListVar [AExpr] VarType
   | Nop
@@ -135,6 +137,7 @@ data VarType
   | VGen String
   | VGenPair String VarType
   | VRef VarType
+  | VCopy VarType
   | VPointer VarType PointerType
   | VBlank
   deriving (Show)
@@ -148,18 +151,23 @@ instance Eq VarType where
   VBlank == VBlank = True
   (VClass n g p) == (VClass n2 g2 p2) = n == n && g == g2 && p == p2
   (VGen n) == (VGen n2) = n == n2 
+  (VGen n) == (VClass n2 _ _) = n == n2
+  (VClass n2 _ _) == (VGen n) = n == n2
   (VGenPair n t) == (VGenPair n2 t2) = n == n2 && t == t2
   (VGenPair _ t) == t2 = t == t2
   t2 == (VGenPair _ t) = t == t2
   (VRef n) == (VRef n2) = n == n2
   (VRef t) == t2 = t == t2
   t2 == (VRef t) = t == t2
+  VCopy t1 == VCopy t2 = t1 == t2
+  (VCopy t) == t2 = t == t2
+  t2 == (VCopy t) = t == t2
   (VPointer t pt) == (VPointer t2 pt2) = t == t2 && pt == pt2
   (VPointer t _) == t2 = t == t2
   t2 == (VPointer t _) = t == t2
   a == b = trace ("Eq error ### left = " ++ show a ++ " | right = " ++ show b) False
 
-data PointerType = UniquePtr | SharedPtr | SharedPtrStar deriving(Show, Eq)
+data PointerType = UniquePtr | SharedPtr | NativePtr deriving(Show, Eq)
 
 data BoolOp =
   BoolOp

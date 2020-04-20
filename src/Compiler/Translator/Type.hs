@@ -66,6 +66,8 @@ typeToString t =
     VAuto        -> "auto"
     VChar        -> "char"
     VBlank       -> ""
+    VRef t -> typeToString t ++ "&"
+    VCopy t -> typeToString t
     VClass c gen _ -> c ++ genStr gen
     VGen t       -> t
     VGenPair _ t -> typeToString t
