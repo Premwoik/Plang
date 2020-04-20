@@ -18,13 +18,8 @@ type Analyzer' a = WriterT [String] (StateT Storage (Except AnalyzerException)) 
 type Analyzer = Analyzer' [String]
 
 data AnalyzerException
-  = IncorrectExprException
-  | UnknownMethodName String
-  | NotAClass String
-  | NotAMethod String
-  | VariableNotExist String
-  | UnsupportedTypeException String
-  | TypesMismatch Int String
+  = NotAClass String
+  | CustomAException FileInfo String
   | AException Int String
   deriving (Show)
 
@@ -35,7 +30,7 @@ data Storage =
     , rType :: VarType
     , cName :: String
     , fName :: String
-    , moduleName :: String
+    , moduleInfo :: FileInfo 
     , offsets :: [Int] 
     , varId :: Int
 --    , sName :: [String]
@@ -58,10 +53,11 @@ data FileScopes =
 data FileInfo = FileInfo
   { fOffset :: Int
   , fileName :: String
+  , filePath :: String
   } deriving (Show, Eq)
 
 instance Ord FileInfo where
-  compare (FileInfo o1 _) (FileInfo o2 _) = compare o1 o2
+  compare (FileInfo o1 _ _) (FileInfo o2 _ _) = compare o1 o2
 
 data ScopeField
   -- | SFunction ord name path type args
@@ -74,11 +70,11 @@ data ScopeField
   | SGen String
   deriving (Show)
 
-emptyStorage = Storage [] [] VBlank "" "" "" [] 0
+emptyStorage = Storage [] [] VBlank "" "" (FileInfo (-1) "" "") [] 0
 
-setModuleName :: String -> Analyzer' ()
-setModuleName name =
-  modify (\s -> s {moduleName = name})
+setModuleInfo :: Int -> String -> String -> Analyzer' ()
+setModuleInfo offset name path =
+  modify (\s -> s {moduleInfo = FileInfo offset name path})
 
 addOffset :: Int -> Analyzer' ()
 addOffset o =
@@ -107,14 +103,24 @@ takeVarName = do
 
 addArgsScope :: Int -> [FunArg] -> Analyzer' ()
 addArgsScope o args = do
-  modName <- gets moduleName
-  modify (\s -> s {scopes = Scope "args" (argsToFields modName) : scopes s})
+  mod <- getModInfo o
+  modify (\s -> s {scopes = Scope "args" (argsToFields mod) : scopes s})
   where
-    argsToFields modName = map (\(FunArg t n) -> SVar (FileInfo o modName) n Nothing t "args") args
+    argsToFields mod = map (\(FunArg t n) -> SVar mod n Nothing t "args") args
 
 addScope :: String -> Analyzer' ()
 addScope sName = modify (\s -> s {scopes = Scope sName [] : scopes s})
 
+
+getModInfo :: Offset -> Analyzer' FileInfo
+getModInfo offset = do
+  fileInfo <- gets moduleInfo
+  return $ fileInfo {fOffset = offset}
+
+makeError :: Int -> String -> Analyzer' a
+makeError offset text = do
+  mod <- getModInfo offset 
+  throwError $ CustomAException mod text
 
 
 scaleNameWithScope' :: [String] -> String
@@ -154,18 +160,18 @@ addField field = do
 
 addFunction :: Int -> String -> Maybe String -> VarType -> [FunArg] -> Analyzer' ()
 addFunction offset name path type' args = do
-  modName <- gets moduleName
-  addField $ SFunction (FileInfo offset modName) name path type' args
+  mod <- getModInfo offset
+  addField $ SFunction mod name path type' args
 
 addVar :: Int -> String -> Maybe String -> VarType -> String -> Analyzer' ()
 addVar offset name path type' scopeName = do
-  modName <- gets moduleName
-  addField $ SVar (FileInfo offset modName) name path type' scopeName
+  mod <- getModInfo offset
+  addField $ SVar mod name path type' scopeName
 
 addClass :: Int -> String -> Maybe String -> [String] -> Scope -> Analyzer' ()
 addClass offset name path gen scope = do
-  modName <- gets moduleName
-  addField $ SClass (FileInfo offset modName) name path gen scope
+  mod <- getModInfo offset
+  addField $ SClass mod name path gen scope
 
 saveFile :: String -> Analyzer' ()
 saveFile n = do

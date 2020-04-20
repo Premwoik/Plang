@@ -39,13 +39,13 @@ checkListVar :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkListVar (ListVar _ [] (Just t)) _ = 
   return (VClass "ArrayList" [t] False, [], TypedVar (VName "ArrayList") (VClass "ArrayList" [t] False) (Just []) Nothing)
 checkListVar (ListVar o [] Nothing) _ = 
-  throwError $ AException o "Empty list must have providen a type"
+  makeError o "Empty list must have providen a type"
 checkListVar a@(ListVar o elems wantedType) analyzer = do
   let len = show $ length elems
   (types', injs, elems') <-
     classToPointer . foldr (\(t', inj, res) (ts, injs, ress) -> (t':ts, inj: injs, res:ress)) ([], [], []) 
     <$> mapM analyzer elems
-  if checkType types' then return () else throwError $ AException o ("Not all elems are the same type in list: " ++ show elems ++ " wantedType: " ++ show wantedType)
+  if checkType types' then return () else makeError o ("Not all elems are the same type in list: " ++ show elems ++ " wantedType: " ++ show wantedType)
   let itemType = head types'
   let args = Just [TypedListVar elems' itemType, TypedVar (VName len) VInt Nothing Nothing, TypedVar (VName len) VInt Nothing Nothing]
   let t = VClass "ArrayList" [VGenPair "T" itemType] False

@@ -95,7 +95,7 @@ checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName=
           _ -> scaleNameWithScope' [scope, "::", n]
     p -> do
       storage <- gets scopes
-      throwError $ AException offset ("Can't find given name! " ++ show var ++ " | " ++ show p ++ " | " ++ show storage)
+      makeError offset ("Can't find given name! " ++ show var ++ " | " ++ show p ++ " | " ++ show storage)
 
 checkVarMore (Var offset name _ args more) (VClass cName gen _) args' retBuilder method =
       case method of
@@ -104,7 +104,7 @@ checkVarMore (Var offset name _ args more) (VClass cName gen _) args' retBuilder
 --          let args'' = Just $ markNativePtr a (fromMaybe [] args')
           let nType = fixType gen t
           retBuilder nType (TypedVar (defaultPath p n) nType args') more
-        x -> throwError $ AException offset ("Can't find that method or field in given class. " ++ show x ++ " | " ++ name ++ " | " ++ cName ++ " | " ++ show gen ++ " | " ++ show args')
+        x -> makeError offset ("Can't find that method or field in given class. " ++ show x ++ " | " ++ name ++ " | " ++ cName ++ " | " ++ show gen ++ " | " ++ show args')
 
 
 checkVar :: AExpr -> Maybe VarType -> String -> AExprAnalyzer -> Analyzer' AExprRes

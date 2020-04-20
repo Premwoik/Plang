@@ -55,9 +55,7 @@ searchInScopeWithName name scopeName scopes =
     (Just s) -> return $ searchInScope name s
     Nothing -> do
       o <- getOffset
-      throwError $
-        AException
-          o
+      makeError o
           ("Scope with name \"" ++ scopeName ++ "\" doesn't exist.\nExist scopes: " ++ show (getScopesNames scopes))
 
 getScopesNames :: Scopes -> [String]
@@ -92,36 +90,31 @@ getScope :: String -> Scopes -> Maybe Scope
 getScope name = L.find (\s -> name == unwrapName s)
 
 ----    MATCH
-checkFunctionUniqueness' o name t args = do
-  mod <- gets moduleName
-  checkFunctionUniqueness (FileInfo o mod)  name t args
 
 
-checkFunctionUniqueness info name t args = do
+checkFunctionUniqueness o name t args = do
   fns <- find' name
   noVarWithSameName fns
   allReturnTheSame fns
-  noSameArguments fns
+  notSameArguments fns
   where
     noVarWithSameName fns =
       if all isFunction fns
         then return ()
-        else throwError $ AException (fOffset info) ("There exists a variable with same name - " ++ show name)
+        else makeError o ("There exists a variable with same name - " ++ show name)
     allReturnTheSame fns =
       if all (\(SFunction o n p t' a) -> t == t') fns
         then return ()
-        else throwError $
-             AException
-               (fOffset info)
-               ("Not each function with same name return the same type. " ++
-                show fns ++ "\nAll above declarations should return: " ++ show t)
-    noSameArguments fns =
+        else makeError o $
+               "Not each function with same name return the same type. " ++
+                show fns ++ "\nAll above declarations should return: " ++ show t
+    notSameArguments fns =
       if all (\g -> length g == 1) .
          group .
-         map (\(SFunction _ _ _ _ a) -> map (\(FunArg t _) -> t) a) . filter (\(SFunction i _ _ _ _) -> i <= info) $
+         map (\(SFunction _ _ _ _ a) -> map (\(FunArg t _) -> t) a) . filter (\(SFunction i _ _ _ _) -> fOffset i <= o) $
          fns
         then return ()
-        else throwError $ AException (fOffset info) ("The same function just exists!\n" ++ show fns)
+        else makeError o ("The same function just exists!\n" ++ show fns)
 
 maybeArgsMatch :: Maybe [AExpr] -> [VarType] -> [ScopeField] -> Bool
 maybeArgsMatch (Just args) gen s = any (argsMatch prepareArgs gen) s

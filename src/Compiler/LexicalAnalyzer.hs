@@ -16,18 +16,19 @@ import qualified          Compiler.Importer as Im
 
 analyze' :: [Imported] -> Analyzer' [Imported]
 analyze' a = do
-  trace (show (map (\(IFile n _) -> n) a)) $ return ()
-  forM a $ \(IFile n ast) -> do
-    res <- analyze n ast
+  trace (show (map (\(IFile n _ _) -> n) a)) $ return ()
+  forM a $ \(IFile n p ast) -> do
+    res <- analyze n p ast
     saveFile n
-    return $ IFile n res
+    return $ IFile n p res
 
-analyze :: String -> AST -> Analyzer' AST
-analyze modName (AST stmts) = do
-  setModuleName modName
+analyze :: String -> String -> AST -> Analyzer' AST
+analyze modName path (AST stmts) = do
+  setModuleInfo (-1) modName path
+  traceShow modName $ return ()
   fields <- loadFiles . map (\i -> (Im.getImportName i, Im.getImportAlias i)) . Im.filterImport $ AST stmts
   let (globalFields, fileScopes) = fields
-  let globalScope = Scope "global" $ catalogueDecl modName (AST stmts)
+  let globalScope = Scope "global" $ catalogueDecl modName path (AST stmts)
   let importScope = Scope "import" globalFields
   modify (\storage -> storage {scopes = globalScope : importScope : fileScopes})
   s <- gets scopes
@@ -35,18 +36,18 @@ analyze modName (AST stmts) = do
   stmts' <- mapM statementAnalyzer stmts
   return (AST stmts')
 
-catalogueDecl :: String -> AST -> [ScopeField]
-catalogueDecl modName (AST stmts) = map mapper . filter cond $ stmts
+catalogueDecl :: String -> String -> AST -> [ScopeField]
+catalogueDecl modName p (AST stmts) = map mapper . filter cond $ stmts
   where
     cond Function {}  = True
     cond ClassExpr {} = True
     cond NativeClass {} = True
     cond NativeFunction {} = True
     cond _            = False
-    mapper (Function o n t a _) = SFunction (FileInfo o modName) n Nothing t a
-    mapper (NativeFunction o p n t a) = SFunction (FileInfo o modName) n (Just p) t a
-    mapper (NativeClass o p n g _) = SClass (FileInfo o modName) n (Just p) g (Scope n [])
-    mapper (ClassExpr o n g _)  = SClass (FileInfo o modName) n Nothing g (Scope n [])
+    mapper (Function o n t a _) = SFunction (FileInfo o modName p) n Nothing t a
+    mapper (NativeFunction o p n t a) = SFunction (FileInfo o modName p) n (Just p) t a
+    mapper (NativeClass o p n g _) = SClass (FileInfo o modName p) n (Just p) g (Scope n [])
+    mapper (ClassExpr o n g _)  = SClass (FileInfo o modName p) n Nothing g (Scope n [])
 
 statementAnalyzer :: Stmt -> Analyzer' Stmt
 statementAnalyzer s =

@@ -15,7 +15,8 @@ newtype AST =
   deriving (Show, Eq)
 
 data Imported =
-  IFile String AST
+  -- | IFile name path ast
+  IFile String String AST
   deriving (Show, Eq)
 
 data Stmt

@@ -25,7 +25,7 @@ checkFunction f@(Function o n t a body) bodyAnalyzer = do
   res <- checkFunction' (o, n, t, a, body) Function bodyAnalyzer
   addFunction o n Nothing t a
   
-  checkFunctionUniqueness' o ["", n] t a
+  checkFunctionUniqueness o ["", n] t a
   return res 
 
 checkMethod :: ClassStmt -> FnStmtAnalyzer -> Analyzer' ClassStmt
@@ -37,7 +37,7 @@ checkMethod m@(Method o n t a body) bodyAnalyzer = do
   let nArgs = markGenInArgs gens a'
   className <- gets cName
   addFunction o' n' Nothing nType nArgs
-  checkFunctionUniqueness' o' ["this", n'] nType nArgs
+  checkFunctionUniqueness o' ["this", n'] nType nArgs
   return $
     if className == n
       then Constructor o' n' nArgs body'
@@ -67,8 +67,8 @@ checkReturn (ReturnFn o aExpr) analyzer = do
 
 checkTypes o wanted actual
   | wanted == actual || wanted == VAuto = return wanted
-  | otherwise =
-    throwError $ AException o ("return missmatch: FuncDeclType = " ++ show wanted ++ " =/= FuncRetType " ++ show actual)
+  | otherwise = 
+    makeError o ("return missmatch: FuncDeclType = " ++ show wanted ++ " =/= FuncRetType " ++ show actual)
 
 --checkTypes t _ = throw $ TypesMismatch $ "Local don't contain function struct, so types cant be checked!!! { " ++ show t
 checkNative :: Stmt -> Analyzer' Stmt
@@ -162,11 +162,9 @@ checkAssignFn a@(AssignFn o nameExpr ret aExpr) analyzer =
 check o wantedDecl wanted actual res
   | wantedDecl == actual && (wanted == actual || wanted == VAuto) = return res
   | otherwise =
-    throwError $
-    AException
-      o
-      ("Types don't match. You tried to assign " ++
-       show actual ++ " when should be " ++ show wanted ++ ".\n" ++ show actual ++ " =/= " ++ show wanted)
+    makeError o $ "Types don't match. You tried to assign " ++ show actual 
+      ++ " when should be " ++ show wanted ++ ".\n" ++ show actual ++ " =/= " ++ show wanted
+      
 
 
 checkNativeAssign :: Stmt -> AExprAnalyzer -> Analyzer' Stmt
@@ -183,7 +181,7 @@ checkAssign (Assign o (Var _ name _ _ Nothing)ret aExpr) analyzer = do
   nType <-
     case firstSig of
       Just e@(SVar _ n _ t s) ->
-          throwError $ AException o ("Global variables cannot be redefined and reallocated. \n " ++ show e)
+          makeError o $ "Global variables cannot be redefined and reallocated. \n " ++ show e
       Nothing ->
         add type'
   let mergedNameWithScope = concat . scaleNameWithScope $ "g" : [name]
@@ -193,11 +191,9 @@ checkAssign (Assign o (Var _ name _ _ Nothing)ret aExpr) analyzer = do
     check wantedDecl wanted actual res
       | wantedDecl == actual && (wanted == actual || wanted == VAuto) = return res
       | otherwise =
-        throwError $
-        AException
-          o
-          ("Types don't match. You tried2 to assign " ++
-           show actual ++ " when should be " ++ show wanted ++ ".\n" ++ show actual ++ " =/= " ++ show wanted)
+          makeError o $
+           "Types don't match. You tried2 to assign " ++
+           show actual ++ " when should be " ++ show wanted ++ ".\n" ++ show actual ++ " =/= " ++ show wanted
 
 
 checkWhile :: FunctionStmt -> FnStmtAnalyzer -> BExprAnalyzer -> Analyzer' [FunctionStmt]
@@ -237,7 +233,6 @@ checkClass c@(ClassExpr o name cast body) analyzer = do
   mapM_ (addField . SGen) cast
   body' <- mapM (analyzer name) body
   cScope <- removeScope
-  modName <- gets moduleName
   addClass o name Nothing cast cScope
   return $ ClassExpr o name cast body'
 
@@ -249,7 +244,6 @@ checkNativeClass c@(NativeClass o p name cast body) analyzer = do
   mapM_ (addField . SGen) cast
   body' <- mapM (analyzer name) body
   cScope <- removeScope
-  modName <- gets moduleName
   addClass o name (Just p) cast cScope
   return $ NativeClass o p name cast body'
 
@@ -262,7 +256,7 @@ checkClassAssign aa@(ClassAssign o (Var oV name [] Nothing Nothing) ret aExpr) a
   nType <- unwrapAllMethod . flip markGen gen <$>
     case firstSig of
       Just e@SVar {} ->
-        throwError $ AException o ("Global variables cannot be redefined and reallocated. \n " ++ show e)
+        makeError o $ "Global variables cannot be redefined and reallocated. \n " ++ show e
       Nothing ->
         check ret type'
   addVar o name Nothing nType "this"
@@ -274,11 +268,12 @@ checkClassAssign aa@(ClassAssign o (Var oV name [] Nothing Nothing) ret aExpr) a
     check a b
       | b == VBlank = return a
       | a == b || a == VAuto = return b
-      | otherwise = throwError
-        $ AException o ("Types don't match. You tried to assign " ++ show b  ++ " when should be " ++ show a ++ ".\n" ++ show a ++ " =/= " ++ show b)
+      | otherwise = 
+        makeError o $  
+          "Types don't match. You tried to assign " ++ show b  ++ " when should be " ++ show a ++ ".\n" ++ show a ++ " =/= " ++ show b
 
 forceNoScopeMarker _ ("":_) = return ()
-forceNoScopeMarker o _ = throwError $ AException o "Global and class assign can't hava a scope marker."
+forceNoScopeMarker o _ = makeError o "Global and class assign can't hava a scope marker."
 
 -- | OTHER EXPR
 checkOtherExpr :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]

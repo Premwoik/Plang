@@ -38,7 +38,7 @@ translate' files = do
   return $ imports ++ files'
 
 translateFile :: Imported -> Translator
-translateFile (IFile fName (AST stmts)) = do
+translateFile (IFile fName _ (AST stmts)) = do
   declarations <- declareFunctions stmts
   imports <- concat <$> mapM importTranslator (filterImports stmts)
   restOfCode <- mapM translateStatement stmts

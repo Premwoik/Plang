@@ -28,13 +28,14 @@ type Memory = Map.Map String [String]
 snd3 (_, y, _) = y
 trd (_, _, z) = z
 
-importMain :: AST -> IO [Imported]
-importMain main = do
-  res <- importAll [] "main" Map.empty main
+importMain :: String -> IO [Imported]
+importMain path = do
+  main <- tryReadAndParseFile path
+  res <- importAll [] "main" path Map.empty main
   let files = snd3 res
   let order = map fst . sortBy (\(_, v1) (_, v2) -> compare v2 v1) . Map.toList . countOccurrence $ trd res
   trace (show (order)) $ return ()
-  return $ map (\n -> fromJust (find (\(IFile n' _) -> n == n') files)) order
+  return $ map (\n -> fromJust (find (\(IFile n' _ _) -> n == n') files)) order
 
 countOccurrence :: Memory -> Counter
 countOccurrence mem = count startKey 1 (Map.fromList [("main", 0)])
@@ -46,8 +47,8 @@ countOccurrence mem = count startKey 1 (Map.fromList [("main", 0)])
       Just v' -> if v' < v then Map.insert k v c else c
       Nothing -> Map.insert k v c
     
-importAll :: [String] -> String -> Memory -> AST -> IO ([String], [Imported], Memory)
-importAll loaded name mem main = do
+importAll :: [String] -> String -> String -> Memory -> AST -> IO ([String], [Imported], Memory)
+importAll loaded name path mem main = do
   let allImports = filterImport main
   let mem' = Map.insert name (map getImportName allImports) mem
   let notLoadedImports = filterNotLoaded loaded allImports
@@ -55,9 +56,9 @@ importAll loaded name mem main = do
   let names = map getImportName notLoadedImports
   let loaded' = names ++ loaded
   asts <- mapM tryReadAndParseFile paths
-  res <- foldM (\(ld, res, c) (n', a) -> (\(ld', res', c') -> (ld', res ++ res', c')) <$> importAll ld n' c a) (loaded', [], mem') $ zip names asts
+  res <- foldM (\(ld, res, c) (n', p', a) -> (\(ld', res', c') -> (ld', res ++ res', c')) <$> importAll ld n' p' c a) (loaded', [], mem') $ zip3 names paths asts
   let (fLoaded, files, counter'') = res
-  return (fLoaded, IFile name main : files, counter'')
+  return (fLoaded, IFile name path main : files, counter'')
 
 
 --  zipWithM importAll names asts

@@ -74,26 +74,10 @@ blockTranslator' trans x = concat' <$> mapM trans x
     concat' = map makeIndent . concat
 
 assignTranslator :: Stmt -> Translator
--- This
---assignTranslator (Assign o ["this", name] t r) = assignTranslator (Assign o ["this->" ++ name] t r)
 -- Only declaration without assigning value
 assignTranslator (Assign _ name type' Nop) = do
   n <- injectTranslator aExprTranslatorGetter name
   return [typeToString type' ++ " " ++ head n ++ ";\n"]
--- Generic Pointer 
---assignTranslator as@(Assign _ name type' (TypedVar cName (VClass t gen isPtr) (Just args) Nothing)) = do
---    args' <- intercalate ", " . concat <$> mapM (injectTranslator aExprTranslatorGetter) args
---    return
---      [ if isPtr
---          then sharedPtrLeft type' fullName ++ " = " ++ sharedPtrRightVal type' args'
---          else valueLeft type' fullName args'
---      ]
---  where
---    fullName = intercalate "." name
---    -- TODO It probably has problem when on the right site is a function instead of class 
---    -- TODO check if this condition dispel above doubt
---    type' = typeToString (VClass cName gen isPtr) 
-
 -- assign without declaration
 assignTranslator (Assign _ name type' expr) = do
   e <- injectTranslator aExprTranslatorGetter expr
@@ -103,20 +87,6 @@ assignTranslator (Assign _ name type' expr) = do
     nType = unwrapType type'
     unwrapType (VPointer c SharedPtr) = "shared_ptr<" ++ typeToString c ++ ">"
     unwrapType x = typeToString x
-
-valueLeft t name args = t ++ " " ++ name ++ "{" ++ args ++ "};\n"
-
-uniquePtrLeft gen name = "unique_ptr<" ++ gen ++ "> " ++ name
-
-uniquePtrRightVal class' args = "new " ++ class' ++ "(" ++ args ++ ");\n"
-
-sharedPtrLeft gen name = "shared_ptr<" ++ gen ++ "> " ++ name
-
-sharedPtrRightVal class' args = "new " ++ class' ++ "(" ++ args ++ ");\n"
-
-sharedPtrLeftPtr gen name = "shared_ptr<" ++ gen ++ ">* " ++ name
-
-sharedPtrRightPtr class' args = "new shared_ptr<" ++ class' ++ ">(new " ++ class' ++ "(" ++ args ++ "));\n"
 
 --  TODO replace mock with real feature
 casualExprTranslator :: FunctionStmt -> Translator
