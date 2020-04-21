@@ -115,6 +115,7 @@ aTermExtended
   <|> anonymousFunctionBlockParser functionArgsParser functionStmt
   <|> anonymousFunctionParser functionArgsParser aExpr
   <|> fullIfStmt bExpr functionStmt
+  <|> ABool <$> bExpr
 
 
 bTerm :: Parser BExpr

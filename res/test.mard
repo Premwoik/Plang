@@ -50,7 +50,7 @@ Main -> int do
     sleep(1000)
     printMemStats()
     myList.add(10)
-    if i > 100 and true then
+    if i > 100 and (true or true) then
       myList.clear()
       Serial.println(F("Wyczyszczono liste!"))
 
@@ -89,12 +89,13 @@ Main -> int do
   lTest[1]
   lTest[1] = ThisTest<float>(10.2, 101)
   print(my|myFileFn())
-  c = 10.0
+  c = ((10.0 + 11.0) * 1.0 / 100.0) / 10.0
   testFunction(c)
   print(c)
   intPtr = [10]
   needPointer(intPtr)
   gotPtr = getPointer()
+  d = true
 //
   xd = ThisTest<float>(10.1, 100)
   x2 : ptr auto = xd

@@ -188,3 +188,8 @@ stringParser :: Parser AExpr
 stringParser = do
   o <- getOffset
   StringVal o <$> stringLiteral
+
+--aBoolParser :: Parser AExpr
+--aBoolParser = do
+--  return $ ABool $ BoolConst
+  

@@ -3,6 +3,6 @@ class Obj do
   Obj do
     pass
 
-testFunc a: const Obj -> void do
+testFunc a: ref Obj -> void do
   pass
 

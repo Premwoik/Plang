@@ -87,5 +87,5 @@ tryReadAndParseFile path = do
     Right res -> return res
     Left e -> do
       putStrLn $ Err.errorBundlePretty e
-      error ""
+      error $ Err.errorBundlePretty e
 

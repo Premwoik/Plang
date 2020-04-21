@@ -97,6 +97,7 @@ aExprAnalyzer expr =
     e@Neg {}        -> checkNegBlock e
     e@ABinary {}    -> checkABinary e aExprAnalyzer
     e@If {}         -> checkIfStatement e functionStmtAnalyzer bExprAnalyzer
+    e@ABool {}      -> checkABool e bExprAnalyzer
 
 bExprAnalyzer :: BExpr -> Analyzer' BExpr
 bExprAnalyzer expr =

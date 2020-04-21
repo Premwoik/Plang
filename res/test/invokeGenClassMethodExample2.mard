@@ -13,7 +13,7 @@ class Item<T> do
   get -> int do
     ret 0
 
-testFunc a: const Obj -> void do
+testFunc -> void do
   o = Obj<Item<int>>(Item<int>())
   o.getConst()
   pass

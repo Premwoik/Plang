@@ -11,7 +11,6 @@ main =
   describe "Function" $ do
     context "with arguments behave as " $ do
       it "can parser generic" $ shouldBe 1 1
-      it "can parser const" testConstFunArg
       it "can parser copy" $ shouldBe 1 1
       it "can't modify fun argument" testFunArgCantBeModified
     context "with body behave as" $ do
@@ -20,24 +19,30 @@ main =
       it "can invoke gen class method" testInvokeGenClassMethod
       it "can invoke gen (gen is class) class method" testInvokeGen2ClassMethod
 
+--      it "can parser const" testConstFunArg
 testInvokeGen2ClassMethod = do
   (ast, out) <- compile $ path "invokeGenClassMethodExample2.mard"
   let expectedAST =
         [ IFile
             "main"
+            "res/test/invokeGenClassMethodExample2.mard"
             (AST
                [ ClassExpr
                    0
                    "Obj"
                    ["T"]
-                   [ ClassAssign 18 ["this___i"] (VGen "T") Nop
+                   [ ClassAssign
+                       18
+                       (ScopeMark 18 "this" (TypedVar (VName "this___i") VAuto Nothing Nothing))
+                       (VGen "T")
+                       Nop
                    , Constructor
                        25
                        "Obj"
                        [FunArg (VGen "T") "args___i"]
                        [ AssignFn
                            41
-                           ["this___i"]
+                           (ScopeMark 41 "this" (TypedVar (VName "this___i") (VGen "T") Nothing Nothing))
                            VBlank
                            (TypedVar (VName "args___i") (VClass "T" [] False) Nothing Nothing)
                        ]
@@ -46,29 +51,29 @@ testInvokeGen2ClassMethod = do
                        "getConst"
                        (VGen "T")
                        []
-                       [ReturnFn 76 (TypedVar (VName "this___i") (VClass "T" [] False) Nothing Nothing)]
+                       [ReturnFn 76 (TypedVar (VName "this___i") (VGen "T") Nothing Nothing)]
                    ]
                , ClassExpr
                    83
                    "Item"
                    ["T"]
-                   [Constructor 102 "Item" [] [Pass], Method 122 "get" VInt [] [ReturnFn 140 (IntConst 0)]]
+                   [Constructor 102 "Item" [] [Pass], Method 122 "get" VInt [] [ReturnFn 140 (IntConst 144 0)]]
                , Function
                    147
                    "testFunc"
                    VVoid
-                   [FunArg (VClass "Obj" [] False) "args___a"]
+                   []
                    [ AssignFn
-                       182
-                       ["o"]
+                       169
+                       (TypedVar (VName "o") VAuto Nothing Nothing)
                        (VClass "Obj" [VGenPair "T" (VPointer (VClass "Item" [VInt] False) SharedPtr)] False)
                        (TypedVar
                           (VName "Obj")
                           (VClass "Obj" [VGenPair "T" (VPointer (VClass "Item" [VInt] False) SharedPtr)] False)
-                          (Just [TypedVar (VName "Item") (VClass "Item" [VGenPair "T" VInt] False) (Just []) Nothing])
+                          (Just [TypedVar (VName "Item") (VClass "Item" [VInt] False) (Just []) Nothing])
                           Nothing)
                    , OtherFn
-                       216
+                       203
                        (TypedVar
                           (VName "o")
                           (VClass "Obj" [VGenPair "T" (VPointer (VClass "Item" [VInt] False) SharedPtr)] False)
@@ -84,7 +89,7 @@ testInvokeGen2ClassMethod = do
                ])
         ]
   let expectedOUT =
-        [ "void testFunc(Obj& args___a);\n"
+        [ "void testFunc();\n"
         , "template<typename T>\nclass Obj{\npublic:\n"
         , "   T this___i;\n"
         , "   Obj(T args___i){\n"
@@ -102,7 +107,7 @@ testInvokeGen2ClassMethod = do
         , "      return 0;\n"
         , "   }\n"
         , "};\n"
-        , "void testFunc(Obj& args___a){\n"
+        , "void testFunc(){\n"
         , "   Obj<shared_ptr<Item<int>>> o = Obj<shared_ptr<Item<int>>>(Item<int>());\n"
         , "   o.getConst()"
         , "   ;\n"
@@ -117,19 +122,24 @@ testInvokeGenClassMethod = do
   let expectedAST =
         [ IFile
             "main"
+            "res/test/invokeGenClassMethodExample.mard"
             (AST
                [ ClassExpr
                    0
                    "Obj"
                    ["T"]
-                   [ ClassAssign 18 ["this___i"] (VGen "T") Nop
+                   [ ClassAssign
+                       18
+                       (ScopeMark 18 "this" (TypedVar (VName "this___i") VAuto Nothing Nothing))
+                       (VGen "T")
+                       Nop
                    , Constructor
                        25
                        "Obj"
                        [FunArg (VGen "T") "args___i"]
                        [ AssignFn
                            41
-                           ["this___i"]
+                           (ScopeMark 41 "this" (TypedVar (VName "this___i") (VGen "T") Nothing Nothing))
                            VBlank
                            (TypedVar (VName "args___i") (VClass "T" [] False) Nothing Nothing)
                        ]
@@ -138,7 +148,7 @@ testInvokeGenClassMethod = do
                        "getConst"
                        (VGen "T")
                        []
-                       [ReturnFn 76 (TypedVar (VName "this___i") (VClass "T" [] False) Nothing Nothing)]
+                       [ReturnFn 76 (TypedVar (VName "this___i") (VGen "T") Nothing Nothing)]
                    ]
                , Function
                    83
@@ -146,12 +156,12 @@ testInvokeGenClassMethod = do
                    VVoid
                    [FunArg (VClass "Obj" [] False) "args___a"]
                    [ AssignFn
-                       118
-                       ["o"]
+                       112
+                       (TypedVar (VName "o") VAuto Nothing Nothing)
                        (VClass "Obj" [VGenPair "T" VInt] False)
-                       (TypedVar (VName "Obj") (VClass "Obj" [VGenPair "T" VInt] False) (Just [IntConst 1]) Nothing)
+                       (TypedVar (VName "Obj") (VClass "Obj" [VGenPair "T" VInt] False) (Just [IntConst 125 1]) Nothing)
                    , OtherFn
-                       136
+                       130
                        (TypedVar
                           (VName "o")
                           (VClass "Obj" [VGenPair "T" VInt] False)
@@ -187,24 +197,25 @@ testInvokeClassMethod = do
   let expectedAST =
         [ IFile
             "main"
+            "res/test/invokeClassMethodExample.mard"
             (AST
                [ ClassExpr
                    0
                    "Obj"
                    []
-                   [Constructor 16 "Obj" [] [Pass], Method 35 "getConst" VInt [] [ReturnFn 58 (IntConst 1)]]
+                   [Constructor 16 "Obj" [] [Pass], Method 35 "getConst" VInt [] [ReturnFn 58 (IntConst 62 1)]]
                , Function
                    65
                    "testFunc"
                    VVoid
                    [FunArg (VClass "Obj" [] False) "args___a"]
                    [ AssignFn
-                       100
-                       ["o"]
+                       94
+                       (TypedVar (VName "o") VAuto Nothing Nothing)
                        (VClass "Obj" [] False)
                        (TypedVar (VName "Obj") (VClass "Obj" [] False) (Just []) Nothing)
                    , OtherFn
-                       112
+                       106
                        (TypedVar
                           (VName "o")
                           (VClass "Obj" [] False)
@@ -243,27 +254,36 @@ testGlobalAndArgVars = do
   let expectedAST =
         [ IFile
             "main"
+            "res/test/funArgsAndGlobalVarExample.mard"
             (AST
-               [ Assign 0 ["g___i"] VInt (IntConst 20)
-               , Assign 12 ["g___g"] VInt (IntConst 10)
+               [ Assign 0 (TypedVar (VName "g___i") VAuto Nothing Nothing) VInt (IntConst 9 20)
+               , Assign 12 (TypedVar (VName "g___g") VAuto Nothing Nothing) VInt (IntConst 16 10)
                , Function
                    20
                    "testFunc"
                    VInt
                    [FunArg VInt "args___b", FunArg VInt "args___g"]
-                   [ AssignFn 57 ["i"] VInt (ABinary Add (TypedVar (VName "g___i") VInt Nothing Nothing) (IntConst 10))
+                   [ AssignFn
+                       57
+                       (TypedVar (VName "i") VAuto Nothing Nothing)
+                       VInt
+                       (ABinary Add (TypedVar (VName "g___i") VInt Nothing Nothing) (IntConst 65 10))
                    , AssignFn
                        70
-                       ["g"]
+                       (TypedVar (VName "g") VAuto Nothing Nothing)
                        VInt
                        (ABinary
                           Add
                           (ABinary
                              Add
                              (TypedVar (VName "args___g") VInt Nothing Nothing)
-                             (ScopeMark "g" (TypedVar (VName "g___g") VInt Nothing Nothing)))
-                          (IntConst 10))
-                   , AssignFn 125 ["g___i"] VBlank (ScopeMark "args" (TypedVar (VName "args___g") VInt Nothing Nothing))
+                             (ScopeMark 78 "g" (TypedVar (VName "g___g") VInt Nothing Nothing)))
+                          (IntConst 84 10))
+                   , AssignFn
+                       125
+                       (ScopeMark 125 "g" (TypedVar (VName "g___i") VInt Nothing Nothing))
+                       VBlank
+                       (ScopeMark 131 "args" (TypedVar (VName "args___g") VInt Nothing Nothing))
                    , ReturnFn
                        140
                        (ABinary
@@ -289,14 +309,7 @@ testGlobalAndArgVars = do
 
 testConstFunArg = do
   (ast, out) <- compile $ path "constFunArgExample.mard"
-  let expectedAST =
-        [ IFile
-            "main"
-            (AST
-               [ ClassExpr 0 "Obj" [] [Constructor 16 "Obj" [] [Pass]]
-               , Function 33 "testFunc" VVoid [FunArg (VClass "Obj" [] False) "args___a"] [Pass]
-               ])
-        ]
+  let expectedAST = []
   let expectedOUT =
         [ "void testFunc(Obj& args___a);\n"
         , "class Obj{\npublic:\n"

@@ -108,7 +108,7 @@ int Main() {
     delay(1000);
     printMemStats();
     myList.add(10);
-    if ((i > 100) && (true)) {
+    if ((i > 100) && ((true) || (true))) {
       myList.clear();
       Serial.println(F("Wyczyszczono liste!"));
     }
@@ -151,12 +151,13 @@ int Main() {
   lTest.get(1);
   lTest.set(shared_ptr<ThisTest<float>>(new ThisTest<float>(10.2, 101)), 1);
   Serial.print(CoreMyFile::myFileFn());
-  float c = 10.0;
+  float c = ((10.0 + 11.0) * 1.0 / 100.0) / 10.0;
   testFunction(c);
   Serial.print(c);
   ArrayList<int> intPtr = ArrayList<int>(new int[1]{10}, 1, 1);
   needPointer(intPtr.getNativePtr());
   shared_ptr<int> gotPtr = shared_ptr<int>(getPointer());
+  bool d = true;
   ThisTest<float> xd = ThisTest<float>(10.1, 100);
   shared_ptr<ThisTest<float>> x2 = new ThisTest<float>{xd};
   ThisTest<float> haha = ThisTest<float>(10.1, 1000);

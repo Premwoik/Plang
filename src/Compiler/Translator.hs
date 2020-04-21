@@ -111,6 +111,7 @@ aExprTranslator expr =
     e@FnBlock {}  -> return [show e]
     e@Neg {}      -> aExprNegTranslator e
     e@ABinary {}  -> binaryTranslator e
+    ABool bExpr -> bExprTranslator bExpr
     Nop           -> return ["nullptr"]
     a             -> throw $ UnsupportedTypeException (show a)
 

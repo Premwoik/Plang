@@ -67,7 +67,7 @@ checkReturn (ReturnFn o aExpr) analyzer = do
 
 checkTypes o wanted actual
   | wanted == actual || wanted == VAuto = return wanted
-  | otherwise = 
+  | otherwise =
     makeError o ("return missmatch: FuncDeclType = " ++ show wanted ++ " =/= FuncRetType " ++ show actual)
 
 --checkTypes t _ = throw $ TypesMismatch $ "Local don't contain function struct, so types cant be checked!!! { " ++ show t
@@ -150,7 +150,7 @@ checkAssignFn a@(AssignFn o nameExpr ret aExpr) analyzer =
     hasSet t@(Var o "set" g (Just args) Nothing) rSide = 
       return $ Var o "set" g (Just (rSide : args)) Nothing
     hasSet t@(Var _ _ _ _ Nothing) _ = 
-      return t
+      Nothing
     hasSet (Var a b c d (Just more)) rSide =
       return $ Var a b c d $ hasSet more rSide
     hasSet (ScopeMark o n a) rSide = do
@@ -162,9 +162,9 @@ checkAssignFn a@(AssignFn o nameExpr ret aExpr) analyzer =
 check o wantedDecl wanted actual res
   | wantedDecl == actual && (wanted == actual || wanted == VAuto) = return res
   | otherwise =
-    makeError o $ "Types don't match. You tried to assign " ++ show actual 
+    makeError o $ "Types don't match. You tried to assign " ++ show actual
       ++ " when should be " ++ show wanted ++ ".\n" ++ show actual ++ " =/= " ++ show wanted
-      
+
 
 
 checkNativeAssign :: Stmt -> AExprAnalyzer -> Analyzer' Stmt
@@ -268,8 +268,8 @@ checkClassAssign aa@(ClassAssign o (Var oV name [] Nothing Nothing) ret aExpr) a
     check a b
       | b == VBlank = return a
       | a == b || a == VAuto = return b
-      | otherwise = 
-        makeError o $  
+      | otherwise =
+        makeError o $
           "Types don't match. You tried to assign " ++ show b  ++ " when should be " ++ show a ++ ".\n" ++ show a ++ " =/= " ++ show b
 
 forceNoScopeMarker _ ("":_) = return ()

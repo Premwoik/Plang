@@ -65,6 +65,7 @@ typeToString t =
     VVoid        -> "void"
     VAuto        -> "auto"
     VChar        -> "char"
+    VBool        -> "bool"
     VBlank       -> ""
     VRef t -> typeToString t ++ "&"
     VCopy t -> typeToString t

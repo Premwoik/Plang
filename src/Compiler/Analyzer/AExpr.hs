@@ -11,6 +11,7 @@ module Compiler.Analyzer.AExpr
   , checkStringConst
   , checkFloatConst
   , checkIntConst
+  , checkABool
   , checkScopeMark) where
 
 import           Compiler.Analyzer.Type
@@ -98,6 +99,17 @@ checkIfStatement (If o ifs) analyzer bAnalyzer = do
     retType _ = error "If statement return' type is not the same in every block"
     toVar n = Var (-1) n [] Nothing Nothing
 
+aExprToType :: AExpr -> VarType
+aExprToType a = case a of
+  IntConst {} -> VInt
+  FloatConst {} -> VFloat
+  StringVal {} -> VString
+  ABool {} -> VBool
+  TypedVar _ t _ _ -> t
+  _ -> VAuto
+  
+
+
 checkIntConst :: AExpr -> Analyzer' AExprRes
 checkIntConst e@(IntConst o i) = 
   return (VInt, [], e)
@@ -110,10 +122,7 @@ checkStringConst :: AExpr -> Analyzer' AExprRes
 checkStringConst e@(StringVal o s) =
   return (VString, [], e)
 
-aExprToType :: AExpr -> VarType
-aExprToType a = case a of
-  IntConst {} -> VInt
-  FloatConst {} -> VFloat
-  StringVal {} -> VString
-  TypedVar _ t _ _ -> t
-  _ -> VAuto
+checkABool :: AExpr -> BExprAnalyzer -> Analyzer' AExprRes
+checkABool (ABool bExpr) analyzer = do
+  bExpr' <- analyzer bExpr
+  return (VBool, [], ABool bExpr')

@@ -6,7 +6,7 @@ class Obj do
   getConst -> int do
     ret 1
 
-testFunc a: const Obj -> void do
+testFunc a: Obj -> void do
   o = Obj()
   o.getConst()
   pass

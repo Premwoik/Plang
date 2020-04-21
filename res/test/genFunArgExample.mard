@@ -3,6 +3,6 @@ class Obj<T> do
   Obj do
     pass
 
-testFunc a: const Obj<int> -> void do
+testFunc a: Obj<int> -> void do
   pass
 

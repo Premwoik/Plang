@@ -129,6 +129,7 @@ data VarType
   = VInt
   | VFloat
   | VString
+  | VBool
   | VVoid
   | VAuto
   | VChar
@@ -147,6 +148,7 @@ instance Eq VarType where
   VInt  == VInt = True
   VFloat == VFloat = True
   VString == VString = True
+  VBool == VBool = True
   VVoid == VVoid = True
   VAuto == VAuto = True
   VBlank == VBlank = True
