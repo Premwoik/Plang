@@ -10,6 +10,7 @@ import           Control.Monad.State       (get, gets, modify, put)
 import           Control.Monad.Writer      (tell)
 import           Data.Maybe                (fromJust, fromMaybe, listToMaybe)
 import           Debug.Trace
+import Compiler.Analyzer.UniversalCheckers
 import Control.Monad.Except(throwError)
 
 checkImport :: Stmt -> Analyzer' Stmt
@@ -36,6 +37,7 @@ checkMethod m@(Method o n t a body) bodyAnalyzer = do
   let nType = markGen t' gens
   let nArgs = markGenInArgs gens a'
   className <- gets cName
+  trace ("checkMethod: " ++ show n ++ " " ++ show nType) $ return ()
   addFunction o' n' Nothing nType nArgs
   checkFunctionUniqueness o' ["this", n'] nType nArgs
   return $
@@ -45,7 +47,7 @@ checkMethod m@(Method o n t a body) bodyAnalyzer = do
 
 checkFunction' :: RawFunction -> RawFunctionConst a -> FnStmtAnalyzer -> Analyzer' a
 checkFunction' (o, name, type', args, body) wrapper bodyAnalyzer = do
-  args' <- checkArgs args
+  args' <- checkFnArgs args
   setType type'
   addArgsScope o args
   setFunName name
@@ -56,31 +58,26 @@ checkFunction' (o, name, type', args, body) wrapper bodyAnalyzer = do
   removeScope
   return $ wrapper o name nType args' checkedBody'
 
---  addFnScope body
 checkReturn :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]
 checkReturn (ReturnFn o aExpr) analyzer = do
-  funcType <- gets rType
+  gen <- getClassGens
+  funcType <- flip markGen gen <$> gets rType
   (t, inject, res) <- analyzer aExpr
-  nType <- checkTypes o funcType t
+  nType <- compareGens o funcType t
   setType nType
   return $ inject ++ [ReturnFn o res]
 
-checkTypes o wanted actual
-  | wanted == actual || wanted == VAuto = return wanted
-  | otherwise =
-    makeError o ("return missmatch: FuncDeclType = " ++ show wanted ++ " =/= FuncRetType " ++ show actual)
+--checkTypes o wanted actual
+--  | wanted == actual || wanted == VAuto = return wanted
+--  | otherwise =
+--    makeError o ("return missmatch: FuncDeclType = " ++ show wanted ++ " =/= FuncRetType " ++ show actual)
 
---checkTypes t _ = throw $ TypesMismatch $ "Local don't contain function struct, so types cant be checked!!! { " ++ show t
 checkNative :: Stmt -> Analyzer' Stmt
---checkNative t@(NativeFunction o "" name ret args') = NativeFunction o name name ret <$> checkArgs args'
 checkNative t@(NativeFunction o path name ret args) = do
-  args' <- checkArgs args
+  args' <- checkFnArgs args
   addFunction o name (Just path) ret args'
   return $ NativeFunction o path name ret args'
 
---    VAuto -> throw IncorrectExprException
-checkArgs :: [FunArg] -> Analyzer' [FunArg]
-checkArgs = return . map (\(FunArg t n) -> FunArg t (concat (scaleNameWithScope ["args", n])))
 
 checkMethodDeclaration :: ClassStmt -> Analyzer' ClassStmt
 checkMethodDeclaration ttt@(NativeMethod o n t args) = do
@@ -126,7 +123,7 @@ checkAssignFn a@(AssignFn o var@(Var vo vname [] Nothing Nothing) ret aExpr) ana
   firstSig <- listToMaybe <$> find' ["", vname]
   nType <-
     case firstSig of
-      Just (SVar o' n _ t "") ->
+      Just (SVar o' n _ t "" _) ->
         check o t ret type' VBlank
       Just {} -> add type'
       Nothing -> add type'
@@ -180,7 +177,7 @@ checkAssign (Assign o (Var _ name _ _ Nothing)ret aExpr) analyzer = do
   firstSig <- listToMaybe <$> find' [name]
   nType <-
     case firstSig of
-      Just e@(SVar _ n _ t s) ->
+      Just e@(SVar _ n _ t s _) ->
           makeError o $ "Global variables cannot be redefined and reallocated. \n " ++ show e
       Nothing ->
         add type'
@@ -227,21 +224,21 @@ checkFor (ForFn o (Var _ n _ _ _) range body) fnAnalyzer aAnalyzer = do
 
 -- | CLASS
 checkClass :: Stmt -> ClassStmtAnalyzer -> Analyzer' Stmt
-checkClass c@(ClassExpr o name cast body) analyzer = do
+checkClass c@(ClassExpr o name gen body) analyzer = do
   setClassName name
   addScope "this"
-  mapM_ (addField . SGen) cast
+  mapM_ (addField . SGen VAuto) gen
   body' <- mapM (analyzer name) body
   cScope <- removeScope
-  addClass o name Nothing cast cScope
-  return $ ClassExpr o name cast body'
+  addClass o name Nothing gen cScope
+  return $ ClassExpr o name gen body'
 
 -- TODO
 checkNativeClass :: Stmt -> ClassStmtAnalyzer -> Analyzer' Stmt
 checkNativeClass c@(NativeClass o p name cast body) analyzer = do
   setClassName name
   addScope "this"
-  mapM_ (addField . SGen) cast
+  mapM_ (addField . SGen VAuto) cast
   body' <- mapM (analyzer name) body
   cScope <- removeScope
   addClass o name (Just p) cast cScope
@@ -259,6 +256,7 @@ checkClassAssign aa@(ClassAssign o (Var oV name [] Nothing Nothing) ret aExpr) a
         makeError o $ "Global variables cannot be redefined and reallocated. \n " ++ show e
       Nothing ->
         check ret type'
+--  trace ("ClassVar " ++ show name ++ show )
   addVar o name Nothing nType "this"
   
   let name' = concat . scaleNameWithScope $ "this" : [name]
@@ -277,5 +275,10 @@ forceNoScopeMarker o _ = makeError o "Global and class assign can't hava a scope
 
 -- | OTHER EXPR
 checkOtherExpr :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]
-checkOtherExpr (OtherFn o aExpr) analyzer = return . OtherFn o . trd <$> analyzer aExpr
+checkOtherExpr (OtherFn o aExpr) analyzer = do
+  retTmp <- gets rType
+  setType VAuto
+  res <- trd <$> analyzer aExpr
+  setType retTmp
+  return [OtherFn o res]
 

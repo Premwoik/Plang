@@ -12,14 +12,15 @@ myMax a: int, b: int -> int do
         b
 
 b = 12.3
-c = ThisTest<int>(10,10)
-
-testFunction c: ref float -> void do
+c = ThisTest<bool>(true,10)
+testFunction c: ref float -> int do
   b = b + 12.3
   c = c
   c = 12.0
-  myC = g|b + args|c
-  pass
+  ret g|b + args|c
+
+testFunction -> int do
+  ret 1
 
 funcThatReceiveClass -> void do
   pass
@@ -27,7 +28,7 @@ funcThatReceiveClass -> void do
 getNumber -> void do
   pass
 
-funcThatReceiveClass c: copy ThisTest<float> -> void do
+funcThatReceiveClass c: copy ThisTest<int> -> void do
   pass
 
 class MyClass do
@@ -39,6 +40,11 @@ class MyClass do
 
 fThatReturnPtr -> ptr ThisTest<float> do
   ret ThisTest<float>(10.1, 100)
+
+takeLambdaAsArg l: fn<int,int> -> int do
+  x = l
+  l(1)
+  ret x(1)
 
 
 Main -> int do
@@ -54,8 +60,10 @@ Main -> int do
       myList.clear()
       Serial.println(F("Wyczyszczono liste!"))
 
-    classTest = ThisTest<float>(13.0, 100)
-    z = classTest.getA()
+    classTest: auto = ThisTest<int>(13, 100)
+    z : float = classTest.getA()
+    funVar : fn<int> = testFunction
+    zzzz = funVar()
     Serial.println(z)
     i = i + 20
     Serial.println(classTest.getA())
@@ -70,7 +78,6 @@ Main -> int do
     mList = [ThisTest<float>| ThisTest<float>(13.0, 100), ThisTest<float>(13.0, 100)]
     result = mList.get(1)
     funcThatReceiveClass(classTest)
-//    funcThatReceiveClass(100)
 
   a1: ptr auto = ThisTest<float>(13.0, 100)
   a2: copy auto = a1
@@ -78,9 +85,14 @@ Main -> int do
   a4: ref auto = a1
   a5: ref auto = a1
 
-  intList = [int| 20]
-  intList[0]
-  intList[1] = 10
+  intList = [20] // create new list with one element
+  intList.add(20)  // append list
+  intList[0] // get element
+  intList[1] = 10 // set index
+
+  emptyIntList = [int|]
+  emptyIntList2: list<int> = []
+
   lTest = ArrayList<ThisTest<float>>()
   lTest.add(ThisTest<float>(10.1, 100))
   lTest.add(ThisTest<float>(10.1, 100))
@@ -100,6 +112,24 @@ Main -> int do
   xd = ThisTest<float>(10.1, 100)
   x2 : ptr auto = xd
   haha = ThisTest<float>(10.1, 1000)
+
+  inta = 12
+  refInta: ref auto = inta
+  ptrInta: ptr auto = inta
+  ptrInta = inta + 10
+  lambda: fn<int,int> = \x -> x + 10
+  lambda2: fn<int, int, int> =
+    {\x, z ->
+       y = x + 10
+       y + 13
+    }
+  lambda3: fn<fn<int>, int> = \x -> x()
+  res1 = lambda(12)
+  res2 = lambda2(1,2)
+  lambda3(\ -> 1)
+  takeLambdaAsArg(\x -> x+1)
+  res3 = res1 + res2
+  print(res1 + res2 * 10)
 
   ret 0
 

@@ -56,12 +56,12 @@ generics' = between (symbol "<") (symbol ">") (sepBy p sep)
 
 array = between (symbol "[") (symbol "]") 
 
-matchTypeTypeWithAccess :: [VarType] -> String -> String -> VarType
-matchTypeTypeWithAccess g t "ref" = VRef $ matchType' g t
-matchTypeTypeWithAccess g t "copy" = VCopy $ matchType' g t
-matchTypeTypeWithAccess g t "ptr" = VPointer (matchType' g t) SharedPtr
-matchTypeTypeWithAccess g t "cptr" = VPointer (matchType' g t) NativePtr 
-matchTypeTypeWithAccess g t "" = matchType' g t
+matchTypeWithAccess :: [VarType] -> String -> String -> VarType
+matchTypeWithAccess g t "ref" = VRef $ matchType' g t
+matchTypeWithAccess g t "copy" = VCopy $ matchType' g t
+matchTypeWithAccess g t "ptr" = VPointer (matchType' g t) SharedPtr
+matchTypeWithAccess g t "cptr" = VPointer (matchType' g t) NativePtr 
+matchTypeWithAccess g t "" = matchType' g t
 
 matchType :: String -> VarType
 matchType = matchType' []
@@ -72,11 +72,12 @@ matchType' g t =
     "int" -> VInt
     "void" -> VVoid
     "auto" -> VAuto
+    "bool" -> VBool
     "float" -> VFloat
     "string" -> VString
     "char" -> VChar
     "list" -> VClass "ArrayList" g False
---    "ptr" -> VPointer (head g) UniquePtr
+    "fn" -> VFn g
     x -> VClass x g False
 
 typeParser :: Parser VarType
@@ -84,7 +85,7 @@ typeParser = do
   access <- fromMaybe [] <$> optional (refParser <|> copyParser <|> pointerParser <|> cPointerParser)
   t <- pItem
   gen <- fromMaybe [] <$> optional generics'
-  return $ matchTypeTypeWithAccess gen t access
+  return $ matchTypeWithAccess gen t access
   where
     refParser = do
       void (symbol "ref")

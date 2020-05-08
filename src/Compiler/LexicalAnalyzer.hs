@@ -44,10 +44,10 @@ catalogueDecl modName p (AST stmts) = map mapper . filter cond $ stmts
     cond NativeClass {} = True
     cond NativeFunction {} = True
     cond _            = False
-    mapper (Function o n t a _) = SFunction (FileInfo o modName p) n Nothing t a
-    mapper (NativeFunction o p n t a) = SFunction (FileInfo o modName p) n (Just p) t a
-    mapper (NativeClass o p n g _) = SClass (FileInfo o modName p) n (Just p) g (Scope n [])
-    mapper (ClassExpr o n g _)  = SClass (FileInfo o modName p) n Nothing g (Scope n [])
+    mapper (Function o n t a _) = SFunction (FileInfo o modName p) n Nothing t a NoNeedCheck
+    mapper (NativeFunction o p n t a) = SFunction (FileInfo o modName p) n (Just p) t a NoNeedCheck
+    mapper (NativeClass o p n g _) = SClass (FileInfo o modName p) n (Just p) g (Scope n []) NoNeedCheck
+    mapper (ClassExpr o n g _)  = SClass (FileInfo o modName p) n Nothing g (Scope n []) NoNeedCheck
 
 statementAnalyzer :: Stmt -> Analyzer' Stmt
 statementAnalyzer s =
@@ -92,8 +92,7 @@ aExprAnalyzer expr =
     e@Var {}        -> checkVar e Nothing "" aExprAnalyzer
     e@ListVar {}    -> checkListVar e aExprAnalyzer
     e@Range {}      -> checkRange e
-    e@Fn {}         -> checkFn e
-    e@FnBlock {}    -> checkFnBlock e
+    e@LambdaFn {}   -> checkLambdaFn False e  functionStmtAnalyzer
     e@Neg {}        -> checkNegBlock e
     e@ABinary {}    -> checkABinary e aExprAnalyzer
     e@If {}         -> checkIfStatement e functionStmtAnalyzer bExprAnalyzer

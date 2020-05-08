@@ -92,8 +92,7 @@ data AExpr
   | ListVar Offset [AExpr] (Maybe VarType)
   | StringVal Offset String
   | Range Offset (Maybe AExpr) AExpr AExpr
-  | Fn Offset Bool (Maybe [FunArg]) AExpr
-  | FnBlock Offset (Maybe [FunArg]) [FunctionStmt]
+  | LambdaFn Offset VarType [FunArg]  [FunctionStmt]
   | If Offset [(BExpr, [FunctionStmt])]
   
   | Neg AExpr
@@ -103,6 +102,7 @@ data AExpr
   | NativePtrRes AExpr
   | NativePtrInput AExpr
   | TypedVar VarName VarType (Maybe [AExpr]) (Maybe AExpr)
+  | TypedABinary VarType ABinOp AExpr AExpr
   | TypedListVar [AExpr] VarType
   | Nop
   deriving (Show, Eq)
@@ -133,9 +133,11 @@ data VarType
   | VVoid
   | VAuto
   | VChar
+  | VFn [VarType]
   -- | VClass name type isPointer (isPointer - default value is false)
   | VClass String [VarType] Bool
   -- | Not for parsing
+  | VFnNamed String [VarType]
   | VGen String
   | VGenPair String VarType
   | VRef VarType
@@ -151,7 +153,10 @@ instance Eq VarType where
   VBool == VBool = True
   VVoid == VVoid = True
   VAuto == VAuto = True
+  VInt == VFloat = True
+  VFloat == VInt= True
   VBlank == VBlank = True
+  VFn x1 == VFn x2 = x1 == x2
   (VClass n g p) == (VClass n2 g2 p2) = n == n && g == g2 && p == p2
   (VGen n) == (VGen n2) = n == n2 
   (VGen n) == (VClass n2 _ _) = n == n2

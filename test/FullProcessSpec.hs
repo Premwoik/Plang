@@ -4,10 +4,12 @@ import           AST
 import           Compiler              (compile)
 import           Test.Hspec
 import           Test.Hspec.Megaparsec
+import qualified Full.LambdaFn as LambdaFn
 
 path fName = "res/test/" ++ fName
 
-main =
+main = do
+  LambdaFn.main 
   describe "Function" $ do
     context "with arguments behave as " $ do
       it "can parser generic" $ shouldBe 1 1

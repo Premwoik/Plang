@@ -19,11 +19,13 @@ functionTranslator (Function _ name ret args block) = do
   return . concat $ [[typeToString ret ++ " " ++ name ++ "(" ++ readyArgs ++ "){\n"], readyBlock, ["}\n"]]
 
 argumentsTranslator :: [FunArg] -> String
-argumentsTranslator = intercalate ", " . map (\(FunArg t name) -> typeToString t ++ markRef t ++ " " ++ name)
+argumentsTranslator = intercalate ", " . map (\(FunArg t name) -> unwrapType t name)
   where
     markRef t = case t of
       VClass {} -> "&"
       _ -> ""
+    unwrapType (VFn t) n = typeToString (VFnNamed n t)
+    unwrapType t name = typeToString t ++ markRef t ++ " " ++ name
 
 nativeTranslator :: Stmt -> Translator
 nativeTranslator (NativeFunction _ _ name type' args) = return []
@@ -65,13 +67,6 @@ ifTranslator (IfFn _ l) = mapM build $ zip [1 ..] l
       | x == length l = translateElse p
       | otherwise = translateIf "else if(" p
 
-blockTranslator :: BodyBlock -> Translator
-blockTranslator = blockTranslator' (injectTranslator stmtTranslatorGetter)
-
-blockTranslator' :: (a -> Translator) -> [a] -> Translator
-blockTranslator' trans x = concat' <$> mapM trans x
-  where
-    concat' = map makeIndent . concat
 
 assignTranslator :: Stmt -> Translator
 -- Only declaration without assigning value
@@ -82,11 +77,12 @@ assignTranslator (Assign _ name type' Nop) = do
 assignTranslator (Assign _ name type' expr) = do
   e <- injectTranslator aExprTranslatorGetter expr
   n <- head <$> injectTranslator aExprTranslatorGetter name
-  return . return . concat $ ((nType ++ " " ++ n ++ " = ") : e) ++ [";\n"]
+  return . return . concat $ ((lSite n ++ " = ") : e) ++ [";\n"]
   where
-    nType = unwrapType type'
-    unwrapType (VPointer c SharedPtr) = "shared_ptr<" ++ typeToString c ++ ">"
-    unwrapType x = typeToString x
+    lSite = unwrapType type'
+    unwrapType (VPointer c SharedPtr) n = "shared_ptr<" ++ typeToString c ++ ">" ++ " " ++ n
+    unwrapType (VFn t) n = typeToString (VFnNamed n t)
+    unwrapType x n = typeToString x ++ " " ++ n
 
 --  TODO replace mock with real feature
 casualExprTranslator :: FunctionStmt -> Translator

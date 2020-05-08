@@ -26,9 +26,10 @@ anonymousFunctionParser functionArgsParser aExpr = lexeme p
     p = do
       o <- getOffset
       void (symbol "\\")
-      args <- optional functionArgsParser
+      args <- fromMaybe [] <$> optional functionArgsParser
       void (symbol "->")
-      Fn o True args <$> aExpr
+      o2 <- getOffset
+      LambdaFn o VAuto args . pure . OtherFn o2 <$> aExpr
 
 anonymousFunctionBlockParser :: Parser [FunArg] -> Parser FunctionStmt -> Parser AExpr
 anonymousFunctionBlockParser functionArgsParser functionStmt = blockMark $ lexeme $ L.indentBlock scn p
@@ -36,9 +37,9 @@ anonymousFunctionBlockParser functionArgsParser functionStmt = blockMark $ lexem
     p = do
       o <- getOffset
       void (symbol "\\")
-      args <- optional functionArgsParser
+      args <- fromMaybe [] <$> optional functionArgsParser
       void (symbolEnd "->")
-      return (L.IndentMany Nothing (return . FnBlock o args) functionStmt)
+      return (L.IndentMany Nothing (return . LambdaFn o VAuto args) functionStmt)
 
 -- TODO as
 
@@ -189,7 +190,3 @@ stringParser = do
   o <- getOffset
   StringVal o <$> stringLiteral
 
---aBoolParser :: Parser AExpr
---aBoolParser = do
---  return $ ABool $ BoolConst
-  

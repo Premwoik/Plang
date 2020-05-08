@@ -56,6 +56,8 @@ newtype TranslatorException =
 
 instance Exception TranslatorException
 
+
+
 typeToString :: VarType -> String
 typeToString t =
   case t of
@@ -67,6 +69,8 @@ typeToString t =
     VChar        -> "char"
     VBool        -> "bool"
     VBlank       -> ""
+    VFn t -> typeToString (last t) ++ "(*)" ++ "(" ++ intercalate "," (map typeToString (init t)) ++ ")"
+    VFnNamed n t -> typeToString (last t) ++ "(*"++ n ++")" ++ "(" ++ intercalate "," (map typeToString (init t)) ++ ")"
     VRef t -> typeToString t ++ "&"
     VCopy t -> typeToString t
     VClass c gen _ -> c ++ genStr gen
@@ -87,3 +91,12 @@ newLine x = x ++ "\n"
 
 makeIndent :: String -> String
 makeIndent x = "   " ++ x
+
+blockTranslator :: BodyBlock -> Translator
+blockTranslator = blockTranslator' (injectTranslator stmtTranslatorGetter)
+
+blockTranslator' :: (a -> Translator) -> [a] -> Translator
+blockTranslator' trans x = concat' <$> mapM trans x
+  where
+    concat' = map makeIndent . concat
+

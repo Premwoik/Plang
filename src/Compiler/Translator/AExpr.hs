@@ -61,7 +61,6 @@ varTranslator a@(TypedVar name type' (Just args) more') = do
     unwrapType _ args = uName ++ args
 
 
-
 moreVarTranslator :: VarType -> Maybe AExpr -> Translator
 -- TODO handle pointers
 -- TODO args passed in func application probably are not lexical analyzed
@@ -74,6 +73,23 @@ scopeMarkTranslator (ScopeMark _ sName (TypedVar n t a m)) = do
   trace ("SCOPE_TRANSLATOR " ++ sName ++ " | name: " ++ show n ++ " |> ") $ return ()
   injectTranslator aExprTranslatorGetter $ TypedVar n t a m
 scopeMarkTranslator x = error $ show x
+
+lambdaTranslator :: AExpr -> Translator
+lambdaTranslator (LambdaFn offset t args stmts) = do
+  stmts' <- concat <$> tStmts
+  return ["[](" ++ tArgs ++ "){" ++ stmts' ++ "}"]
+  where
+    tArgs = intercalate "," $ map (\(FunArg t n) -> unwrapType t n) args
+    tStmts =
+      case stmts of
+        [OtherFn o expr] -> do
+          trace ("TranslatorExpr :: " ++ show expr) $ return ()
+          res <- head <$> injectTranslator aExprTranslatorGetter expr
+          return ["return " ++ res ++ ";\n"]
+        _  -> blockTranslator' (injectTranslator fnStmtTranslatorGetter) stmts
+        
+    unwrapType (VFn t) n = typeToString (VFnNamed n t)
+    unwrapType x n = typeToString x ++ " " ++ n
 
 listVarTranslator :: AExpr -> Translator
 listVarTranslator (TypedListVar expr t) = do

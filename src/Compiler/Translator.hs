@@ -107,10 +107,10 @@ aExprTranslator expr =
     e@NativePtrRes {} -> nativePtrResWrapper e
     e@TypedListVar {}  -> listVarTranslator e
     e@Range {}    -> return ["\"TODO\""]
-    e@Fn {}       -> return ["\"TODO\""]
-    e@FnBlock {}  -> return [show e]
+    e@LambdaFn {}       -> lambdaTranslator e
     e@Neg {}      -> aExprNegTranslator e
     e@ABinary {}  -> binaryTranslator e
+    TypedABinary _ a  b c -> binaryTranslator $ ABinary a b c 
     ABool bExpr -> bExprTranslator bExpr
     Nop           -> return ["nullptr"]
     a             -> throw $ UnsupportedTypeException (show a)

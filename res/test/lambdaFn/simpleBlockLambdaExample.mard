@@ -1,0 +1,9 @@
+module SimpleLambdaExample where
+testFunc -> void do
+  lambda =
+    {\x, z ->
+       y = x + 10
+       y + 13
+    }
+  pass
+

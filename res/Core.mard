@@ -35,11 +35,11 @@ native "" detachInterrupt id: int -> void
 
 // DEFINE
 
-native "" HIGH -> int
-native "" LOW -> int
-native "" INPUT -> int
-native "" OUTPUT -> int
-native "" INPUT_PULLUP -> int
+native var "" HIGH: int
+native var "" LOW: int
+native var "" INPUT: int
+native var "" OUTPUT: int
+//native var "" INPUT_PULLUP -> int
 
 native "" PI
 native "" HALF_PI
@@ -156,7 +156,7 @@ class ThisTest<T> do
       this|b = 100
    ThisTest a: T, b: int do
       this|a = a
-      this|b = b
+      this|b = 1
    getA -> T do
       ret a
    setA val: T -> void do

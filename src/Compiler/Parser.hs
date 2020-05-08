@@ -35,8 +35,8 @@ stmt'
   <|> skipStmt
   <|> try (assignParser varLeftAssignParser aExprExtended Assign)
   <|> nativeClassParser classStmt
-  <|> try nativeFunctionParser
   <|> nativeAssignDeclParser
+  <|> try nativeFunctionParser
   <|> classParser classStmt
   <|> functionParser functionStmt
 
@@ -92,16 +92,18 @@ bOperators =
 aTerm :: Parser AExpr
 aTerm
   = bracketParser aExpr
-  <|> try (varParser aExpr)
-  <|> try (listParser aExpr)
+  <|> try (scopeMarkParser aExprExtended)
+  <|> try (varExtendedParser aExprExtended)
+  <|> try (listParser aExprExtended)
   <|> rangeParser aExpr
   <|> try floatParser
   <|> intParser
   <|> stringParser
   <|> anonymousFunctionBlockParser functionArgsParser functionStmt
-  <|> anonymousFunctionParser functionArgsParser aExpr
+  <|> anonymousFunctionParser functionArgsParser aExprExtended
   <|> fullIfStmt bExpr functionStmt
-  
+--  <|> ABool <$> bExpr
+ 
 aTermExtended :: Parser AExpr
 aTermExtended
   = bracketParser aExprExtended
@@ -113,7 +115,7 @@ aTermExtended
   <|> intParser
   <|> stringParser
   <|> anonymousFunctionBlockParser functionArgsParser functionStmt
-  <|> anonymousFunctionParser functionArgsParser aExpr
+  <|> anonymousFunctionParser functionArgsParser aExprExtended
   <|> fullIfStmt bExpr functionStmt
   <|> ABool <$> bExpr
 

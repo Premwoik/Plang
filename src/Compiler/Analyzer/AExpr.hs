@@ -3,8 +3,7 @@ module Compiler.Analyzer.AExpr
   , checkIfStatement
   , checkABinary
   , checkNegBlock
-  , checkFnBlock
-  , checkFn
+  , checkLambdaFn
   , checkRange
   , checkListVar
   , checkBracket
@@ -24,6 +23,7 @@ import Debug.Trace
 import Control.Monad.Except(throwError)
 import Data.List(find)
 import Compiler.Analyzer.AExpr.Var --(markVarClassAsPointer, markClassAsPointer)
+import Compiler.Analyzer.UniversalCheckers
 
 
 
@@ -39,7 +39,7 @@ checkScopeMark (ScopeMark o scopeName aExpr) analyzer = do
 checkListVar :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkListVar (ListVar _ [] (Just t)) _ = 
   return (VClass "ArrayList" [t] False, [], TypedVar (VName "ArrayList") (VClass "ArrayList" [t] False) (Just []) Nothing)
-checkListVar (ListVar o [] Nothing) _ = 
+checkListVar (ListVar o [] Nothing) _ =
   makeError o "Empty list must have providen a type"
 checkListVar a@(ListVar o elems wantedType) analyzer = do
   let len = show $ length elems
@@ -57,10 +57,37 @@ checkListVar a@(ListVar o elems wantedType) analyzer = do
     classToPointer (t, i, e) = (markClassAsPointer t, i, markVarClassAsPointer e)
 
 checkRange a = return (VAuto,[], a)
-
-checkFn a = return (VAuto,[], a)
-
-checkFnBlock a = return (VAuto,[], a)
+-- False is for normal assign and True is for invoking checking
+--TODO return can be done only at the end of the last line???
+checkLambdaFn :: Bool -> AExpr -> FnStmtAnalyzer ->  Analyzer' AExprRes
+checkLambdaFn False a@(LambdaFn offset retType args stmts) analyzer = do
+  ret <- gets rType
+  allTypesKnown ret
+  where
+    allTypesKnown (VFn types) 
+      | VAuto `notElem` types = do
+        let args' = zipWith (\t (FunArg _ n) -> FunArg t n) types args
+        let ret' = last types
+        checkLambdaFn True (LambdaFn offset ret' args' stmts) analyzer
+      | otherwise = makeError offset "All arguments must have defined strict type!"
+    allTypesKnown _ = return (VFn [], [], a) --makeError offset "Lambda expression must have defined strict type!"
+    
+checkLambdaFn True a@(LambdaFn offset retType args stmts) analyzer = do
+  args' <- checkFnArgs args 
+  addArgsScope offset args
+  addScope "lambda"
+  stmts' <- concat <$> mapM analyzer stmts -- =<< checkReturn stmts)
+  removeScope
+  removeScope
+  return (rType, [], LambdaFn offset retType args' stmts')
+  where
+    rType = VFn $ map(\(FunArg t _) -> t) args ++ [retType]
+--    checkReturn stmts =
+--      case last stmts of
+--        ReturnFn {} -> return stmts
+--        OtherFn o e -> return $ init stmts  ++ [ReturnFn o e]
+----        TODO add check also for returns inside function body - not only last return
+--        _ -> makeError offset "Anonymous last statement must be returnable."
 
 checkNegBlock a = return (VAuto,[], a)
 
@@ -73,12 +100,8 @@ checkABinary :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkABinary t@(ABinary op a b) aAnalyzer = do
   (ta, _, a') <- aAnalyzer a
   (tb, _,  b') <- aAnalyzer b
-  let nType = checkType ta tb
-  return (nType,[], ABinary op a' b')
-  where
-    checkType t1 t2
-      | t1 == t2 = t1
-      | otherwise = error $ "checkABinary t1 =/ t2  |  " ++ show t1 ++ "   " ++ show t2
+  nType <- compareGens 0 ta tb
+  return (nType,[], TypedABinary nType op a' b')
 
 checkIfStatement :: AExpr -> FnStmtAnalyzer -> BExprAnalyzer -> Analyzer' AExprRes
 checkIfStatement (If o ifs) analyzer bAnalyzer = do
@@ -107,7 +130,7 @@ aExprToType a = case a of
   ABool {} -> VBool
   TypedVar _ t _ _ -> t
   _ -> VAuto
-  
+
 
 
 checkIntConst :: AExpr -> Analyzer' AExprRes

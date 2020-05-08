@@ -79,7 +79,6 @@ nativeFunctionParser =
       optional $ do
         void (symbol "->")
         typeParser
---        matchType <$> pItem
     return $ NativeFunction o path header (fromMaybe VAuto type') args
 
 returnParser :: Parser AExpr -> Parser FunctionStmt
@@ -143,7 +142,7 @@ nativeAssignDeclParser =
     type' <-
       optional $ do
         void (symbol ":")
-        matchType <$> pItem
+        typeParser
     return $ NativeAssignDeclaration o path name (fromMaybe VAuto type')
 
 methodDeclarationParser :: Parser ClassStmt
