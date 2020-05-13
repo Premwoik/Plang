@@ -69,6 +69,13 @@ typeToString t =
     VChar        -> "char"
     VBool        -> "bool"
     VBlank       -> ""
+    VNum NUInt8 -> "uint8_t"
+    VNum NUInt16 -> "uint16_t"
+    VNum NUInt32 -> "uint32_t"
+    VNum NInt8 -> "int8_t"
+    VNum NInt16 -> "int16_t"
+    VNum NInt32 -> "int32_t"
+    
     VFn t -> typeToString (last t) ++ "(*)" ++ "(" ++ intercalate "," (map typeToString (init t)) ++ ")"
     VFnNamed n t -> typeToString (last t) ++ "(*"++ n ++")" ++ "(" ++ intercalate "," (map typeToString (init t)) ++ ")"
     VRef t -> typeToString t ++ "&"

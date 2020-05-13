@@ -91,9 +91,9 @@ aExprAnalyzer expr =
     e@StringVal {}  -> checkStringConst e
     e@Var {}        -> checkVar e Nothing "" aExprAnalyzer
     e@ListVar {}    -> checkListVar e aExprAnalyzer
-    e@Range {}      -> checkRange e
+    e@Range {}      -> checkRange e aExprAnalyzer
     e@LambdaFn {}   -> checkLambdaFn False e  functionStmtAnalyzer
-    e@Neg {}        -> checkNegBlock e
+    e@Neg {}        -> checkNegBlock e aExprAnalyzer
     e@ABinary {}    -> checkABinary e aExprAnalyzer
     e@If {}         -> checkIfStatement e functionStmtAnalyzer bExprAnalyzer
     e@ABool {}      -> checkABool e bExprAnalyzer

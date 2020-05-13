@@ -37,17 +37,37 @@ whileTranslator bExpr block trans = do
   return . concat $ [["while(" ++ head bExpr' ++ "){\n"], block', ["}\n"]]
 
 forTranslator :: AExpr -> AExpr -> [a] -> (a -> Translator) -> Translator
-forTranslator (TypedVar name type' Nothing Nothing) (Range _ _ a b) block trans = do
+forTranslator (TypedVar name type' Nothing Nothing) (Range _ s a b) block trans = do
   let uName = unwrapVarName name
   a' <- injectTranslator aExprTranslatorGetter a
   b' <- injectTranslator aExprTranslatorGetter b
+  let sign = direction s a b
   block' <- blockTranslator' trans block
   return . concat $
     [ ["for(" ++ typeToString type' ++ " " ++ uName ++ " = "]
     , a'
     , ["; " ++ uName ++ " < "]
     , b'
-    , ["; " ++ uName ++ "++){\n"]
+    , ["; " ++ uName ++ sign ++ "){\n"]
+    , block'
+    , ["}\n"]
+    ]
+  where 
+    direction (Just (IntConst _ 1)) (IntConst _ a) (IntConst _ b)
+      | a > b = "--"
+      | otherwise = "++"
+    direction (Just (IntConst _ x)) (IntConst _ a) (IntConst _ b)
+      | a > b = " -= " ++ show x
+      | otherwise = " += " ++ show x
+    direction _ a b = error (show a ++ " | " ++ show b)
+forTranslator (TypedVar name type' Nothing Nothing) list@TypedVar {} block trans = do
+  let uName = unwrapVarName name
+  list' <- injectTranslator aExprTranslatorGetter list
+  block' <- blockTranslator' trans block
+  return . concat $
+    [ ["for(" ++ typeToString type' ++ " " ++ uName ++ " : "]
+    , list'
+    , ["){\n"]
     , block'
     , ["}\n"]
     ]

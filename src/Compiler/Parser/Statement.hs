@@ -199,7 +199,7 @@ forStmt aExpr wrapper parser = lexeme $ L.indentBlock scn p
       o <- getOffset
       void (symbol "for")
       var <- guardedVar aExpr
-      void (symbol "<-")
+      void (symbol "in")
       range <- aExpr
       void (symbolEnd "do")
       return (L.IndentSome Nothing (return . wrapper o var range) parser)

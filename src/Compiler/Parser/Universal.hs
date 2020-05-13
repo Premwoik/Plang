@@ -70,6 +70,12 @@ matchType' :: [VarType] -> String -> VarType
 matchType' g t =
   case t of
     "int" -> VInt
+    "uint8" -> VNum NUInt8
+    "uint16" -> VNum NUInt16
+    "uint32" -> VNum NUInt32
+    "int8" -> VNum NInt8
+    "int16" -> VNum NInt16
+    "int32" -> VNum NInt32
     "void" -> VVoid
     "auto" -> VAuto
     "bool" -> VBool

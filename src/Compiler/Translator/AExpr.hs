@@ -29,6 +29,7 @@ binaryOperatorToString a =
     Subtract -> "-"
     Multiply -> "*"
     Divide   -> "/"
+    Modulo   -> "%"
 
 varTranslator :: AExpr -> Translator
 varTranslator a@(TypedVar name type' Nothing more') = do

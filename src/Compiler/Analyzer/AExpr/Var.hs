@@ -28,6 +28,8 @@ markVarClassAsPointer = map mapper
 markNativePtr :: [FunArg] -> [AExpr] -> [AExpr]
 markNativePtr = zipWith extractPtr
   where
+--  don't mark when given arg is just native ptr
+    extractPtr (FunArg (VPointer _ NativePtr) _) v@(TypedVar _ (VPointer _ NativePtr) _ _) = v
     extractPtr (FunArg (VPointer _ NativePtr) _) v = NativePtrInput v
     extractPtr _ v = v
  

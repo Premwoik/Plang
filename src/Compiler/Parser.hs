@@ -44,8 +44,8 @@ functionStmt :: Parser FunctionStmt
 functionStmt
   = returnParser aExprExtended
   <|> passStmt
-  <|> whileStmt bExpr WhileFn functionStmt
   <|> forStmt aExprExtended ForFn functionStmt
+  <|> whileStmt bExpr WhileFn functionStmt
   <|> fullIfFuncParser bExpr functionStmt
   <|> try (assignParser leftParser aExprExtended AssignFn)
   <|> otherStmt
@@ -77,7 +77,7 @@ bExpr = makeExprParser bTerm bOperators
 
 aOperators :: [[Operator Parser AExpr]]
 aOperators =
-  [ [Prefix (Neg <$ symbol "-")]
+  [ [Prefix (Neg <$ symbol "-"), InfixL (ABinary Modulo <$ symbol "%")]
   , [InfixL (ABinary Multiply <$ symbol "*"), InfixL (ABinary Divide <$ symbol "/")]
   , [InfixL (ABinary Add <$ symbol "+"), InfixL (ABinary Subtract <$ symbol "-")]
   ]

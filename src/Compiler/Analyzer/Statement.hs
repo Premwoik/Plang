@@ -127,6 +127,7 @@ checkAssignFn a@(AssignFn o var@(Var vo vname [] Nothing Nothing) ret aExpr) ana
         check o t ret type' VBlank
       Just {} -> add type'
       Nothing -> add type'
+      
   return $ inject ++ [AssignFn o (TypedVar (VName vname) VAuto Nothing Nothing) (unwrapAllMethod nType) res]
   where
     add type' = addVar o vname Nothing (unwrapAllMethod type') "" >> check o type' ret type' type'
@@ -157,11 +158,14 @@ checkAssignFn a@(AssignFn o nameExpr ret aExpr) analyzer =
   
   
 check o wantedDecl wanted actual res
-  | wantedDecl == actual && (wanted == actual || wanted == VAuto) = return res
+  | wantedDecl == actual && (wanted == actual || wanted == VAuto) = return extendedIntCheck
   | otherwise =
     makeError o $ "Types don't match. You tried to assign " ++ show actual
       ++ " when should be " ++ show wanted ++ ".\n" ++ show actual ++ " =/= " ++ show wanted
-
+  where
+    extendedIntCheck = case wanted of 
+      VNum {} -> wanted
+      _ -> res
 
 
 checkNativeAssign :: Stmt -> AExprAnalyzer -> Analyzer' Stmt
@@ -184,13 +188,13 @@ checkAssign (Assign o (Var _ name _ _ Nothing)ret aExpr) analyzer = do
   let mergedNameWithScope = concat . scaleNameWithScope $ "g" : [name]
   return $ Assign o (TypedVar (VName mergedNameWithScope) VAuto Nothing Nothing) nType res
   where
-    add type' = addVar o name Nothing (unwrapAllMethod type') "g" >> check type' ret type' type'
-    check wantedDecl wanted actual res
-      | wantedDecl == actual && (wanted == actual || wanted == VAuto) = return res
-      | otherwise =
-          makeError o $
-           "Types don't match. You tried2 to assign " ++
-           show actual ++ " when should be " ++ show wanted ++ ".\n" ++ show actual ++ " =/= " ++ show wanted
+    add type' = addVar o name Nothing (unwrapAllMethod type') "g" >> check o type' ret type' type'
+--    check wantedDecl wanted actual res
+--      | wantedDecl == actual && (wanted == actual || wanted == VAuto) = return res
+--      | otherwise =
+--          makeError o $
+--           "Types don't match. You tried2 to assign " ++
+--           show actual ++ " when should be " ++ show wanted ++ ".\n" ++ show actual ++ " =/= " ++ show wanted
 
 
 checkWhile :: FunctionStmt -> FnStmtAnalyzer -> BExprAnalyzer -> Analyzer' [FunctionStmt]
@@ -220,7 +224,10 @@ checkFor (ForFn o (Var _ n _ _ _) range body) fnAnalyzer aAnalyzer = do
   (t, _, range') <- aAnalyzer range
   body' <- concat <$> mapM fnAnalyzer body
   removeScope
-  return [ForFn o (TypedVar (VName n) VInt Nothing Nothing) range' body']
+  return [ForFn o (TypedVar (VName n) (itemType t) Nothing Nothing) range' body']
+  where
+    itemType (VClass "ArrayList" [t] _) = t
+    itemType t = t
 
 -- | CLASS
 checkClass :: Stmt -> ClassStmtAnalyzer -> Analyzer' Stmt

@@ -3,6 +3,8 @@ import Core
 import Core.Native.List
 import Core.MyFile as my
 import Core.Native.Ethernet
+import Core.Native.Bitwise
+import Core.Board.Uno
 
 myMax a: int, b: int -> int do
   ret
@@ -91,7 +93,7 @@ Main -> int do
   intList[1] = 10 // set index
 
   emptyIntList = [int|]
-  emptyIntList2: list<int> = []
+//  emptyIntList2: list<int> = []
 
   lTest = ArrayList<ThisTest<float>>()
   lTest.add(ThisTest<float>(10.1, 100))
@@ -130,6 +132,19 @@ Main -> int do
   takeLambdaAsArg(\x -> x+1)
   res3 = res1 + res2
   print(res1 + res2 * 10)
+
+  test8: uint8 = 12
+  setBitHigh(PORTB, 5)
+  modulo = 2 % 2
+
+  for i in [0..12] do
+    pass
+  for i in [-12..-20] do
+    pass
+  for i in lTest do
+    pass
+  for i in [1,5..12] do
+    pass
 
   ret 0
 

@@ -1,5 +1,6 @@
 #include "Ethernet.h"
 #include "SPI.h"
+#include "Bitwise.h"
 #include "Core.h"
 #include "MemoryInfo.h"
 #include "ArrayList.h"
@@ -70,11 +71,17 @@ public:
    }
 };
 }
+namespace CoreBoardUno{
+}
+namespace CoreNativeBitwise{
+}
 namespace CoreNativeEthernet{
 }
 using namespace Core;
 using namespace CoreNativeList;
 using namespace CoreNativeEthernet;
+using namespace CoreNativeBitwise;
+using namespace CoreBoardUno;
 int myMax(int args___a, int args___b);
 int testFunction(float& args___c);
 int testFunction();
@@ -165,8 +172,9 @@ int Main(){
    shared_ptr<ThisTest<float>> a5 = a1;
    ArrayList<int> intList = ArrayList<int>(new int[1]{20}, 1, 1);
    intList.add(20)   ;
-   Serial.print(intList.get(0))   ;
+   intList.get(0)   ;
    intList.set(10, 1)   ;
+   ArrayList<int> emptyIntList = ArrayList<int>();
    ArrayList<shared_ptr<ThisTest<float>>> lTest = ArrayList<shared_ptr<ThisTest<float>>>();
    lTest.add(shared_ptr<ThisTest<float>>(new ThisTest<float>(10.1, 100)))   ;
    lTest.add(shared_ptr<ThisTest<float>>(new ThisTest<float>(10.1, 100)))   ;
@@ -204,5 +212,16 @@ int Main(){
 })   ;
    int res3 = res1 + res2;
    Serial.print(res1 + res2 * 10)   ;
+   uint8_t test8 = 12;
+   setBitHigh(PORTB, 5)   ;
+   int modulo = 2 % 2;
+   for(int i =    0   ; i <    12   ; i++){
+         }
+   for(int i =    -12   ; i <    -20   ; i--){
+         }
+   for(shared_ptr<ThisTest<float>> i :    lTest   ){
+         }
+   for(int i =    1   ; i <    12   ; i += 5){
+         }
    return 0;
 }

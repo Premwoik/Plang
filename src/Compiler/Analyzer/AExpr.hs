@@ -56,7 +56,18 @@ checkListVar a@(ListVar o elems wantedType) analyzer = do
     checkType (t:ts) = all (\x -> t == x) ts && t == fromMaybe t wantedType
     classToPointer (t, i, e) = (markClassAsPointer t, i, markVarClassAsPointer e)
 
-checkRange a = return (VAuto,[], a)
+checkRange :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
+checkRange (Range o s a b) analyzer  = do
+  (ta, _, a') <- analyzer a
+  (tb, _, b') <- analyzer b
+  (ts, _, s') <- analyzer . fromMaybe (IntConst o 1) $ s
+  allInt ta tb ts
+  return (VInt,[], Range o (Just s') a' b')
+  where
+    allInt a b c 
+      | a == b && a == c && a == VInt = return () 
+      | otherwise = makeError o "In range all numbers have to be an Integers"
+      
 -- False is for normal assign and True is for invoking checking
 --TODO return can be done only at the end of the last line???
 checkLambdaFn :: Bool -> AExpr -> FnStmtAnalyzer ->  Analyzer' AExprRes
@@ -89,7 +100,13 @@ checkLambdaFn True a@(LambdaFn offset retType args stmts) analyzer = do
 ----        TODO add check also for returns inside function body - not only last return
 --        _ -> makeError offset "Anonymous last statement must be returnable."
 
-checkNegBlock a = return (VAuto,[], a)
+checkNegBlock (Neg a) analyzer = do
+  (t, _, a') <- analyzer a
+  return (t,[], addNeg a')
+  where
+    addNeg (IntConst o x) = IntConst o (-x)
+    addNeg (FloatConst o x) = FloatConst o (-x)
+    addNeg x = Neg x
 
 checkBracket :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkBracket (ABracket o aExpr) analyzer = do

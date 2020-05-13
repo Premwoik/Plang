@@ -123,11 +123,13 @@ data ABinOp
   | Subtract
   | Multiply
   | Divide
+  | Modulo
   deriving (Show, Eq)
 
 data VarType
   = VInt
   | VFloat
+  | VNum NumType
   | VString
   | VBool
   | VVoid
@@ -150,10 +152,13 @@ instance Eq VarType where
   VInt  == VInt = True
   VFloat == VFloat = True
   VString == VString = True
+  VNum x == VNum y = True
   VBool == VBool = True
   VVoid == VVoid = True
   VAuto == VAuto = True
   VInt == VFloat = True
+  VNum _ == VInt = True
+  VInt == VNum _ = True
   VFloat == VInt= True
   VBlank == VBlank = True
   VFn x1 == VFn x2 = x1 == x2
@@ -176,6 +181,18 @@ instance Eq VarType where
   a == b = trace ("Eq error ### left = " ++ show a ++ " | right = " ++ show b) False
 
 data PointerType = UniquePtr | SharedPtr | NativePtr deriving(Show, Eq)
+
+data NumType
+--  = NInt
+  =NUInt8
+  | NUInt16
+  | NUInt32
+  | NInt8
+  | NInt16
+  | NInt32
+--  | NFloat
+  deriving (Show, Eq)
+  
 
 data BoolOp =
   BoolOp
