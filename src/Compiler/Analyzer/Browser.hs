@@ -28,12 +28,21 @@ find' name = do
     [sName, n]      -> searchInScopeWithName n sName scopes'
     _               -> return []
 
-findInClass :: String -> String -> Analyzer' [ScopeField]
+
+fixNativeClassType :: VarType -> Analyzer' VarType
+fixNativeClassType it@(VClass (VName n) gen) = do
+  cl <- listToMaybe <$> find' [n]
+  return $ case cl of
+    Just (SClass _ _ (Just path) _ _) -> VClass (VNameNative n path) gen
+    _ -> it
+fixNativeClassType x = return x 
+
+findInClass :: VarName -> String -> Analyzer' [ScopeField]
 findInClass cName name = do
-  c <- listToMaybe <$> find' [cName]
+  c <- listToMaybe <$> find' [unwrapVarNameForce cName]
   return $
     case c of
-      Just (SClass o _ _ gen s _) -> searchInScope name s
+      Just (SClass o _ _ gen s) -> searchInScope name s
       Nothing                   -> []
 
 getFileName :: String -> Analyzer' String
@@ -69,9 +78,9 @@ searchNameInScopes name = concatMap (searchInScope name)
 searchInScope :: String -> Scope -> [ScopeField]
 searchInScope name scope = filter cond (unwrapFields scope)
   where
-    cond (SFunction o n _ t a _) = n == name
-    cond (SVar o n _ t _ _)      = n == name
-    cond (SClass o n _ g s _)    = n == name
+    cond (SFunction o n _ t a_) = n == name
+    cond (SVar o n _ t __)      = n == name
+    cond (SClass o n _ g s_)    = n == name
     cond _                     = False
 
 unwrapFields (Scope _ s) = s
@@ -103,7 +112,7 @@ checkFunctionUniqueness o name t args = do
         then return ()
         else makeError o ("There exists a variable with same name - " ++ show name)
     allReturnTheSame fns =
-      if all (\(SFunction o n p t' a _) -> t == t') fns
+      if all (\(SFunction o n p t' a) -> t == t') fns
         then return ()
         else makeError o $
                "Not each function with same name return the same type. " ++
@@ -111,7 +120,7 @@ checkFunctionUniqueness o name t args = do
     notSameArguments fns =
       if all (\g -> length g == 1) .
          group .
-         map (\(SFunction _ _ _ _ a _) -> map (\(FunArg t _) -> t) a) . filter (\(SFunction i _ _ _ _ _) -> fOffset i <= o) $
+         map (\(SFunction _ _ _ _ a) -> map (\(FunArg t _) -> t) a) . filter (\(SFunction i _ _ _ _) -> fOffset i <= o) $
          fns
         then return ()
         else makeError o ("The same function just exists!\n" ++ show fns)
@@ -122,30 +131,38 @@ maybeArgsMatch (Just args) gen analyzer s = do
   return $ argsMatch args' gen s
   where
     prepareArgs = case s of
-      (SFunction _ _ _ _ fargs _) -> zipWithM (aExprExtractType analyzer) fargs args
+      (SFunction _ _ _ _ fargs) -> zipWithM (aExprExtractType analyzer) fargs args
       _ -> mapM (aExprExtractType analyzer (FunArg VAuto "")) args
 maybeArgsMatch Nothing _ _ _ = return True
 
 --
 argsMatch :: [VarType] -> [VarType] -> ScopeField -> Bool
-argsMatch t gen (SFunction _ _ _ _ args _) = argsMatch' t (fixArgs gen args)
-argsMatch t gen (SClass _ n _ g (Scope _ s) _) = any (match (mergeGen g)) s
+argsMatch t gen (SFunction _ _ _ _ args) = argsMatch' t (fixArgs gen args)
+argsMatch t gen (SClass _ n _ g (Scope _ s)) = any (match (mergeGen g)) s
   where
-    match gen (SFunction o n' _ _ args _) = n' == n && constructorArgsMatch t (fixArgs gen args)
+    match gen (SFunction o n' _ _ args) = n' == n && constructorArgsMatch t (fixArgs gen args)
     match _ _ = False
     mergeGen gns = zipWith VGenPair gns gen
 
 argsMatch' :: [VarType] -> [FunArg] -> Bool
 argsMatch' t args = (length t == length args) && all match (zip t args)
   where
-    match (VClass "ArrayList" [t] _, FunArg (VPointer t2 NativePtr) _) = t == t2
+    match (VClass (VName "ArrayList") [t], FunArg (VPointer t2 NativePtr) _) = t == t2
     match (w, FunArg ot _)      = w == ot
     
 constructorArgsMatch :: [VarType] -> [FunArg] -> Bool
-constructorArgsMatch t args = trace ("CONSTARGS " ++ show args) $ (length t == length args) && all match (zip t args)
+constructorArgsMatch t args = (length t == length args) && all match (zip t args)
   where
 --    match (w, FunArg VGen {} _) = False
     match (w, FunArg ot _)      = w == ot
+
+filterConstructor :: Maybe [AExpr] -> [VarType] -> ScopeField -> Analyzer' ScopeField
+filterConstructor (Just args) gen (SClass _ n _ _ (Scope _ s)) = do
+  argsT <- mapM (aExprExtractType mockAExprAnalyzer (FunArg VAuto "")) args
+  return . head . filter (match argsT) $ s
+  where
+    match argsT (SFunction o n' _ _ args) = n' == n && constructorArgsMatch argsT (fixArgs gen args)
+    match _ _ = False
 
 --
 fixArgs :: [VarType] -> [FunArg] -> [FunArg]
@@ -187,7 +204,7 @@ fixFunArgs (FunArg t' _) f@(LambdaFn o t args _) analyzer = do
   
 
 -- remember that pointer is always selected to false as default value
-fixClassGen (VClass n gens p) = VClass n (map nGen gens) False
+fixClassGen (VClass n gens) = VClass n (map nGen gens)
   where
     nGen (VGenPair _ t) = t
     nGen x              = x

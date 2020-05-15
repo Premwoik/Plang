@@ -37,7 +37,7 @@ checkMethod m@(Method o n t a body) bodyAnalyzer = do
   let nType = markGen t' gens
   let nArgs = markGenInArgs gens a'
   className <- gets cName
-  trace ("checkMethod: " ++ show n ++ " " ++ show nType) $ return ()
+--  trace ("checkMethod: " ++ show n ++ " " ++ show nType) $ return ()
   addFunction o' n' Nothing nType nArgs
   checkFunctionUniqueness o' ["this", n'] nType nArgs
   return $
@@ -48,7 +48,7 @@ checkMethod m@(Method o n t a body) bodyAnalyzer = do
 checkFunction' :: RawFunction -> RawFunctionConst a -> FnStmtAnalyzer -> Analyzer' a
 checkFunction' (o, name, type', args, body) wrapper bodyAnalyzer = do
   args' <- checkFnArgs args
-  setType type'
+  setType =<< fixNativeClassType type'
   addArgsScope o args
   setFunName name
   addScope "fun"
@@ -59,13 +59,19 @@ checkFunction' (o, name, type', args, body) wrapper bodyAnalyzer = do
   return $ wrapper o name nType args' checkedBody'
 
 checkReturn :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]
-checkReturn (ReturnFn o aExpr) analyzer = do
+checkReturn (ReturnFn o (Just aExpr)) analyzer = do
   gen <- getClassGens
   funcType <- flip markGen gen <$> gets rType
   (t, inject, res) <- analyzer aExpr
   nType <- compareGens o funcType t
   setType nType
-  return $ inject ++ [ReturnFn o res]
+  return $ inject ++ [ReturnFn o (Just res)]
+checkReturn (ReturnFn o Nothing) analyzer = do
+  gen <- getClassGens
+  funcType <- flip markGen gen <$> gets rType
+  nType <- compareGens o funcType VVoid
+  setType nType
+  return [ReturnFn o Nothing]
 
 --checkTypes o wanted actual
 --  | wanted == actual || wanted == VAuto = return wanted
@@ -74,28 +80,30 @@ checkReturn (ReturnFn o aExpr) analyzer = do
 
 checkNative :: Stmt -> Analyzer' Stmt
 checkNative t@(NativeFunction o path name ret args) = do
+  ret' <- fixNativeClassType ret
   args' <- checkFnArgs args
-  addFunction o name (Just path) ret args'
-  return $ NativeFunction o path name ret args'
+  addFunction o name (Just path) ret' args'
+  return $ NativeFunction o path name ret' args'
 
 
 checkMethodDeclaration :: ClassStmt -> Analyzer' ClassStmt
 checkMethodDeclaration ttt@(NativeMethod o n t args) = do
   gen <- getClassGens
-  let nType = markGen t gen
+  ret <- fixNativeClassType t
+  let nType = markGen ret gen
   let nArgs = markGenInArgs gen args
   addFunction o n Nothing nType nArgs
   return $ NativeMethod o n nType nArgs
 
-markGen (VClass g [] p) gen =
+markGen (VClass (VName g) []) gen =
   if g `elem` gen
     then VGen g
-    else VClass g [] p
+    else VClass (VName g) []
 markGen x _ = x
 
 markGenInArgs gen = map checkType
   where
-    checkType i@(FunArg (VClass g [] _) n) =
+    checkType i@(FunArg (VClass (VName g) []) n) =
       if g `elem` gen
         then FunArg (VGen g) n
         else i
@@ -123,7 +131,7 @@ checkAssignFn a@(AssignFn o var@(Var vo vname [] Nothing Nothing) ret aExpr) ana
   firstSig <- listToMaybe <$> find' ["", vname]
   nType <-
     case firstSig of
-      Just (SVar o' n _ t "" _) ->
+      Just (SVar o' n _ t "") ->
         check o t ret type' VBlank
       Just {} -> add type'
       Nothing -> add type'
@@ -181,7 +189,7 @@ checkAssign (Assign o (Var _ name _ _ Nothing)ret aExpr) analyzer = do
   firstSig <- listToMaybe <$> find' [name]
   nType <-
     case firstSig of
-      Just e@(SVar _ n _ t s _) ->
+      Just e@(SVar _ n _ t s) ->
           makeError o $ "Global variables cannot be redefined and reallocated. \n " ++ show e
       Nothing ->
         add type'
@@ -219,14 +227,15 @@ checkIfFunction t@(IfFn o ifs) analyzer bExprAnalyzer = do
 
 checkFor :: FunctionStmt -> FnStmtAnalyzer -> AExprAnalyzer -> Analyzer' [FunctionStmt]
 -- TODO
-checkFor (ForFn o (Var _ n _ _ _) range body) fnAnalyzer aAnalyzer = do
-  addScope "for"
+checkFor (ForFn o (Var vo n _ _ _) range body) fnAnalyzer aAnalyzer = do
   (t, _, range') <- aAnalyzer range
+  addVar vo n Nothing (itemType t) ""
+  addScope "for"
   body' <- concat <$> mapM fnAnalyzer body
   removeScope
   return [ForFn o (TypedVar (VName n) (itemType t) Nothing Nothing) range' body']
   where
-    itemType (VClass "ArrayList" [t] _) = t
+    itemType (VClass (VName "ArrayList") [t]) = t
     itemType t = t
 
 -- | CLASS

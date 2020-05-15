@@ -34,7 +34,7 @@ importMain path = do
   res <- importAll [] "main" path Map.empty main
   let files = snd3 res
   let order = map fst . sortBy (\(_, v1) (_, v2) -> compare v2 v1) . Map.toList . countOccurrence $ trd res
-  trace (show (order)) $ return ()
+--  trace (show (order)) $ return ()
   return $ map (\n -> fromJust (find (\(IFile n' _ _) -> n == n') files)) order
 
 countOccurrence :: Memory -> Counter

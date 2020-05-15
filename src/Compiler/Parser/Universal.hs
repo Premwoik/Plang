@@ -10,6 +10,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import Data.Maybe (fromMaybe)
 import           AST
 import Control.Monad (void)
+import Debug.Trace
 
 sep :: Parser Text
 sep = symbol ","
@@ -45,14 +46,14 @@ generics :: Parser [String]
 generics = between (symbol "<") (symbol ">") (sepBy identifier sep)
 
 generics' :: Parser [VarType]
-generics' = between (symbol "<") (symbol ">") (sepBy p sep)
-  where
-    p = do
-      id <- identifier
-      gens <- optional generics'
-      case gens of
-        Just g -> return $ matchType' g id
-        Nothing -> return $ matchType id
+generics' = between (symbol "<") (symbol ">") (sepBy typeParser sep)
+--  where
+--    p = do
+--      id <- typeParser
+--      gens <- optional generics'
+--      case gens of
+--        Just g -> return $ matchType' g id
+--        Nothing -> return $ matchType id
 
 array = between (symbol "[") (symbol "]") 
 
@@ -82,14 +83,16 @@ matchType' g t =
     "float" -> VFloat
     "string" -> VString
     "char" -> VChar
-    "list" -> VClass "ArrayList" g False
+    "list" -> VClass (VName "ArrayList") g
     "fn" -> VFn g
-    x -> VClass x g False
+    x -> VClass (VName x) g
 
 typeParser :: Parser VarType
 typeParser = do
   access <- fromMaybe [] <$> optional (refParser <|> copyParser <|> pointerParser <|> cPointerParser)
+  trace ("CHUJ1" ++ show access) $ return ()
   t <- pItem
+  trace ("CHUJ2" ++ show t) $ return ()
   gen <- fromMaybe [] <$> optional generics'
   return $ matchTypeWithAccess gen t access
   where

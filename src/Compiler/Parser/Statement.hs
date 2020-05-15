@@ -15,6 +15,7 @@ import Compiler.Parser.Lexer
 import Control.Monad
 import Data.Maybe (fromMaybe)
 import Text.Megaparsec.Debug (dbg)
+import Debug.Trace
 
 
 moduleParser :: Parser Stmt
@@ -87,7 +88,7 @@ returnParser aExpr = lexeme p
     p = do
       o <- getOffset
       void (symbol "ret")
-      ReturnFn o <$> aExpr
+      ReturnFn o <$> optional aExpr
 
 skipStmt :: Parser Stmt
 skipStmt = do
@@ -151,11 +152,12 @@ methodDeclarationParser =
     o <- getOffset
     void (symbol "def")
     header <- pItem
+    trace (show header) $ return ()
     args <- fromMaybe [] <$> optional functionArgsParser
     type' <-
       optional $ do
         void (symbol "->")
-        matchType <$> pItem
+        typeParser
     return $ NativeMethod o header (fromMaybe VAuto type') args
 
 classParser :: Parser ClassStmt -> Parser Stmt
@@ -238,3 +240,23 @@ fullIfFuncParser bExpr functionStmt = do
   case else' of
     (Just e) -> return . IfFn o $ if' : elif' ++ [e]
     Nothing -> return . IfFn o $ if' : elif'
+
+caseStmtParser :: Parser AExpr -> Parser FunctionStmt -> Parser FunctionStmt
+caseStmtParser aExprParser fStmtParser = lexeme $ L.indentBlock scn p
+  where
+    p = do
+      o <- getOffset
+      void (symbol "case")
+      aExpr <- aExprParser
+      void (symbolEnd "of")
+      return (L.IndentMany Nothing (return . IfFn o) (caseLineParser aExpr aExprParser fStmtParser))
+
+caseLineParser :: AExpr -> Parser AExpr -> Parser FunctionStmt -> Parser Cond
+caseLineParser lCond aExprParser fStmtParser = lexeme $ L.indentBlock scn p
+  where
+    p = do
+      o <- getOffset
+      rCond <- aExprParser
+      void (symbolEnd "do")
+      let cond = RBinary Equal lCond rCond
+      return (L.IndentMany Nothing (return . (cond,)) fStmtParser)

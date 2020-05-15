@@ -26,16 +26,9 @@ import Compiler
 
 main :: IO ()
 main = do
-  let path = "res/test.mard"
+  let path = "res/main.mard"
   res <- compile path 
   print $ fst res
   print $ snd res
   writeFile "res/out.h" $ concat $ snd res
- 
---compile :: String -> IO ()
-
---translate
-
-newtype ParseException = ParseException (ParseErrorBundle T.Text Void) deriving (Show)
-instance E.Exception ParseException
 

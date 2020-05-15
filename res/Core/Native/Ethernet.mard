@@ -2,11 +2,16 @@ module Core.Native.Ethernet where
 link_path "SPI.h"
 link_path "Ethernet.h"
 
+native var "Ethernet" EthernetVar: EthernetStatic
+
+native class "Ethernet" EthernetStatic do
+  def begin mac: cptr int -> int
+  def localIP -> string
+
 native class "Ethernet" Ethernet do
 
   def begin -> void
   def dnsServerIp -> void
-  def begin -> void
   def dnsServerIP -> void
   def gatewayIP -> void
   def hardwareStatus -> void

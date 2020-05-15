@@ -2,7 +2,7 @@
 #include<unique_ptr.h>
 #include<shared_ptr.h>
 
-#include "res/out.h"
+#include "out.h"
 
 
 int main(){

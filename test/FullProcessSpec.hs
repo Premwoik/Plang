@@ -254,47 +254,7 @@ testFunArgCantBeModified = do
 testGlobalAndArgVars = do
   (ast, out) <- compile $ path "funArgsAndGlobalVarExample.mard"
   let expectedAST =
-        [ IFile
-            "main"
-            "res/test/funArgsAndGlobalVarExample.mard"
-            (AST
-               [ Assign 0 (TypedVar (VName "g___i") VAuto Nothing Nothing) VInt (IntConst 9 20)
-               , Assign 12 (TypedVar (VName "g___g") VAuto Nothing Nothing) VInt (IntConst 16 10)
-               , Function
-                   20
-                   "testFunc"
-                   VInt
-                   [FunArg VInt "args___b", FunArg VInt "args___g"]
-                   [ AssignFn
-                       57
-                       (TypedVar (VName "i") VAuto Nothing Nothing)
-                       VInt
-                       (ABinary Add (TypedVar (VName "g___i") VInt Nothing Nothing) (IntConst 65 10))
-                   , AssignFn
-                       70
-                       (TypedVar (VName "g") VAuto Nothing Nothing)
-                       VInt
-                       (ABinary
-                          Add
-                          (ABinary
-                             Add
-                             (TypedVar (VName "args___g") VInt Nothing Nothing)
-                             (ScopeMark 78 "g" (TypedVar (VName "g___g") VInt Nothing Nothing)))
-                          (IntConst 84 10))
-                   , AssignFn
-                       125
-                       (ScopeMark 125 "g" (TypedVar (VName "g___i") VInt Nothing Nothing))
-                       VBlank
-                       (ScopeMark 131 "args" (TypedVar (VName "args___g") VInt Nothing Nothing))
-                   , ReturnFn
-                       140
-                       (ABinary
-                          Add
-                          (TypedVar (VName "i") VInt Nothing Nothing)
-                          (TypedVar (VName "g") VInt Nothing Nothing))
-                   ]
-               ])
-        ]
+        [IFile "main" "res/test/funArgsAndGlobalVarExample.mard" (AST [Assign 0 (TypedVar (VName "g___i") VAuto Nothing Nothing) VInt (IntConst 9 20),Assign 12 (TypedVar (VName "g___g") VAuto Nothing Nothing) VInt (IntConst 16 10),Function 20 "testFunc" VInt [FunArg VInt "args___b",FunArg VInt "args___g"] [AssignFn 57 (TypedVar (VName "i") VAuto Nothing Nothing) VInt (TypedABinary VInt Add (TypedVar (VName "g___i") VInt Nothing Nothing) (IntConst 65 10)),AssignFn 70 (TypedVar (VName "g") VAuto Nothing Nothing) VInt (TypedABinary VInt Add (TypedABinary VInt Add (TypedVar (VName "args___g") VInt Nothing Nothing) (ScopeMark 78 "g" (TypedVar (VName "g___g") VInt Nothing Nothing))) (IntConst 84 10)),AssignFn 125 (ScopeMark 125 "g" (TypedVar (VName "g___i") VInt Nothing Nothing)) VBlank (ScopeMark 131 "args" (TypedVar (VName "args___g") VInt Nothing Nothing)),ReturnFn 140 (TypedABinary VInt Add (TypedVar (VName "i") VInt Nothing Nothing) (TypedVar (VName "g") VInt Nothing Nothing))]])]
   let expectedOUT =
         [ "int testFunc(int args___b, int args___g);\n"
         , "int g___i = 20;\n"

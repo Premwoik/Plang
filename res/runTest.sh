@@ -11,7 +11,7 @@ echo "#########################"
 echo "### MyLangCompiler RESULT: "
 stack run l1-exe
 cd res
-clang-format out.h > TestSketch/res/out.h
+clang-format out.h > TestSketch/out.h
 #g++ TestSketch/res/out.h
 cd TestSketch
 

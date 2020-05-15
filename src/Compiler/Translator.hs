@@ -99,6 +99,7 @@ aExprTranslator expr =
     e@TypedVar {} -> varTranslator e
     e@ScopeMark {} -> scopeMarkTranslator e 
     Var _ a _ b c   -> varTranslator (TypedVar (VName a) VAuto b c)
+    e@Optional {} -> optionalTranslator e
     e@ABracket {} -> bracketTranslator e
     IntConst _ i    -> return . return $ show i
     FloatConst _ f  -> return . return $ show f
@@ -123,6 +124,7 @@ bExprTranslator expr =
       if a
         then ["true"]
         else ["false"]
+    BoolVar a -> aExprTranslator a
     e@Not {} -> negationTranslator e
     e@BBinary {} -> bBinaryTranslator e
     e@RBinary {} -> rBinaryTranslator e

@@ -1,6 +1,10 @@
+#include "Message.h"
+#include "Message.h"
+#include "MessageProcessor.h"
+#include "Message.h"
+#include "timer.h"
 #include "Ethernet.h"
 #include "SPI.h"
-#include "Bitwise.h"
 #include "Core.h"
 #include "MemoryInfo.h"
 #include "ArrayList.h"
@@ -48,180 +52,109 @@ public:
       return ArrayList<int>();
    }
 };
-template<typename T>
-class ThisTest{
-public:
-   T this___a;
-   int this___b = 0;
-   ThisTest(){
-         }
-   ThisTest(T args___a){
-       this___a = args___a;
-       this___b = 100;
-   }
-   ThisTest(T args___a, int args___b){
-       this___a = args___a;
-       this___b = 1;
-   }
-   T getA(){
-      return this___a;
-   }
-   void setA(T args___val){
-       this___a = args___val;
-   }
-};
-}
-namespace CoreBoardUno{
-}
-namespace CoreNativeBitwise{
 }
 namespace CoreNativeEthernet{
+}
+namespace CoreNativeTimer{
+}
+namespace SmartHomeMessage{
+}
+namespace SmartHomeMessageProcessor{
+}
+namespace SmartHomeMsgCode{
+}
+namespace SmartHomeMsgStatus{
 }
 using namespace Core;
 using namespace CoreNativeList;
 using namespace CoreNativeEthernet;
-using namespace CoreNativeBitwise;
-using namespace CoreBoardUno;
-int myMax(int args___a, int args___b);
-int testFunction(float& args___c);
-int testFunction();
-void funcThatReceiveClass();
-void getNumber();
-void funcThatReceiveClass(ThisTest<int> args___c);
-shared_ptr<ThisTest<float>> fThatReturnPtr();
-int takeLambdaAsArg(int(*args___l)(int));
+using namespace SmartHomeMessage;
+using namespace SmartHomeMessageProcessor;
+using namespace CoreNativeTimer;
+void initOutputs(ArrayList<int>& args___out, uint8_t args___initState);
+void initInputs(ArrayList<int>& args___ins);
+void initEthernet();
 int Main();
-int myMax(int args___a, int args___b){
-   int var1;
-   if(args___a > args___b){
-    var1 = args___a;
-}
-   else {
-    var1 = args___b;
-}
-   return var1;
-}
-float g___b = 12.3;
-ThisTest<bool> g___c = ThisTest<bool>(true, 10);
-int testFunction(float& args___c){
-   float b = g___b + 12.3;
-   float& c = args___c;
-    c = 12.0;
-   return g___b + args___c;
-}
-int testFunction(){
-   return 1;
-}
-void funcThatReceiveClass(){
+bool stillAlive();
+void loop();
+Message processReadMsg(Message& args___msg);
+Message digitalWriteCmd(Message& args___msg);
+EthernetServer g___server = EthernetServer(1000);
+void initOutputs(ArrayList<int>& args___out, uint8_t args___initState){
+   for(int i :    args___out   ){
+      pinMode(i, OUTPUT)      ;
+      digitalWrite(i, args___initState)      ;
    }
-void getNumber(){
-   }
-void funcThatReceiveClass(ThisTest<int> args___c){
-   }
-class MyClass{
-public:
-   MyClass(){
-         }
-   void getNumber(){
-      ::getNumber()      ;
-   }
-};
-shared_ptr<ThisTest<float>> fThatReturnPtr(){
-   return new ThisTest<float>(10.1, 100);
 }
-int takeLambdaAsArg(int(*args___l)(int)){
-   int(*x)(int) = args___l;
-   args___l(1)   ;
-   return x(1);
+void initInputs(ArrayList<int>& args___ins){
+   for(int i :    args___ins   ){
+      pinMode(i, INPUT)      ;
+   }
 }
+void initEthernet(){
+   ArrayList<int> mac = ArrayList<int>(new int[6]{0,1,2,3,4,5}, 6, 6);
+   Ethernet.begin(mac.getNativePtr())   ;
+   Serial.println(Ethernet.localIP())   ;
+   g___server.begin()   ;
+   }
+Timer<> g___timer = timer_create_default();
 int Main(){
    Serial.begin(9600)   ;
-   pinMode(13, OUTPUT)   ;
-   ArrayList<int> myList = ArrayList<int>();
-   int i = 0;
+   ArrayList<int> lowInitList = ArrayList<int>(new int[3]{13,20,21}, 3, 3);
+   initOutputs(lowInitList, LOW)   ;
+   ArrayList<int> highInitList = ArrayList<int>(new int[3]{22,23,24}, 3, 3);
+   initOutputs(highInitList, HIGH)   ;
+   g___timer.every(1000, [](void* args___x){return true;
+})   ;
    while(true){
-      delay(1000)      ;
-      printMemStats()      ;
-      myList.add(10)      ;
-      if((i > 100) && ((true) || (true))){
-   myList.clear()   ;
-   Serial.println(F("Wyczyszczono liste!"))   ;
-}
-      ThisTest<int> classTest = ThisTest<int>(13, 100);
-      int z = classTest.getA();
-      int(*funVar)() = testFunction;
-      int zzzz = funVar();
-      Serial.println(z)      ;
-       i = i + 20;
-      Serial.println(classTest.getA())      ;
-      Serial.println(i)      ;
-      ThisTest<int> bClass = classTest;
-       bClass = classTest;
-       bClass = classTest;
-       bClass = classTest;
-      Serial.println("sees")      ;
-      Serial.print("HEHEH")      ;
-      ArrayList<shared_ptr<ThisTest<float>>> mList = ArrayList<shared_ptr<ThisTest<float>>>(new shared_ptr<ThisTest<float>>[2]{shared_ptr<ThisTest<float>>(new ThisTest<float>(13.0, 100)),shared_ptr<ThisTest<float>>(new ThisTest<float>(13.0, 100))}, 2, 2);
-      shared_ptr<ThisTest<float>> result = mList.get(1);
-      funcThatReceiveClass()      ;
+      loop()      ;
+      g___timer.tick()      ;
    }
-   shared_ptr<ThisTest<float>> a1 = new ThisTest<float>(13.0, 100);
-   ThisTest<float> a2 = *a1;
-   shared_ptr<ThisTest<float>> a3 = a1;
-   shared_ptr<ThisTest<float>> a4 = a1;
-   shared_ptr<ThisTest<float>> a5 = a1;
-   ArrayList<int> intList = ArrayList<int>(new int[1]{20}, 1, 1);
-   intList.add(20)   ;
-   intList.get(0)   ;
-   intList.set(10, 1)   ;
-   ArrayList<int> emptyIntList = ArrayList<int>();
-   ArrayList<shared_ptr<ThisTest<float>>> lTest = ArrayList<shared_ptr<ThisTest<float>>>();
-   lTest.add(shared_ptr<ThisTest<float>>(new ThisTest<float>(10.1, 100)))   ;
-   lTest.add(shared_ptr<ThisTest<float>>(new ThisTest<float>(10.1, 100)))   ;
-   lTest.add(shared_ptr<ThisTest<float>>(new ThisTest<float>(10.1, 100)))   ;
-   lTest.add(shared_ptr<ThisTest<float>>(new ThisTest<float>(10.1, 100)))   ;
-   lTest.get(1)   ;
-   lTest.set(shared_ptr<ThisTest<float>>(new ThisTest<float>(10.2, 101)), 1)   ;
-   Serial.print(CoreMyFile::myFileFn())   ;
-   float c = ((10.0 + 11.0) * 1.0 / 100.0) / 10.0;
-   testFunction(c)   ;
-   Serial.print(c)   ;
-   ArrayList<int> intPtr = ArrayList<int>(new int[1]{10}, 1, 1);
-   needPointer(intPtr.getNativePtr())   ;
-   shared_ptr<int> gotPtr = shared_ptr<int>(getPointer());
-   bool d = true;
-   ThisTest<float> xd = ThisTest<float>(10.1, 100);
-   shared_ptr<ThisTest<float>> x2 = new ThisTest<float>{xd};
-   ThisTest<float> haha = ThisTest<float>(10.1, 1000);
-   int inta = 12;
-   int& refInta = inta;
-   shared_ptr<int> ptrInta = inta;
-    ptrInta = inta + 10;
-   int(*lambda)(int) = [](int args___x){return args___x + 10;
-};
-   int(*lambda2)(int,int) = [](int args___x,int args___z){   int y = args___x + 10;
-   y + 13   ;
-};
-   int(*lambda3)(int(*)()) = [](int(*args___x)()){return args___x();
-};
-   int res1 = lambda(12);
-   int res2 = lambda2(1, 2);
-   lambda3([](){return 1;
-})   ;
-   takeLambdaAsArg([](int args___x){return args___x + 1;
-})   ;
-   int res3 = res1 + res2;
-   Serial.print(res1 + res2 * 10)   ;
-   uint8_t test8 = 12;
-   setBitHigh(PORTB, 5)   ;
-   int modulo = 2 % 2;
-   for(int i =    0   ; i <    12   ; i++){
-         }
-   for(int i =    -12   ; i <    -20   ; i--){
-         }
-   for(shared_ptr<ThisTest<float>> i :    lTest   ){
-         }
-   for(int i =    1   ; i <    12   ; i += 5){
-         }
    return 0;
+}
+int g___timeout = 5 * 60 * 1000;
+uint32_t g___lastReadMessageTime = 0;
+bool stillAlive(){
+   uint32_t time = millis();
+   return (g___lastReadMessageTime + g___timeout) > time;
+}
+void loop(){
+   EthernetClient client = g___server.available();
+   while(!client){
+      return Serial.println("Client has connected!");
+   }
+   MessageProcessor proc = MessageProcessor(&client);
+   while((stillAlive()) && (client.connected())){
+      shared_ptr<Message> msg = shared_ptr<Message>(proc.readMessage());
+      msg->print()      ;
+      if(msg.isNotNull()){
+   Message response = processReadMsg(*msg);
+   proc.sendMessage(response)   ;
+}
+   }
+   Serial.println("Client has disconnected.")   ;
+   client.stop()   ;
+}
+int g___otherwise = 0;
+Message processReadMsg(Message& args___msg){
+   if(args___msg.getCode() == Message::SET_HIGH){
+   return digitalWriteCmd(args___msg);
+}
+   else if(args___msg.getCode() == Message::SET_LOW){
+   return digitalWriteCmd(args___msg);
+}
+   else if(args___msg.getCode() == Message::TEST){
+   Serial.println("Test message!")   ;
+   return Message::okMsg(Message::TEST);
+}
+   else {
+   return Message::errorMsg(args___msg.getCode(), Message::WrongCode);
+}
+}
+Message digitalWriteCmd(Message& args___msg){
+   Serial.println("DigitalWrite message")   ;
+   for(int i =    0   ; i <    args___msg.getLength()   ; i += 2){
+      digitalWrite(args___msg.getArg(i), args___msg.getArg(i + 1))      ;
+   }
+   return Message::okMsg(args___msg.getCode());
 }

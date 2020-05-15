@@ -11,6 +11,7 @@ module Compiler.Analyzer.AExpr
   , checkFloatConst
   , checkIntConst
   , checkABool
+  , checkOptional
   , checkScopeMark) where
 
 import           Compiler.Analyzer.Type
@@ -25,12 +26,21 @@ import Data.List(find)
 import Compiler.Analyzer.AExpr.Var --(markVarClassAsPointer, markClassAsPointer)
 import Compiler.Analyzer.UniversalCheckers
 
-
+checkOptional :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
+checkOptional (Optional o aExpr _) analyzer = do
+-- TODO add checking if class has implemented bool interface
+  (t,_, a) <- analyzer aExpr
+  case t of
+    VPointer {} -> 
+      return (VBool, [], Optional o a NullOT)
+    VClass {} -> 
+      return (VBool, [], Optional o a BoolOT)
+    _ -> makeError o "O chuj"
 
 checkScopeMark :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkScopeMark (ScopeMark o scopeName aExpr) analyzer = do
   addOffset o 
-  trace ("SCOPE_MARK " ++ scopeName ++ " | " ++ show aExpr) $ return ()
+--  trace ("SCOPE_MARK " ++ scopeName ++ " | " ++ show aExpr) $ return ()
   res <- (\(a, b, res) -> (a, b, ScopeMark o scopeName res)) <$> checkVar aExpr Nothing scopeName analyzer
   removeOffset
   return res
@@ -38,7 +48,7 @@ checkScopeMark (ScopeMark o scopeName aExpr) analyzer = do
 
 checkListVar :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkListVar (ListVar _ [] (Just t)) _ = 
-  return (VClass "ArrayList" [t] False, [], TypedVar (VName "ArrayList") (VClass "ArrayList" [t] False) (Just []) Nothing)
+  return (VClass (VName "ArrayList") [t], [], TypedVar (VName "ArrayList") (VClass (VName "ArrayList") [t]) (Just []) Nothing)
 checkListVar (ListVar o [] Nothing) _ =
   makeError o "Empty list must have providen a type"
 checkListVar a@(ListVar o elems wantedType) analyzer = do
@@ -49,7 +59,7 @@ checkListVar a@(ListVar o elems wantedType) analyzer = do
   if checkType types' then return () else makeError o ("Not all elems are the same type in list: " ++ show elems ++ " wantedType: " ++ show wantedType)
   let itemType = head types'
   let args = Just [TypedListVar elems' itemType, TypedVar (VName len) VInt Nothing Nothing, TypedVar (VName len) VInt Nothing Nothing]
-  let t = VClass "ArrayList" [VGenPair "T" itemType] False
+  let t = VClass (VName "ArrayList") [VGenPair "T" itemType]
   return (t, concat injs, TypedVar (VName "ArrayList") t args Nothing)
   where
 --    typesMatchOrError types = 

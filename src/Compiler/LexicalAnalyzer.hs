@@ -16,7 +16,7 @@ import qualified          Compiler.Importer as Im
 
 analyze' :: [Imported] -> Analyzer' [Imported]
 analyze' a = do
-  trace (show (map (\(IFile n _ _) -> n) a)) $ return ()
+--  trace (show (map (\(IFile n _ _) -> n) a)) $ return ()
   forM a $ \(IFile n p ast) -> do
     res <- analyze n p ast
     saveFile n
@@ -32,7 +32,7 @@ analyze modName path (AST stmts) = do
   let importScope = Scope "import" globalFields
   modify (\storage -> storage {scopes = globalScope : importScope : fileScopes})
   s <- gets scopes
-  trace (show s) $ return ()
+--  trace (show s) $ return ()
   stmts' <- mapM statementAnalyzer stmts
   return (AST stmts')
 
@@ -44,10 +44,10 @@ catalogueDecl modName p (AST stmts) = map mapper . filter cond $ stmts
     cond NativeClass {} = True
     cond NativeFunction {} = True
     cond _            = False
-    mapper (Function o n t a _) = SFunction (FileInfo o modName p) n Nothing t a NoNeedCheck
-    mapper (NativeFunction o p n t a) = SFunction (FileInfo o modName p) n (Just p) t a NoNeedCheck
-    mapper (NativeClass o p n g _) = SClass (FileInfo o modName p) n (Just p) g (Scope n []) NoNeedCheck
-    mapper (ClassExpr o n g _)  = SClass (FileInfo o modName p) n Nothing g (Scope n []) NoNeedCheck
+    mapper (Function o n t a _) = SFunction (FileInfo o modName p) n Nothing t a 
+    mapper (NativeFunction o p n t a) = SFunction (FileInfo o modName p) n (Just p) t a 
+    mapper (NativeClass o p n g _) = SClass (FileInfo o modName p) n (Just p) g (Scope n []) 
+    mapper (ClassExpr o n g _)  = SClass (FileInfo o modName p) n Nothing g (Scope n []) 
 
 statementAnalyzer :: Stmt -> Analyzer' Stmt
 statementAnalyzer s =
@@ -83,6 +83,7 @@ classStmtAnalyzer name s =
 aExprAnalyzer :: AExpr -> Analyzer' AExprRes
 aExprAnalyzer expr =
   case expr of
+    e@Optional {} -> checkOptional e aExprAnalyzer
     Nop             -> return (VBlank, [], Nop)
     e@ScopeMark {} -> checkScopeMark e aExprAnalyzer
     e@ABracket {}   -> checkBracket e aExprAnalyzer
@@ -102,6 +103,7 @@ bExprAnalyzer :: BExpr -> Analyzer' BExpr
 bExprAnalyzer expr =
   case expr of
     e@BoolConst {} -> return e
-    e@Not {}       -> return e
-    e@BBinary {}   -> return e
+    e@BoolVar {} -> boolVarAnalyzer e aExprAnalyzer
+    e@Not {}       -> notAnalyzer e bExprAnalyzer
+    e@BBinary {}   -> bBinaryAnalyzer e bExprAnalyzer 
     e@RBinary {}   -> rBinaryAnalyzer e aExprAnalyzer

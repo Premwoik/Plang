@@ -96,8 +96,9 @@ varExtendedParser aExpr = do
   gen <- fromMaybe [] <$> optional generics'
   args <- optional (parens (functionExecutionArgParser aExpr))
   accessor <- optional accParser
+  maybe <- optional $ symbol "?"
   m <- optional more'
-  return $ case accessor of
+  return $ wrapOptional maybe $ case accessor of
     Just a ->
       Var o fun gen args (Just (Var o "get" [] (Just a) m))
     Nothing -> 
@@ -108,6 +109,8 @@ varExtendedParser aExpr = do
     more' = do
       void (symbol ".")
       varParser aExpr
+    wrapOptional Just {} var = Optional 0 var UnknownOT
+    wrapOptional Nothing var = var
 
 
 ifStmtParser :: Parser BExpr -> Parser FunctionStmt -> Parser Cond

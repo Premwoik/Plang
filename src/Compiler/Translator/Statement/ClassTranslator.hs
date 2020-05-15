@@ -25,13 +25,13 @@ classAssignTranslator (ClassAssign _ name type' Nop) = do
   n <- head <$> injectTranslator aExprTranslatorGetter name
   return [typeToString type' ++ " " ++ n ++ ";\n"]
 -- Pointer
-classAssignTranslator (ClassAssign _ name type' (TypedVar cName (VClass t [] _) (Just args) Nothing)) = do
+classAssignTranslator (ClassAssign _ name type' (TypedVar cName (VClass t []) (Just args) Nothing)) = do
   let uName = unwrapVarName cName
   args' <- intercalate ", " . concat <$> mapM (injectTranslator aExprTranslatorGetter) args
   n <- head <$> injectTranslator aExprTranslatorGetter name
   return ["unique_ptr<" ++ uName ++ "> " ++ n ++ "{new " ++ uName ++ "{" ++ args' ++ "}};\n"]
 -- Generic Pointer
-classAssignTranslator (ClassAssign _ name type' (TypedVar cName (VClass t gen _) (Just args) Nothing)) = do
+classAssignTranslator (ClassAssign _ name type' (TypedVar cName (VClass t gen) (Just args) Nothing)) = do
   let uName = unwrapVarName cName
   n <- head <$> injectTranslator aExprTranslatorGetter name
   args' <- intercalate ", " . concat <$> mapM (injectTranslator aExprTranslatorGetter) args
@@ -42,7 +42,7 @@ classAssignTranslator (ClassAssign _ name type' (TypedVar cName (VClass t gen _)
   where
      genStr = genStr' gen
      genStr' g =  "<" ++ (intercalate ", " . map translateGen) g ++ ">"
-     translateGen (VClass n g _) = n ++ genStr' g
+     translateGen (VClass n g) = unwrapVarName n ++ genStr' g
      translateGen g = typeToString g
         
 -- Default assign

@@ -1,0 +1,90 @@
+module Main where
+import Core
+import Core.Native.List
+import Core.Native.Ethernet
+import SmartHome.Message
+import SmartHome.MessageProcessor
+import SmartHome.MsgCode as CODE
+import SmartHome.MsgStatus as STATUS
+import Core.Native.Timer
+
+server = EthernetServer(1000)
+
+initOutputs out: list<int>, initState: uint8 -> void do
+  for i in out do
+    pinMode(i, OUTPUT)
+    digitalWrite(i, initState)
+
+initInputs ins: list<int> -> void do
+  for i in ins do
+    pinMode(i, INPUT)
+
+initEthernet -> void do
+  mac = [uint8| 0, 1, 2, 3, 4, 5]
+  EthernetVar.begin(mac)
+  println(EthernetVar.localIP())
+  server.begin()
+  pass
+
+timer = createDefaultTimer()
+
+Main -> int do
+  Serial.begin(9600)
+
+  lowInitList = [13,20,21]
+  initOutputs(lowInitList, LOW)
+  highInitList = [22,23,24]
+  initOutputs(highInitList, HIGH)
+//  inputsList = [30]
+//  initInputs(inputsList)
+
+  timer.every(1000, \x -> true)
+
+  while true do
+    loop()
+    timer.tick()
+  ret 0
+
+timeout = 5 * 60 * 1000
+lastReadMessageTime: uint32 = 0
+
+stillAlive -> bool do
+  time = millis()
+  ret (lastReadMessageTime + timeout) > time
+
+loop -> void do
+  client: EthernetClient = server.available()
+  while not client? do
+      ret
+  println("Client has connected!")
+  proc = MessageProcessor(client)
+
+  while stillAlive() and client.connected() do
+      msg = proc.readMessage()
+      msg.print()
+      if msg? then
+        response = processReadMsg(msg)
+        proc.sendMessage(response)
+
+  println("Client has disconnected.")
+  client.stop()
+
+otherwise = 0
+
+processReadMsg msg: Message -> Message do
+  case msg.getCode() of
+    CODE|SetHigh do
+      ret digitalWriteCmd(msg)
+    CODE|SetLow do
+      ret digitalWriteCmd(msg)
+    CODE|Test do
+      println("Test message!")
+      ret okMessage(CODE|Test)
+    otherwise do
+      ret errorMessage(msg.getCode(), STATUS|WrongCode)
+
+digitalWriteCmd msg: Message -> Message do
+  println("DigitalWrite message")
+  for i in [0, 2..msg.getLength()] do
+    digitalWrite(msg.getArg(i), msg.getArg(i+1))
+  ret okMessage(msg.getCode())

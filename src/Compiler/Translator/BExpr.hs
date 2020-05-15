@@ -7,9 +7,9 @@ import Control.Monad.Reader(asks)
 --  TODO replace mock with real feature
 negationTranslator :: BExpr -> Translator
 negationTranslator (Not bExpr) = do
-  bExprTranslator <- asks bExprTranslatorGetter
-  res <- bExprTranslator bExpr
-  return . return . concat $ "!" : res
+--  bExprTranslator <- asks bExprTranslatorGetter
+  res <- concat <$> injectTranslator bExprTranslatorGetter bExpr
+  return ["!" ++ res]
 
 bBinaryTranslator :: BExpr -> Translator
 bBinaryTranslator (BBinary op a b) = do

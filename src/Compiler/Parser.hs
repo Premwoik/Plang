@@ -47,6 +47,7 @@ functionStmt
   <|> forStmt aExprExtended ForFn functionStmt
   <|> whileStmt bExpr WhileFn functionStmt
   <|> fullIfFuncParser bExpr functionStmt
+  <|> caseStmtParser aExprExtended functionStmt
   <|> try (assignParser leftParser aExprExtended AssignFn)
   <|> otherStmt
 
@@ -80,6 +81,13 @@ aOperators =
   [ [Prefix (Neg <$ symbol "-"), InfixL (ABinary Modulo <$ symbol "%")]
   , [InfixL (ABinary Multiply <$ symbol "*"), InfixL (ABinary Divide <$ symbol "/")]
   , [InfixL (ABinary Add <$ symbol "+"), InfixL (ABinary Subtract <$ symbol "-")]
+  , [ InfixL ((\x y -> ABool (RBinary Greater x y)) <$ symbol ">")
+    , InfixL ((\x y -> ABool (RBinary Less x y)) <$ symbol "<")
+    , InfixL ((\x y -> ABool (RBinary Equal x y)) <$ symbol "==")
+    , InfixL ((\x y -> ABool (RBinary NotEqual x y)) <$ symbol "!=")
+    , InfixL ((\x y -> ABool (RBinary EqGreater x y)) <$ symbol ">=")
+    , InfixL ((\x y -> ABool (RBinary EqLess x y)) <$ symbol "=<")
+    ]
   ]
 
 bOperators :: [[Operator Parser BExpr]]
@@ -117,7 +125,7 @@ aTermExtended
   <|> anonymousFunctionBlockParser functionArgsParser functionStmt
   <|> anonymousFunctionParser functionArgsParser aExprExtended
   <|> fullIfStmt bExpr functionStmt
-  <|> ABool <$> bExpr
+  <|> try (ABool <$> bExpr)
 
 
 bTerm :: Parser BExpr
@@ -125,6 +133,7 @@ bTerm
   = parens bExpr
   <|> (BoolConst True <$ rword "true")
   <|> (BoolConst False <$ rword "false")
-  <|> rExpr aExpr
+  <|> try (rExpr aExpr)
+  <|> boolVarParser aExpr
 
 

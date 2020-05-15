@@ -33,7 +33,7 @@ compile path = do
     Left e -> do
       err <- createParserError e
       putStrLn $ Err.errorBundlePretty err
-      error $ show e
+      error ""
 
 createParserError :: AnalyzerException -> IO (ParseErrorBundle String Void)
 createParserError (CustomAException (FileInfo offset name path) text) = do

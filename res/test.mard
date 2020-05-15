@@ -137,15 +137,6 @@ Main -> int do
   setBitHigh(PORTB, 5)
   modulo = 2 % 2
 
-  for i in [0..12] do
-    pass
-  for i in [-12..-20] do
-    pass
-  for i in lTest do
-    pass
-  for i in [1,5..12] do
-    pass
-
   ret 0
 
 

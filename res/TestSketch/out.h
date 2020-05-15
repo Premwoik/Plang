@@ -7,6 +7,7 @@
 #include "Message.h"
 #include "MessageProcessor.h"
 #include "SPI.h"
+#include "timer.h"
 #include "unique_ptr.h"
 namespace CoreNativeMaybe {}
 namespace CoreMyFile {
@@ -45,35 +46,27 @@ public:
     return ArrayList<int>();
   }
 };
-template <typename T> class ThisTest {
-public:
-  T this___a;
-  int this___b = 0;
-  ThisTest() {}
-  ThisTest(T args___a) {
-    this___a = args___a;
-    this___b = 100;
-  }
-  ThisTest(T args___a, int args___b) {
-    this___a = args___a;
-    this___b = 1;
-  }
-  T getA() { return this___a; }
-  void setA(T args___val) { this___a = args___val; }
-};
 } // namespace Core
-namespace CoreBoardUno {}
 namespace CoreNativeEthernet {}
+namespace CoreNativeTimer {}
+namespace SmartHomeMessage {}
+namespace SmartHomeMessageProcessor {}
+namespace SmartHomeMsgCode {}
+namespace SmartHomeMsgStatus {}
 using namespace Core;
 using namespace CoreNativeList;
 using namespace CoreNativeEthernet;
-using namespace CoreBoardUno;
+using namespace SmartHomeMessage;
+using namespace SmartHomeMessageProcessor;
+using namespace CoreNativeTimer;
 void initOutputs(ArrayList<int> &args___out, uint8_t args___initState);
 void initInputs(ArrayList<int> &args___ins);
 void initEthernet();
 int Main();
+bool stillAlive();
 void loop();
 Message processReadMsg(Message &args___msg);
+Message digitalWriteCmd(Message &args___msg);
 EthernetServer g___server = EthernetServer(1000);
 void initOutputs(ArrayList<int> &args___out, uint8_t args___initState) {
   for (int i : args___out) {
@@ -92,33 +85,60 @@ void initEthernet() {
   Serial.println(Ethernet.localIP());
   g___server.begin();
 }
+Timer<> g___timer = timer_create_default();
 int Main() {
   Serial.begin(9600);
   ArrayList<int> lowInitList = ArrayList<int>(new int[3]{13, 20, 21}, 3, 3);
   initOutputs(lowInitList, LOW);
   ArrayList<int> highInitList = ArrayList<int>(new int[3]{22, 23, 24}, 3, 3);
   initOutputs(highInitList, HIGH);
-  ArrayList<int> inputsList = ArrayList<int>(new int[1]{30}, 1, 1);
-  initInputs(inputsList);
+  g___timer.every(1000, [](void *args___x) { return true; });
   while (true) {
     loop();
+    g___timer.tick();
   }
   return 0;
 }
+int g___timeout = 5 * 60 * 1000;
+uint32_t g___lastReadMessageTime = 0;
+bool stillAlive() {
+  uint32_t time = millis();
+  return (g___lastReadMessageTime + g___timeout) > time;
+}
 void loop() {
   EthernetClient client = g___server.available();
-  while (client.connected() == 1) {
+  while (!client) {
+    return Serial.println("Client has connected!");
   }
-  Serial.println("Client has connected!");
-  MessageProcessor proc = MessageProcessor(client);
-  while (client.connected() == 1) {
+  MessageProcessor proc = MessageProcessor(&client);
+  while ((stillAlive()) && (client.connected())) {
     shared_ptr<Message> msg = shared_ptr<Message>(proc.readMessage());
-    if (true) {
-      Message response = processReadMsg(msg);
+    msg->print();
+    if (msg.isNotNull()) {
+      Message response = processReadMsg(*msg);
       proc.sendMessage(response);
     }
   }
   Serial.println("Client has disconnected.");
   client.stop();
 }
-Message processReadMsg(Message &args___msg) { return Message(); }
+int g___otherwise = 0;
+Message processReadMsg(Message &args___msg) {
+  if (args___msg.getCode() == Message::SET_HIGH) {
+    return digitalWriteCmd(args___msg);
+  } else if (args___msg.getCode() == Message::SET_LOW) {
+    return digitalWriteCmd(args___msg);
+  } else if (args___msg.getCode() == Message::TEST) {
+    Serial.println("Test message!");
+    return Message::okMsg(Message::TEST);
+  } else {
+    return Message::errorMsg(args___msg.getCode(), Message::WrongCode);
+  }
+}
+Message digitalWriteCmd(Message &args___msg) {
+  Serial.println("DigitalWrite message");
+  for (int i = 0; i < args___msg.getLength(); i += 2) {
+    digitalWrite(args___msg.getArg(i), args___msg.getArg(i + 1));
+  }
+  return Message::okMsg(args___msg.getCode());
+}

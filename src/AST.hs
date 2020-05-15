@@ -49,7 +49,7 @@ data FunctionStmt
   | WhileFn Int BExpr [FunctionStmt]
   | ForFn Int AExpr AExpr [FunctionStmt]
   | IfFn Int [(BExpr, [FunctionStmt])]
-  | ReturnFn Int AExpr
+  | ReturnFn Int (Maybe AExpr)
   | OtherFn Int AExpr
   | Pass
   deriving (Show, Eq)
@@ -64,6 +64,7 @@ data AListGetSet a
 
 data BExpr
   = BoolConst Bool
+  | BoolVar AExpr
   | Not BExpr
   | BBinary BBinOp BExpr BExpr
   | RBinary RBinOp AExpr AExpr
@@ -78,6 +79,7 @@ data RBinOp
   = Greater
   | Less
   | Equal
+  | NotEqual 
   | EqLess
   | EqGreater
   deriving (Show, Eq)
@@ -85,6 +87,7 @@ data RBinOp
 data AExpr
 -- | Var offset name generics (func args/if is a func) more
   = Var Offset String [VarType] (Maybe [AExpr]) (Maybe AExpr)
+  | Optional Offset AExpr OptionalType
   | ScopeMark Offset String AExpr
   | ABracket Offset AExpr
   | IntConst Offset Integer
@@ -106,6 +109,8 @@ data AExpr
   | TypedListVar [AExpr] VarType
   | Nop
   deriving (Show, Eq)
+
+data OptionalType = UnknownOT | NullOT | BoolOT deriving (Show, Eq)
 
 type Offset = Int
 
@@ -136,8 +141,8 @@ data VarType
   | VAuto
   | VChar
   | VFn [VarType]
-  -- | VClass name type isPointer (isPointer - default value is false)
-  | VClass String [VarType] Bool
+  -- | VClass name type 
+  | VClass VarName [VarType]
   -- | Not for parsing
   | VFnNamed String [VarType]
   | VGen String
@@ -162,10 +167,10 @@ instance Eq VarType where
   VFloat == VInt= True
   VBlank == VBlank = True
   VFn x1 == VFn x2 = x1 == x2
-  (VClass n g p) == (VClass n2 g2 p2) = n == n && g == g2 && p == p2
+  (VClass n g) == (VClass n2 g2) = n == n && g == g2
   (VGen n) == (VGen n2) = n == n2 
-  (VGen n) == (VClass n2 _ _) = n == n2
-  (VClass n2 _ _) == (VGen n) = n == n2
+  (VGen n) == (VClass n2 _ ) = eqClassName n n2
+  (VClass n2 _ ) == (VGen n) = eqClassName n n2
   (VGenPair n t) == (VGenPair n2 t2) = n == n2 && t == t2
   (VGenPair _ t) == t2 = t == t2
   t2 == (VGenPair _ t) = t == t2
@@ -179,6 +184,11 @@ instance Eq VarType where
   (VPointer t _) == t2 = t == t2
   t2 == (VPointer t _) = t == t2
   a == b = trace ("Eq error ### left = " ++ show a ++ " | right = " ++ show b) False
+
+eqClassName :: String -> VarName -> Bool
+eqClassName n (VName a) = n == a
+eqClassName n (VNameNative a _) = n == a
+
 
 data PointerType = UniquePtr | SharedPtr | NativePtr deriving(Show, Eq)
 
@@ -205,6 +215,7 @@ data FunArg =
   deriving (Show, Eq)
 
 unwrapVarName (VName n) = n
+unwrapVarName (VNameNative n "") = n
 unwrapVarName (VNameNative _ p) = p
 
 unwrapVarNameForce (VName n) = n

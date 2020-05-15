@@ -80,16 +80,17 @@ typeToString t =
     VFnNamed n t -> typeToString (last t) ++ "(*"++ n ++")" ++ "(" ++ intercalate "," (map typeToString (init t)) ++ ")"
     VRef t -> typeToString t ++ "&"
     VCopy t -> typeToString t
-    VClass c gen _ -> c ++ genStr gen
+    VClass c gen -> unwrapVarName c ++ genStr gen
     VGen t       -> t
     VGenPair _ t -> typeToString t
     VPointer t SharedPtr -> "shared_ptr<" ++ typeToString t ++ ">"
     VPointer t UniquePtr -> "unique_ptr<" ++ typeToString t ++ ">"
-    x            -> error (show x)
+    VPointer t NativePtr -> typeToString t ++ "*"
+--    x            -> error (show x)
   where
     genStr [] = ""
     genStr g  = "<" ++ (intercalate ", " . map translateGen) g ++ ">"
-    translateGen (VGenPair _ (VClass n g _)) = n ++ genStr g
+    translateGen (VGenPair _ (VClass n g)) = "CIPA" ++ unwrapVarName n ++ genStr g
     translateGen g                           = typeToString g
 
 

@@ -7,7 +7,7 @@ import Control.Monad(filterM)
 import Control.Monad.Writer(tell)
 import           AST
 import Compiler.Analyzer.Browser
-import Data.Maybe(fromMaybe, listToMaybe, isNothing)
+import Data.Maybe(fromMaybe, listToMaybe, isNothing, fromJust)
 import Debug.Trace
 import Control.Monad.Except(throwError)
 import Data.List(find)
@@ -27,11 +27,15 @@ markVarClassAsPointer = map mapper
 
 markNativePtr :: [FunArg] -> [AExpr] -> [AExpr]
 markNativePtr = zipWith extractPtr
-  where
 --  don't mark when given arg is just native ptr
+  where
     extractPtr (FunArg (VPointer _ NativePtr) _) v@(TypedVar _ (VPointer _ NativePtr) _ _) = v
-    extractPtr (FunArg (VPointer _ NativePtr) _) v = NativePtrInput v
-    extractPtr _ v = v
+--    TODO be carefull with this
+    extractPtr (FunArg VClass {} _) (TypedVar n t@VPointer {} c d) = TypedVar n (VCopy t) c d
+    extractPtr (FunArg (VPointer _ NativePtr) _) v@(TypedVar _ VPointer {} _ _) = NativePtrInput v
+    extractPtr (FunArg (VPointer _ NativePtr) _) v@(TypedVar _ (VClass (VName "ArrayList") _) _ _) = NativePtrInput v
+    extractPtr (FunArg (VPointer _ NativePtr) _) (TypedVar a t b c)  = TypedVar a (VRef (VCopy t)) b c
+    extractPtr a v = v
  
 extractPtr (Just (VPointer t _)) = Just t
 extractPtr t = t
@@ -63,10 +67,10 @@ filterArgsMatch a g _ f = error (show a ++ " | " ++  show g ++ " | " ++ show f)
 -- this function must have access to monad to check if lambdas is ok with given params
 
 maybeArgsMatchVar :: [AExpr] -> [VarType] -> AExprAnalyzer -> ScopeField -> Analyzer' Bool
-maybeArgsMatchVar args gen analyzer (SVar o n p (VFn t) _ _) =
+maybeArgsMatchVar args gen analyzer (SVar o n p (VFn t) _) =
   let
     funArgs = map (`FunArg` "") $ init t
-  in maybeArgsMatch (Just args) gen analyzer (SFunction o n p (last t) funArgs NoNeedCheck)
+  in maybeArgsMatch (Just args) gen analyzer (SFunction o n p (last t) funArgs)
 maybeArgsMatchVar _ _ _ _= return False
  
 wrapAllocationMethod :: VarType -> Analyzer' VarType
@@ -85,12 +89,12 @@ wrapAllocationMethod v = do
 checkVarFirst :: AExpr -> Maybe [AExpr] -> RetBuilderT -> Maybe ScopeField -> String -> Analyzer' AExprRes
 checkVarFirst var@(Var offset name gen _ more) Nothing retBuilder obj scopeName=
   case obj of
-    Just tvar@(SVar _ n p t s _) -> do
-     trace ("VarScope :: " ++ s ++ "  |  "  ++  (scaleNameWithScope' [s, n]) ++ " *** "++ show tvar) $ return ()
+    Just tvar@(SVar _ n p t s) -> do
+--     trace ("VarScope :: " ++ s ++ "  |  "  ++  (scaleNameWithScope' [s, n]) ++ " *** "++ show tvar) $ return ()
      t' <- if isNothing more then wrapAllocationMethod t else return t
      retBuilder t' (TypedVar (defaultPath p (scaleNameWithScope' [s, n])) t' Nothing) more
 
-    Just(SFunction _ n p t a _)-> do
+    Just(SFunction _ n p t a)-> do
       scope <- getFileName scopeName
       let newType = VFn $ map (\(FunArg t _) -> t) a ++ [t]
       retBuilder newType (TypedVar (defaultPath p (newName scope)) newType Nothing) more
@@ -105,23 +109,26 @@ checkVarFirst var@(Var offset name gen _ more) Nothing retBuilder obj scopeName=
           _ -> scaleNameWithScope' [scope, "::", n]
     p -> do
       storage <- gets scopes
-      makeError offset ("2Can't find given name! " ++ show var ++ " | " ++ show p) -- ++ " | " ++ show storage)
+      makeError offset ("Can't find given name! " ++ show var ++ " | " ++ show p) -- ++ " | " ++ show storage)
   
 checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName=
   case obj of
-    
-    Just (SVar i n p (VFn t) s h)  -> do
+
+    Just (SVar i n p (VFn t) s)  -> do
       let funArgs = map (`FunArg` "") $ init t
-      checkVarFirst var args' retBuilder (Just (SFunction i n p (last t) funArgs h)) s 
+      checkVarFirst var args' retBuilder (Just (SFunction i n p (last t) funArgs)) s 
       
-    Just (SClass _ n p g sc postCheck) -> do
+    Just cl@(SClass _ n p g sc) -> do
       if length g == length gen then return () else makeError offset ("Generic is missing! - " ++ show g)
       let gen' = zipWith VGenPair g gen
       checkTypesMatchGens offset sc gen'
-      trace ("Class args: " ++ show args') $ return ()
-      newType <- wrapAllocationMethod $ VClass n (markClassAsPointer gen') False
-      retBuilder newType (TypedVar (defaultPath p n) newType args') more
-    Just(SFunction _ n p t a _)-> do
+      constructor <- filterConstructor args' gen' cl
+      let (SFunction o n _ _ cArgs) = constructor
+      let args'' = args' >>= (Just . markNativePtr cArgs)
+      newType <- wrapAllocationMethod $ VClass (VName n) (markClassAsPointer gen')
+      retBuilder newType (TypedVar (defaultPath p n) newType args'') more
+    Just(SFunction _ n p t a)-> do
+--      t' <- fixNativeClassT t
       let args'' = args' >>= (Just . markNativePtr a)
       scope <- getFileName scopeName
       retBuilder t (TypedVar (defaultPath p (newName scope)) t args'') more
@@ -136,25 +143,32 @@ checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName=
           _ -> scaleNameWithScope' [scope, "::", n]
     p -> do
       storage <- gets scopes
-      makeError offset ("1Can't find given name! " ++ show var ++ " | " ++ show p ++ " | " ++ show storage)
+      makeError offset ("Can't find given name! " ++ show var ++ " | " ++ show p) -- ++ " | " ++ show storage)
 
-checkVarMore (Var offset name _ args more) (VClass cName gen _) args' retBuilder method =
+--fixNativeClassT (VClass n g) = do
+--  cl <- listToMaybe <$> find' [n]
+--  case cl of
+--    Just (SClass _ _ p _ _) -> return $ VClass (fromMaybe n p) g
+--    _ -> error ""
+--fixNativeClassT x = returnx
+
+checkVarMore (Var offset name _ args more) (VClass cName gen) args' retBuilder method =
       case method of
-        Just (SVar _ n p t _ NoNeedCheck) -> 
+        Just (SVar _ n p t _) -> 
           retBuilder t (TypedVar (defaultPath p n) t Nothing) more
-        Just (SFunction _ n p t a NoNeedCheck) -> do
---          let args'' = Just $ markNativePtr a (fromMaybe [] args')
+        Just (SFunction _ n p t a) -> do
+          let args'' = Just $ markNativePtr a (fromMaybe [] args')
           let nType = fixType gen t
-          trace ("Func: " ++ n ++ " retType: " ++ show t) $ return ()
-          retBuilder nType (TypedVar (defaultPath p n) nType args') more
-        x -> makeError offset ("Can't find that method or field in given class. " ++ show x ++ " | " ++ name ++ " | " ++ cName ++ " | " ++ show gen ++ " | " ++ show args')
+--          trace ("Func: " ++ n ++ " retType: " ++ show t) $ return ()
+          retBuilder nType (TypedVar (defaultPath p n) nType args'') more
+        x -> makeError offset ("Can't find that method or field in given class. " ++ show x ++ " | " ++ name ++ " | " ++ show cName ++ " | " ++ show gen ++ " | " ++ show args')
 
 
 checkVar :: AExpr -> Maybe VarType -> String -> AExprAnalyzer -> Analyzer' AExprRes
 checkVar v@(Var offset name gen args more) wantedType scopeName analyzer = 
   case extractPtr wantedType of
 -- |  previous was a class
-    Just c@(VClass cName gen _) -> do
+    Just c@(VClass cName gen) -> do
       args' <- checkArgs gen args analyzer 
       candidate <- listToMaybe <$> (filterM (filterArgsMatch args' gen analyzer) =<< findInClass cName name)
       readyArgs <- updatePostProcessedArgs args'
@@ -198,7 +212,7 @@ defaultPath p n = case p of
 checkFunPtr :: VarType -> [ScopeField] -> [ScopeField] 
 checkFunPtr t@(VFn a) = isOnlyOne . filter matchArgs 
   where
-    matchArgs (SFunction _ _ _ t args _) = last a == t && length a - 1 == length args && compareArgs args
+    matchArgs (SFunction _ _ _ t args) = last a == t && length a - 1 == length args && compareArgs args
     matchArgs _ = False
     compareArgs = all (\(t, FunArg t' _) -> t == t'). zip (init a) 
     isOnlyOne l 

@@ -62,21 +62,22 @@ data FileInfo =
 instance Ord FileInfo where
   compare (FileInfo o1 _ _) (FileInfo o2 _ _) = compare o1 o2
 
-data PostponedCheck
-  = NeedCheck
-      { pcKnownTypes :: [VarType]
-      , pcAST        :: Stmt
-      }
-  | NoNeedCheck
-  deriving (Show)
+--data PostponedCheck
+--  = NeedCheck
+--      { pcKnownTypes :: [VarType]
+--      , pcAST        :: Stmt
+--      }
+--  | NoNeedCheck
+--  deriving (Show)
 
 data ScopeField
   -- | SFunction ord name path type args
-  = SFunction FileInfo String (Maybe String) VarType [FunArg] PostponedCheck
+  = SFunction FileInfo String (Maybe String) VarType [FunArg] 
   -- | SVar ord name path type scope
-  | SVar FileInfo String (Maybe String) VarType String PostponedCheck
+  | SVar FileInfo String (Maybe String) VarType String 
   -- | SClass ord name path gen scope
-  | SClass FileInfo String (Maybe String) [String] Scope PostponedCheck
+  | SClass FileInfo String (Maybe String) [String] Scope
+  -- | SConstructor function class
   -- | SGen type name
   | SGen VarType String
   deriving (Show)
@@ -114,7 +115,7 @@ addArgsScope o args = do
   mod <- getModInfo o
   modify (\s -> s {scopes = Scope "args" (argsToFields mod) : scopes s})
   where
-    argsToFields mod = map (\(FunArg t n) -> SVar mod n Nothing t "args" NoNeedCheck) args
+    argsToFields mod = map (\(FunArg t n) -> SVar mod n Nothing t "args") args
 
 addScope :: String -> Analyzer' ()
 addScope sName = modify (\s -> s {scopes = Scope sName [] : scopes s})
@@ -166,22 +167,21 @@ addField field = do
 addFunction :: Int -> String -> Maybe String -> VarType -> [FunArg] -> Analyzer' ()
 addFunction offset name path type' args = do
   mod <- getModInfo offset
-  addField $ SFunction mod name path type' args NoNeedCheck
+  addField $ SFunction mod name path type' args 
 
 addVar :: Int -> String -> Maybe String -> VarType -> String -> Analyzer' ()
 addVar offset name path type' scopeName = do
   mod <- getModInfo offset
-  addField $ SVar mod name path type' scopeName NoNeedCheck
+  addField $ SVar mod name path type' scopeName 
 
 addClass :: Int -> String -> Maybe String -> [String] -> Scope -> Analyzer' ()
 addClass offset name path gen scope = do
   mod <- getModInfo offset
-  addField $ SClass mod name path gen scope NoNeedCheck
-  
-addClassPC :: Int -> String -> Maybe String -> [String] -> Scope -> PostponedCheck -> Analyzer' ()
-addClassPC offset name path gen scope postCheck= do
- mod <- getModInfo offset
- addField $ SClass mod name path gen scope postCheck
+  addField $ SClass mod name path gen scope 
+--addClassPC :: Int -> String -> Maybe String -> [String] -> Scope -> PostponedCheck -> Analyzer' ()
+--addClassPC offset name path gen scope postCheck= do
+-- mod <- getModInfo offset
+-- addField $ SClass mod name path gen scope postCheck
 
 addPostAExpr :: AExpr -> Analyzer' ()
 addPostAExpr aExpr =
@@ -226,11 +226,14 @@ setFunName n = modify (\s -> s {fName = n})
 getClassScope :: Analyzer' (Maybe Scope)
 getClassScope = do
   let cl = "this"
-  find (\(Scope n _) -> n == cl) <$> gets scopes
+  find (cond cl) <$> gets scopes
+  where
+    cond cl (Scope n _) = n == cl
+    cond cl _ = False
 
 updateScope :: Scope -> Analyzer' ()
 updateScope s@(Scope n _) = do
-  trace ("US" ++ show s) $ return ()
+--  trace ("US" ++ show s) $ return ()
   s' <- gets scopes
   let newScopes = map md s'
   modify(\s -> s {scopes = newScopes})
@@ -310,9 +313,9 @@ replaceAuto notAuto n auto
 updateField :: ScopeField -> Scope -> Scope
 updateField f (Scope n fs) = Scope n $ map (updater f) fs
   where
-    updater a@(SFunction o1 _ _ _ _ _) b@(SFunction o2 _ _ _ _ _) = match o1 o2 a b
-    updater a@(SVar o1 _ _ _ _ _) b@(SVar o2 _ _ _ _ _) = match o1 o2 a b
-    updater a@(SClass o1 _ _ _ _ _) b@(SClass o2 _ _ _ _ _) = match o1 o2 a b
+    updater a@(SFunction o1 _ _ _ _ ) b@(SFunction o2 _ _ _ _ ) = match o1 o2 a b
+    updater a@(SVar o1 _ _ _ _ ) b@(SVar o2 _ _ _ _ ) = match o1 o2 a b
+    updater a@(SClass o1 _ _ _ _) b@(SClass o2 _ _ _ _) = match o1 o2 a b
     updater a@(SGen _ n1) b@(SGen _ n2) = match n1 n2 a b
     updater _ v = v
     match o1 o2 a b =
@@ -324,9 +327,9 @@ updateField f (Scope n fs) = Scope n $ map (updater f) fs
 isInScope :: ScopeField -> Scope -> Bool
 isInScope field (Scope _ f) = any (cond field) f
   where
-    cond (SFunction o1 _ _ _ _ _) (SFunction o2 _ _ _ _ _) = o1 == o2
-    cond (SVar o1 _ _ _ _ _) (SVar o2 _ _ _ _ _)           = o1 == o2
-    cond (SClass o1 _ _ _ _ _) (SClass o2 _ _ _ _ _)       = o1 == o2
+    cond (SFunction o1 _ _ _ _ ) (SFunction o2 _ _ _ _) = o1 == o2
+    cond (SVar o1 _ _ _ _ ) (SVar o2 _ _ _ _)           = o1 == o2
+    cond (SClass o1 _ _ _ _ ) (SClass o2 _ _ _ _)       = o1 == o2
     cond _ _                                           = False
 
 isFunction :: ScopeField -> Bool
@@ -364,6 +367,11 @@ type RawWhileConst a b = (BExpr -> [b] -> a)
 type RawFunction = (Int, String, VarType, [FunArg], [FunctionStmt])
 
 type RawFunctionConst a = Int -> String -> VarType -> [FunArg] -> [FunctionStmt] -> a
+
+
+mockAExprAnalyzer :: AExprAnalyzer
+mockAExprAnalyzer _ = return (VAuto, [], IntConst 0 0)
+
 
 trd (_, _, c) = c
 fst3(a, _, _) = a

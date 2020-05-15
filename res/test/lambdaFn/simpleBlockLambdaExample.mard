@@ -1,6 +1,6 @@
 module SimpleLambdaExample where
 testFunc -> void do
-  lambda =
+  lambda: fn<int, int, int> =
     {\x, z ->
        y = x + 10
        y + 13

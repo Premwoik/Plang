@@ -4,7 +4,6 @@
     <option name="excludedDirectories">
       <list>
         <option value="$PROJECT_DIR$/out" />
-        <option value="$PROJECT_DIR$/res" />
         <option value="$PROJECT_DIR$/test" />
       </list>
     </option>
