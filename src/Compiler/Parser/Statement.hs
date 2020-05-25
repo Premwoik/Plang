@@ -96,6 +96,12 @@ skipStmt = do
   void (symbol "skip")
   return $ Skip o
 
+breakStmt :: Parser FunctionStmt
+breakStmt = do
+  o <- getOffset
+  void (symbol "break")
+  return $ Break o
+
 passStmt :: Parser FunctionStmt
 passStmt = do
   void (symbol "pass")

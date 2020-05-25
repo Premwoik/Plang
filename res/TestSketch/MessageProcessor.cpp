@@ -39,11 +39,11 @@ void MessageProcessor::sendMessage(Message &message) {
 
 void MessageProcessor::send(uint8_t *msg, int length) {
 
-	for(int i = 0; i < length; i++){
-		Serial.print(msg[i]);
-		Serial.print(";");
-	}
-	Serial.println("END");
+//	for(int i = 0; i < length; i++){
+//		Serial.print(msg[i]);
+//		Serial.print(";");
+//	}
+	Serial.println("Sending response...");
 
 	if (client != nullptr)
 		client->write(msg, length);

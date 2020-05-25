@@ -183,7 +183,7 @@ checkNativeAssign s@(NativeAssignDeclaration o p n t) analyzer = do
 
 
 checkAssign :: Stmt -> AExprAnalyzer -> Analyzer' Stmt
-checkAssign (Assign o (Var _ name _ _ Nothing)ret aExpr) analyzer = do
+checkAssign (Assign o (Var _ name _ _ Nothing) ret aExpr) analyzer = do
   setType ret
   (type', inject, res) <- markNativePtr <$> analyzer aExpr
   firstSig <- listToMaybe <$> find' [name]
@@ -235,6 +235,7 @@ checkFor (ForFn o (Var vo n _ _ _) range body) fnAnalyzer aAnalyzer = do
   removeScope
   return [ForFn o (TypedVar (VName n) (itemType t) Nothing Nothing) range' body']
   where
+    itemType (VClass (VName "ArrayList") [VGenPair "T" t]) = t
     itemType (VClass (VName "ArrayList") [t]) = t
     itemType t = t
 
@@ -298,3 +299,7 @@ checkOtherExpr (OtherFn o aExpr) analyzer = do
   setType retTmp
   return [OtherFn o res]
 
+checkBreak :: FunctionStmt -> Analyzer' [FunctionStmt]
+checkBreak t@(Break o) = do
+  cond <- isInsideLoop
+  if cond then return [t] else makeError o "Break stmt can be used only inside a loop body."

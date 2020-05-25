@@ -1,0 +1,43 @@
+module SmartHome.Timer where
+import Core
+import Core.Native.List
+
+class Task do
+  fun: fn<int, void>
+  time: uint32
+  pin: int
+
+  Task do
+    pass
+
+  Task fun: fn<int, void>, pin: int, time: uint32 do
+    this|pin = pin
+    this|fun = fun
+    this|time = time
+
+  runFun -> void do
+    fun(pin)
+
+  getTime -> uint32 do
+    ret time
+
+tasks = [Task|]
+
+addTask fun: fn<int, void>, pin: int, timeout: int -> void do
+  tasks.add(Task(fun, pin, timeout))
+
+runTasks -> void do
+  if tasks.size() == 0 then
+    ret Void()
+
+  finished: list<int> = [int|]
+  time = millis()
+  i = 0
+  for t in tasks do
+    if t.getTime() < time then
+      t.runFun()
+      finished.add(i)
+    i = i + 1
+  for i in finished do
+    tasks.remove(i)
+

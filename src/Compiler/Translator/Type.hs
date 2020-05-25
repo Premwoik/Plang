@@ -90,7 +90,7 @@ typeToString t =
   where
     genStr [] = ""
     genStr g  = "<" ++ (intercalate ", " . map translateGen) g ++ ">"
-    translateGen (VGenPair _ (VClass n g)) = "CIPA" ++ unwrapVarName n ++ genStr g
+    translateGen (VGenPair _ (VClass n g)) = unwrapVarName n ++ genStr g
     translateGen g                           = typeToString g
 
 

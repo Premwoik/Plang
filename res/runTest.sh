@@ -19,7 +19,8 @@ cd TestSketch
 echo ""
 echo "#########################"
 echo "### ARDUINO COMPILER RESULT: "
-arduino-cli compile --fqbn arduino:avr:uno
-arduino-cli upload -p /dev/ttyACM0 --fqbn arduino:avr:uno
+#arduino-cli compile --fqbn arduino:avr:uno
+arduino-cli compile --fqbn arduino:avr:mega
+arduino-cli upload -p /dev/ttyACM0 --fqbn arduino:avr:mega
 cd ..
 cd ..

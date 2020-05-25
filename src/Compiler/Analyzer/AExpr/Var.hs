@@ -111,7 +111,8 @@ checkVarFirst var@(Var offset name gen _ more) Nothing retBuilder obj scopeName=
       storage <- gets scopes
       makeError offset ("Can't find given name! " ++ show var ++ " | " ++ show p) -- ++ " | " ++ show storage)
   
-checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName=
+checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName= do
+  traceShow var $ return ()
   case obj of
 
     Just (SVar i n p (VFn t) s)  -> do
@@ -145,13 +146,6 @@ checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName=
       storage <- gets scopes
       makeError offset ("Can't find given name! " ++ show var ++ " | " ++ show p) -- ++ " | " ++ show storage)
 
---fixNativeClassT (VClass n g) = do
---  cl <- listToMaybe <$> find' [n]
---  case cl of
---    Just (SClass _ _ p _ _) -> return $ VClass (fromMaybe n p) g
---    _ -> error ""
---fixNativeClassT x = returnx
-
 checkVarMore (Var offset name _ args more) (VClass cName gen) args' retBuilder method =
       case method of
         Just (SVar _ n p t _) -> 
@@ -159,7 +153,6 @@ checkVarMore (Var offset name _ args more) (VClass cName gen) args' retBuilder m
         Just (SFunction _ n p t a) -> do
           let args'' = Just $ markNativePtr a (fromMaybe [] args')
           let nType = fixType gen t
---          trace ("Func: " ++ n ++ " retType: " ++ show t) $ return ()
           retBuilder nType (TypedVar (defaultPath p n) nType args'') more
         x -> makeError offset ("Can't find that method or field in given class. " ++ show x ++ " | " ++ name ++ " | " ++ show cName ++ " | " ++ show gen ++ " | " ++ show args')
 
@@ -169,7 +162,7 @@ checkVar v@(Var offset name gen args more) wantedType scopeName analyzer =
   case extractPtr wantedType of
 -- |  previous was a class
     Just c@(VClass cName gen) -> do
-      args' <- checkArgs gen args analyzer 
+      args' <- checkArgs gen args analyzer
       candidate <- listToMaybe <$> (filterM (filterArgsMatch args' gen analyzer) =<< findInClass cName name)
       readyArgs <- updatePostProcessedArgs args'
       checkVarMore v c readyArgs retBuilder candidate
@@ -178,12 +171,13 @@ checkVar v@(Var offset name gen args more) wantedType scopeName analyzer =
     Nothing -> do
       args' <- checkArgs gen args analyzer
       r <- gets rType
+      tt <- find' [scopeName, name]
       candidate <- listToMaybe . checkFunPtr r <$> (filterM (filterArgsMatch args' gen analyzer) =<< find' [scopeName, name])
       readyArgs <- updatePostProcessedArgs args'
       checkVarFirst v readyArgs retBuilder candidate scopeName
 
 -- |  error previous was not a class
-    (Just x) -> throwError $  NotAClass  (show x ++ " | " ++ show v)
+    (Just x) -> makeError offset  ("NotAClass: " ++ show x ++ " | " ++ show v)
   where
     retBuilder :: RetBuilderT
     retBuilder type' var more =

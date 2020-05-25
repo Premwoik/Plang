@@ -7,4 +7,7 @@ native var "Message::SET_LOW" SetLow: int
 native var "Message::SET_HIGH" SetHigh: int
 native var "Message::SET_PWM" SetPwm: int
 native var "Message::SET_TERM" SetTerm: int
+native var "Message::SET_TIME_DIMMER" SetTimeDimmer: int
+
+//SetTimeDimmer = 102
 

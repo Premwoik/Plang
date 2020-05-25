@@ -23,7 +23,10 @@ classAssignTranslator :: ClassStmt -> Translator
 -- Only declaration without assigning value
 classAssignTranslator (ClassAssign _ name type' Nop) = do
   n <- head <$> injectTranslator aExprTranslatorGetter name
-  return [typeToString type' ++ " " ++ n ++ ";\n"]
+  return [unwrapType type' n ++ ";\n"]
+  where
+    unwrapType (VFn t) n = typeToString (VFnNamed n t)
+    unwrapType x n = typeToString x ++ " " ++ n
 -- Pointer
 classAssignTranslator (ClassAssign _ name type' (TypedVar cName (VClass t []) (Just args) Nothing)) = do
   let uName = unwrapVarName cName
@@ -44,7 +47,9 @@ classAssignTranslator (ClassAssign _ name type' (TypedVar cName (VClass t gen) (
      genStr' g =  "<" ++ (intercalate ", " . map translateGen) g ++ ">"
      translateGen (VClass n g) = unwrapVarName n ++ genStr' g
      translateGen g = typeToString g
-        
+     
+
+     
 -- Default assign
 classAssignTranslator (ClassAssign _ name type' expr) = do
   let t = typeToString type'

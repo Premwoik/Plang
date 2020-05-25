@@ -9,7 +9,7 @@ import           Control.Monad.Except   (throwError)
 import           Control.Monad.State    (get, gets)
 import           Data.List              (group)
 import qualified Data.List              as L
-import           Data.Maybe             (fromJust, listToMaybe, maybeToList)
+import           Data.Maybe             (fromJust, isJust, listToMaybe, maybeToList)
 import           Debug.Trace
 
 find' :: [String] -> Analyzer' [ScopeField]
@@ -35,7 +35,7 @@ fixNativeClassType it@(VClass (VName n) gen) = do
   return $ case cl of
     Just (SClass _ _ (Just path) _ _) -> VClass (VNameNative n path) gen
     _ -> it
-fixNativeClassType x = return x 
+fixNativeClassType x = return x
 
 findInClass :: VarName -> String -> Analyzer' [ScopeField]
 findInClass cName name = do
@@ -70,7 +70,11 @@ searchInScopeWithName name scopeName scopes =
 
 getScopesNames :: Scopes -> [String]
 getScopesNames = map unwrapName
-    
+
+isInsideLoop :: Analyzer' Bool
+isInsideLoop = do
+  s <- gets scopes
+  return . isJust . listToMaybe . filter (\x -> x == "for" || x == "while") . getScopesNames $ s
 
 searchNameInScopes :: String -> Scopes -> [ScopeField]
 searchNameInScopes name = concatMap (searchInScope name)

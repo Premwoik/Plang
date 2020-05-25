@@ -48,7 +48,7 @@ checkScopeMark (ScopeMark o scopeName aExpr) analyzer = do
 
 checkListVar :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkListVar (ListVar _ [] (Just t)) _ = 
-  return (VClass (VName "ArrayList") [t], [], TypedVar (VName "ArrayList") (VClass (VName "ArrayList") [t]) (Just []) Nothing)
+  return (VClass (VName "ArrayList") [VGenPair "T" t], [], TypedVar (VName "ArrayList") (VClass (VName "ArrayList") [VGenPair "T" t]) (Just []) Nothing)
 checkListVar (ListVar o [] Nothing) _ =
   makeError o "Empty list must have providen a type"
 checkListVar a@(ListVar o elems wantedType) analyzer = do

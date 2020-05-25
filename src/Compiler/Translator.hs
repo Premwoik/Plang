@@ -82,6 +82,7 @@ functionStmtTranslator s =
     a@IfFn {}        -> ifTranslator a
     a@ReturnFn {}    -> returnExprTranslator a
     a@OtherFn {}     -> casualExprTranslator a
+    a@Break {}       -> breakTranslator a
     Pass             -> return [""]
 
 classStmtTranslator :: ClassStmt -> Translator

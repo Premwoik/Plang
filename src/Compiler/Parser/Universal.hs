@@ -90,9 +90,7 @@ matchType' g t =
 typeParser :: Parser VarType
 typeParser = do
   access <- fromMaybe [] <$> optional (refParser <|> copyParser <|> pointerParser <|> cPointerParser)
-  trace ("CHUJ1" ++ show access) $ return ()
   t <- pItem
-  trace ("CHUJ2" ++ show t) $ return ()
   gen <- fromMaybe [] <$> optional generics'
   return $ matchTypeWithAccess gen t access
   where

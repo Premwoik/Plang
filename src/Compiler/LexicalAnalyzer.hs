@@ -71,6 +71,7 @@ functionStmtAnalyzer s =
     t@IfFn {}     -> checkIfFunction t functionStmtAnalyzer bExprAnalyzer
     t@ReturnFn {} -> checkReturn t aExprAnalyzer
     t@OtherFn {}  -> checkOtherExpr t aExprAnalyzer
+    t@Break {} -> checkBreak t
     Pass          -> return . return $ Pass
 
 classStmtAnalyzer :: String -> ClassStmt -> Analyzer' ClassStmt

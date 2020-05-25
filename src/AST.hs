@@ -51,6 +51,7 @@ data FunctionStmt
   | IfFn Int [(BExpr, [FunctionStmt])]
   | ReturnFn Int (Maybe AExpr)
   | OtherFn Int AExpr
+  | Break Int
   | Pass
   deriving (Show, Eq)
 

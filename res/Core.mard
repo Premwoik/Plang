@@ -105,6 +105,7 @@ native class "HardwareSerial" HardwareSerial do
     def print val: string -> int
     def print val: float -> int
     def print val: int -> int
+    def print val: bool -> int
 
 //it is not a pointer
 native var "Serial" Serial: HardwareSerial
@@ -112,6 +113,7 @@ native var "Serial" Serial: HardwareSerial
 native "Serial.println" println t: string -> void
 native "Serial.println" println t: int -> void
 native "Serial.println" println t: float -> void
+native "Serial.println" println t: bool -> void
 
 native "Serial.print" print t: string -> void
 native "Serial.print" print t: int -> void
@@ -122,6 +124,10 @@ native "getFragmentation" getFragmentation -> float
 native "getPointer" getPointer -> cptr int
 native "needPointer" needPointer p: cptr int -> void
 
+Void -> void do
+  pass
+
+otherwise = 0
 
 printMemStats -> void do
    fragmentation: float = getFragmentation()
@@ -146,20 +152,4 @@ class range do
   toList -> ArrayList<int> do
     len = (this|end - this|start)
     ret [int|]
-
-//class ThisTest<T> do
-//   a: T
-//   b: int = 0
-//   ThisTest do
-//      pass
-//   ThisTest a: T do
-//      this|a = a
-//      this|b = 100
-//   ThisTest a: T, b: int do
-//      this|a = a
-//      this|b = 1
-//   getA -> T do
-//      ret a
-//   setA val: T -> void do
-//      this|a = val
 

@@ -43,6 +43,7 @@ stmt'
 functionStmt :: Parser FunctionStmt
 functionStmt
   = returnParser aExprExtended
+  <|> breakStmt
   <|> passStmt
   <|> forStmt aExprExtended ForFn functionStmt
   <|> whileStmt bExpr WhileFn functionStmt

@@ -115,4 +115,6 @@ returnExprTranslator (ReturnFn _ (Just aExpr)) = do
   return . return $ "return " ++ head aExpr' ++ ";\n"
 returnExprTranslator (ReturnFn _ Nothing) = 
   return . return $ "return;\n"
-    
+
+breakTranslator :: FunctionStmt -> Translator
+breakTranslator (Break o) = return . return $ "break;\n"
