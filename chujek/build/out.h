@@ -54,6 +54,7 @@ namespace Main{
 using namespace Core;
 int Main();
 int Main(){
+   Serial.print("String literal\n")   ;
    return 0;
 }
 }

@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 module Compiler.Parser.Lexer where
 
@@ -7,13 +8,15 @@ import           Control.Applicative        hiding (some)
 import           Control.Monad
 import           Control.Monad.State.Lazy   as S
 import           Data.Text                  (Text)
+import qualified Data.Char            as Char
 import qualified Data.Text                  as T
 import           Data.Void
 import           Text.Megaparsec            hiding (State)
 import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
-import Data.Maybe(fromMaybe)
+import Data.Maybe(fromMaybe, listToMaybe)
 import Debug.Trace
+import Data.List.NonEmpty (NonEmpty (..))
 
 lineCmnt = L.skipLineComment "//"
 
@@ -63,5 +66,19 @@ float' = lexemeEnd L.float
 pItem :: Parser String
 pItem = lexemeEnd (some (hidden (alphaNumChar <|> char '-' <|> char '_')) <?> "type")
 
+charLiteral :: (MonadParsec e s m, Token s ~ Char) => m String
+charLiteral = label "literal character" $ do
+  -- The @~@ is needed to avoid requiring a MonadFail constraint,
+  -- and we do know that r will be non-empty if count' succeeds.
+  r <- lookAhead (count' 1 10 anySingle)
+  case listToMaybe (Char.lexLitChar r) of
+    Just (c, r') -> c <$ skipCount (length r - length r') anySingle
+    Nothing      -> unexpected (Tokens (head r:|[]))
+
 stringLiteral :: Parser String
-stringLiteral = char '\"' *> manyTill L.charLiteral (char '\"')
+stringLiteral = char '\"' *> manyTill charLiteral' (char '\"')
+  where
+    charLiteral' :: Parser Char
+    charLiteral' = do
+      p <- charLiteral
+      if p == "\n" then fail "unexpectd \"\\n\"\nString literal must be in one line!" else return $ head p

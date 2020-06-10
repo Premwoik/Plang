@@ -16,7 +16,7 @@ sep :: Parser Text
 sep = symbol ","
 
 parens :: Parser a -> Parser a
-parens = addContext "Maybe bracket ending is missing." . between (symbol "(") (symbol ")")
+parens = addContext "Maybe ending bracket - \")\" is missing." . between (symbol "(") (symbol ")")
 
 blockMark :: Parser a -> Parser a
 blockMark = between (symbol "{") (symbol "}")
