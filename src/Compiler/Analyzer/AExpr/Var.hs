@@ -9,8 +9,9 @@ import           AST
 import Compiler.Analyzer.Browser
 import Data.Maybe(fromMaybe, listToMaybe, isNothing, fromJust)
 import Debug.Trace
-import Control.Monad.Except(throwError)
 import Data.List(find)
+import Compiler.Analyzer.Error
+import Compiler.Analyzer.UniversalCheckers(checkTypesMatchGens)
 
 markClassAsPointer :: [VarType] -> [VarType]
 markClassAsPointer = map mapper
@@ -90,7 +91,6 @@ checkVarFirst :: AExpr -> Maybe [AExpr] -> RetBuilderT -> Maybe ScopeField -> St
 checkVarFirst var@(Var offset name gen _ more) Nothing retBuilder obj scopeName=
   case obj of
     Just tvar@(SVar _ n p t s) -> do
---     trace ("VarScope :: " ++ s ++ "  |  "  ++  (scaleNameWithScope' [s, n]) ++ " *** "++ show tvar) $ return ()
      t' <- if isNothing more then wrapAllocationMethod t else return t
      retBuilder t' (TypedVar (defaultPath p (scaleNameWithScope' [s, n])) t' Nothing) more
 
@@ -109,10 +109,9 @@ checkVarFirst var@(Var offset name gen _ more) Nothing retBuilder obj scopeName=
           _ -> scaleNameWithScope' [scope, "::", n]
     p -> do
       storage <- gets scopes
-      makeError offset ("Can't find given name! " ++ show var ++ " | " ++ show p) -- ++ " | " ++ show storage)
-  
-checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName= do
-  traceShow var $ return ()
+      makeError offset $ VariableMissing name
+
+checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName= 
   case obj of
 
     Just (SVar i n p (VFn t) s)  -> do
@@ -120,7 +119,7 @@ checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName= d
       checkVarFirst var args' retBuilder (Just (SFunction i n p (last t) funArgs)) s 
       
     Just cl@(SClass _ n p g sc) -> do
-      if length g == length gen then return () else makeError offset ("Generic is missing! - " ++ show g)
+      if length g == length gen then return () else makeError offset $ GenericMissing (show g)
       let gen' = zipWith VGenPair g gen
       checkTypesMatchGens offset sc gen'
       constructor <- filterConstructor args' gen' cl
@@ -144,7 +143,7 @@ checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName= d
           _ -> scaleNameWithScope' [scope, "::", n]
     p -> do
       storage <- gets scopes
-      makeError offset ("Can't find given name! " ++ show var ++ " | " ++ show p) -- ++ " | " ++ show storage)
+      makeError offset $ VariableMissing name 
 
 checkVarMore (Var offset name _ args more) (VClass cName gen) args' retBuilder method =
       case method of
@@ -154,7 +153,8 @@ checkVarMore (Var offset name _ args more) (VClass cName gen) args' retBuilder m
           let args'' = Just $ markNativePtr a (fromMaybe [] args')
           let nType = fixType gen t
           retBuilder nType (TypedVar (defaultPath p n) nType args'') more
-        x -> makeError offset ("Can't find that method or field in given class. " ++ show x ++ " | " ++ name ++ " | " ++ show cName ++ " | " ++ show gen ++ " | " ++ show args')
+        x -> makeError offset $ ClassVariableMissing (unwrapVarName cName) name
+--        x -> makeError offset ("Can't find that method or field in given class. " ++ show x ++ " | " ++ name ++ " | " ++ show cName ++ " | " ++ show gen ++ " | " ++ show args')
 
 
 checkVar :: AExpr -> Maybe VarType -> String -> AExprAnalyzer -> Analyzer' AExprRes
@@ -177,7 +177,7 @@ checkVar v@(Var offset name gen args more) wantedType scopeName analyzer =
       checkVarFirst v readyArgs retBuilder candidate scopeName
 
 -- |  error previous was not a class
-    (Just x) -> makeError offset  ("NotAClass: " ++ show x ++ " | " ++ show v)
+    (Just x) -> makeError offset  $ NotAClass name --("NotAClass: " ++ show x ++ " | " ++ show v)
   where
     retBuilder :: RetBuilderT
     retBuilder type' var more =

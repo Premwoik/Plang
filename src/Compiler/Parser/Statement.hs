@@ -1,22 +1,22 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TupleSections     #-}
 
 module Compiler.Parser.Statement where
 
-import Compiler.Parser.Universal
-import Control.Monad.State (modify)
-import Text.Megaparsec hiding (State)
-import Text.Megaparsec.Char
+import           Compiler.Parser.Universal
+import           Control.Monad.State        (modify)
+import           Text.Megaparsec            hiding (State)
+import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
-import AST
-import Compiler.Parser.AExpr hiding (elifStmtParser, elseStmtParser, ifStmtParser)
-import Compiler.Parser.Lexer
-import Control.Monad
-import Data.Maybe (fromMaybe)
-import Text.Megaparsec.Debug (dbg)
-import Debug.Trace
-
+import           AST
+import           Compiler.Parser.AExpr      hiding (elifStmtParser,
+                                             elseStmtParser, ifStmtParser)
+import           Compiler.Parser.Lexer
+import           Control.Monad
+import           Data.Maybe                 (fromMaybe)
+import           Debug.Trace
+import           Text.Megaparsec.Debug      (dbg)
 
 moduleParser :: Parser Stmt
 moduleParser = L.nonIndented sc p
@@ -28,7 +28,6 @@ moduleParser = L.nonIndented sc p
       void (symbol "where")
       return $ Skip o
 
-
 importParser :: Parser Stmt
 importParser --dbg "import" $
  = L.nonIndented sc p
@@ -37,11 +36,11 @@ importParser --dbg "import" $
       o <- getOffset
       void (symbol "import")
       n <- lexeme (sepBy1 identifier (symbol "."))
-      as <- optional $ do
-            void (symbol "as")
-            identifier       
-      return $ Import o (fromMaybe [] as) n 
-
+      as <-
+        optional $ do
+          void (symbol "as")
+          identifier
+      return $ Import o (fromMaybe [] as) n
 
 functionArgsParser :: Parser [FunArg]
 functionArgsParser = sepBy1 p sep
@@ -51,22 +50,23 @@ functionArgsParser = sepBy1 p sep
       type' <-
         optional $ do
           void (symbol ":")
---          optional (symbol "const" <|> symbol "copy")
           typeParser
       return $ FunArg (fromMaybe VAuto type') n
+
+--          optional (symbol "const" <|> symbol "copy")
 functionParser :: Parser FunctionStmt -> Parser Stmt
-functionParser functionStmt = lexeme (L.indentBlock scn p)
+functionParser functionStmt = L.indentBlock scn p
   where
-    p = do
+    p = addLocation "function declaration" $ do
       o <- getOffset
       header <- pItem
       args <- fromMaybe [] <$> optional functionArgsParser
       type' <-
         optional $ do
           void (symbol "->")
-          typeParser
+          addContext "You have to specify type after \'->\' eg: int, float, string, MyClass" typeParser
       void (symbolEnd "do")
-      return (L.IndentSome Nothing (return . Function o header (fromMaybe VAuto type') args) functionStmt)
+      return (L.IndentSome Nothing (return . Function o header (fromMaybe VAuto type') args) (addLocation ("function " ++ header) functionStmt))
 
 nativeFunctionParser :: Parser Stmt
 nativeFunctionParser =
@@ -88,7 +88,7 @@ returnParser aExpr = lexeme p
     p = do
       o <- getOffset
       void (symbol "ret")
-      ReturnFn o <$> optional aExpr
+      ReturnFn o . Just <$>  aExpr
 
 skipStmt :: Parser Stmt
 skipStmt = do
@@ -116,18 +116,33 @@ linkPathParser =
     name <- lexemeEnd stringLiteral
     return $ LinkPath o name
 
-
 assignParser :: (Parser AExpr -> Parser AExpr) -> Parser AExpr -> (Int -> AExpr -> VarType -> AExpr -> a) -> Parser a
-assignParser lAExpr aExpr wrapper =
-  lexeme $ do
+assignParser lAExpr aExpr wrapper = lexeme $ do
     o <- getOffset
     var <- lAExpr aExpr
-    type' <-
-      optional $ do
+    type' <- optional $ do
         void (symbol ":")
         typeParser
     void (symbol "=")
     wrapper o var (fromMaybe VAuto type') <$> aExpr
+    
+   
+assignOrOtherParser:: (Parser AExpr -> Parser AExpr) -> Parser AExpr -> Parser FunctionStmt
+assignOrOtherParser lAExpr aExpr = do
+    o <- getOffset
+    var <- lAExpr aExpr
+    type' <- optional $ do
+        void (symbol ":")
+        typeParser
+    rightSide <- optional $ do 
+        void (symbol "=")
+        aExpr
+    case rightSide of
+      Just expr -> 
+        return $ AssignFn o var (fromMaybe VAuto type') expr
+      Nothing ->
+        return $ OtherFn o var
+
 
 defaultAssignParser :: Parser ClassStmt
 defaultAssignParser =
@@ -158,10 +173,10 @@ methodDeclarationParser =
     o <- getOffset
     void (symbol "def")
     header <- pItem
-    trace (show header) $ return ()
     args <- fromMaybe [] <$> optional functionArgsParser
     type' <-
-      optional $ do
+      optional $
+      label "method type ( -> int )" $ do
         void (symbol "->")
         typeParser
     return $ NativeMethod o header (fromMaybe VAuto type') args
@@ -193,12 +208,12 @@ nativeClassParser classStmt = lexeme $ L.indentBlock scn p
 whileStmt :: Parser BExpr -> (Int -> BExpr -> [b] -> b) -> Parser b -> Parser b
 whileStmt bExpr wrapper parser = lexeme $ L.indentBlock scn p
   where
-    p = do
+    p = addLocation "stmt while" $ do
       o <- getOffset
       void (symbol "while")
       name <- bExpr
       void (symbolEnd "do")
-      return (L.IndentSome Nothing (return . wrapper o name) parser)
+      return (L.IndentSome Nothing (return . wrapper o name) (addCtxToIndent "GIERCZAK" parser))
 
 forStmt :: Parser AExpr -> (Int -> AExpr -> AExpr -> [b] -> b) -> Parser b -> Parser b
 forStmt aExpr wrapper parser = lexeme $ L.indentBlock scn p
@@ -245,7 +260,7 @@ fullIfFuncParser bExpr functionStmt = do
   else' <- optional (elseStmtParser functionStmt)
   case else' of
     (Just e) -> return . IfFn o $ if' : elif' ++ [e]
-    Nothing -> return . IfFn o $ if' : elif'
+    Nothing  -> return . IfFn o $ if' : elif'
 
 caseStmtParser :: Parser AExpr -> Parser FunctionStmt -> Parser FunctionStmt
 caseStmtParser aExprParser fStmtParser = lexeme $ L.indentBlock scn p
@@ -265,4 +280,4 @@ caseLineParser lCond aExprParser fStmtParser = lexeme $ L.indentBlock scn p
       rCond <- aExprParser
       void (symbolEnd "do")
       let cond = RBinary Equal lCond rCond
-      return (L.IndentMany Nothing (return . (cond,)) fStmtParser)
+      return (L.IndentMany Nothing (return . (cond, )) fStmtParser)

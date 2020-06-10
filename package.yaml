@@ -28,6 +28,9 @@ dependencies:
 - containers
 - hspec
 - hspec-megaparsec
+- cli
+- directory
+- process
 
 library:
   source-dirs: src

@@ -24,20 +24,23 @@ import Text.Megaparsec (PosState)
 import           Data.List.NonEmpty as NonEmpty
 import qualified Data.Set           as Set
 
-compile path = do
-  res <- importMain path
+compile dir main = do
+  res <- importMain dir main 
   case runExcept (evalStateT (runWriterT (analyze' res)) emptyStorage) of
     Right (a, w) -> do
+      putStrLn "Compiling process ended succesfully!"
       let (a', w') = evalState (runWriterT (runReaderT (translate' a) getDependencies)) TT.emptyStorage
       return (a, a')
     Left e -> do
+      putStrLn "Error occured:"
       err <- createParserError e
       putStrLn $ Err.errorBundlePretty err
       error ""
 
-createParserError :: AnalyzerException -> IO (ParseErrorBundle String Void)
+createParserError :: AnalyzerException -> IO (ParseErrorBundle T.Text Void)
 createParserError (CustomAException (FileInfo offset name path) text) = do
-  input <- readFile path
+  putStrLn $ show $ name ++ path
+  input <- tryReadFile path
   let initialState =
         PosState
           { pstateInput = input

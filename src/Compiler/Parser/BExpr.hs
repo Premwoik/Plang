@@ -17,7 +17,8 @@ allowedAExpr expr = case expr of
   Var {} -> return expr
   Optional {} -> return expr
   ABool {} -> return expr
-  x -> error $ "nie można tak tutaj" ++ show x
+  ABinary {} -> return expr
+  x -> fail $ "nie można tak tutaj" ++ show x
 
   
 

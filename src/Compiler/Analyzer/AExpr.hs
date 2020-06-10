@@ -23,8 +23,10 @@ import Data.Maybe(fromMaybe)
 import Debug.Trace
 import Control.Monad.Except(throwError)
 import Data.List(find)
-import Compiler.Analyzer.AExpr.Var --(markVarClassAsPointer, markClassAsPointer)
-import Compiler.Analyzer.UniversalCheckers
+import Compiler.Analyzer.AExpr.Var
+import Compiler.Analyzer.UniversalCheckers(compareGens, checkFnArgs)
+import Compiler.Analyzer.Error
+
 
 checkOptional :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkOptional (Optional o aExpr _) analyzer = do
@@ -35,12 +37,11 @@ checkOptional (Optional o aExpr _) analyzer = do
       return (VBool, [], Optional o a NullOT)
     VClass {} -> 
       return (VBool, [], Optional o a BoolOT)
-    _ -> makeError o "O chuj"
+    t -> makeError o $ NotAllowedOptionalUse t
 
 checkScopeMark :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkScopeMark (ScopeMark o scopeName aExpr) analyzer = do
   addOffset o 
---  trace ("SCOPE_MARK " ++ scopeName ++ " | " ++ show aExpr) $ return ()
   res <- (\(a, b, res) -> (a, b, ScopeMark o scopeName res)) <$> checkVar aExpr Nothing scopeName analyzer
   removeOffset
   return res
@@ -50,13 +51,13 @@ checkListVar :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkListVar (ListVar _ [] (Just t)) _ = 
   return (VClass (VName "ArrayList") [VGenPair "T" t], [], TypedVar (VName "ArrayList") (VClass (VName "ArrayList") [VGenPair "T" t]) (Just []) Nothing)
 checkListVar (ListVar o [] Nothing) _ =
-  makeError o "Empty list must have providen a type"
+  makeError o NotProvidedListType
 checkListVar a@(ListVar o elems wantedType) analyzer = do
   let len = show $ length elems
   (types', injs, elems') <-
     classToPointer . foldr (\(t', inj, res) (ts, injs, ress) -> (t':ts, inj: injs, res:ress)) ([], [], []) 
     <$> mapM analyzer elems
-  if checkType types' then return () else makeError o ("Not all elems are the same type in list: " ++ show elems ++ " wantedType: " ++ show wantedType)
+  if checkType types' then return () else makeError o $ NotAllElementsHaveSameType elems wantedType
   let itemType = head types'
   let args = Just [TypedListVar elems' itemType, TypedVar (VName len) VInt Nothing Nothing, TypedVar (VName len) VInt Nothing Nothing]
   let t = VClass (VName "ArrayList") [VGenPair "T" itemType]
@@ -76,7 +77,7 @@ checkRange (Range o s a b) analyzer  = do
   where
     allInt a b c 
       | a == b && a == c && a == VInt = return () 
-      | otherwise = makeError o "In range all numbers have to be an Integers"
+      | otherwise = makeError o NotAllowedRangeType
       
 -- False is for normal assign and True is for invoking checking
 --TODO return can be done only at the end of the last line???
@@ -90,7 +91,7 @@ checkLambdaFn False a@(LambdaFn offset retType args stmts) analyzer = do
         let args' = zipWith (\t (FunArg _ n) -> FunArg t n) types args
         let ret' = last types
         checkLambdaFn True (LambdaFn offset ret' args' stmts) analyzer
-      | otherwise = makeError offset "All arguments must have defined strict type!"
+      | otherwise = makeError offset ArgumentsTypeMissing
     allTypesKnown _ = return (VFn [], [], a) --makeError offset "Lambda expression must have defined strict type!"
     
 checkLambdaFn True a@(LambdaFn offset retType args stmts) analyzer = do

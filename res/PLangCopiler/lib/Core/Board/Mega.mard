@@ -1,0 +1,9 @@
+module Core.Board.Mega where
+
+native var "" PORTA: cptr uint8
+native var "" PORTB: cptr uint8
+native var "" PORTC: cptr uint8
+native var "" PORTD: cptr uint8
+native var "" PORTE: cptr uint8
+native var "" PORTF: cptr uint8
+

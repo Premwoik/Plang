@@ -2,66 +2,45 @@
 
 module Compiler.Parser.Universal where
 
-import           Compiler.Parser.Lexer
-import           Data.Text                  (Text)
-import           Text.Megaparsec            hiding (State)
-import           Text.Megaparsec.Char
-import qualified Text.Megaparsec.Char.Lexer as L
-import Data.Maybe (fromMaybe)
-import           AST
+import AST
+import Compiler.Parser.Lexer
 import Control.Monad (void)
+import Data.Maybe (fromMaybe)
+import Data.Text (Text)
 import Debug.Trace
+import Text.Megaparsec hiding (State)
+import Text.Megaparsec.Char
+import qualified Text.Megaparsec.Char.Lexer as L
 
 sep :: Parser Text
 sep = symbol ","
 
 parens :: Parser a -> Parser a
-parens = between (symbol "(") (symbol ")")
+parens = addContext "Maybe bracket ending is missing." . between (symbol "(") (symbol ")")
 
 blockMark :: Parser a -> Parser a
 blockMark = between (symbol "{") (symbol "}")
 
 functionExecutionArgParser :: Parser AExpr -> Parser [AExpr]
 functionExecutionArgParser aExpr = do
-  v <- optional $ sepBy1 aExpr sep
-  return $ fromMaybe [] v
-
-identifiers :: Parser AExpr -> Parser [String]
--- TODO add parsing for list accessor <?
-identifiers aExpr = do
-  scope <- optional . try $ do
-    s <- identifier
-    void (symbol "|")
-    return s
-  ids<- sepBy identifier "."
-  return $ fromMaybe "" scope : ids
-  where
-    id = do
-      i <- identifier
-      optional $ 
-        between (symbol "[") (symbol "]") (functionExecutionArgParser aExpr)
-
+    v <- addContext "Items need to be separated by comma eg: a, b, c." 
+      . addContext "Comma cannot be left alone at the end. ;]" 
+      . optional $ sepBy1 aExpr sep
+    return $ fromMaybe [] v
 
 generics :: Parser [String]
 generics = between (symbol "<") (symbol ">") (sepBy identifier sep)
 
 generics' :: Parser [VarType]
 generics' = between (symbol "<") (symbol ">") (sepBy typeParser sep)
---  where
---    p = do
---      id <- typeParser
---      gens <- optional generics'
---      case gens of
---        Just g -> return $ matchType' g id
---        Nothing -> return $ matchType id
 
-array = between (symbol "[") (symbol "]") 
+array = between (symbol "[") (symbol "]")
 
 matchTypeWithAccess :: [VarType] -> String -> String -> VarType
 matchTypeWithAccess g t "ref" = VRef $ matchType' g t
 matchTypeWithAccess g t "copy" = VCopy $ matchType' g t
 matchTypeWithAccess g t "ptr" = VPointer (matchType' g t) SharedPtr
-matchTypeWithAccess g t "cptr" = VPointer (matchType' g t) NativePtr 
+matchTypeWithAccess g t "cptr" = VPointer (matchType' g t) NativePtr
 matchTypeWithAccess g t "" = matchType' g t
 
 matchType :: String -> VarType
@@ -88,9 +67,9 @@ matchType' g t =
     x -> VClass (VName x) g
 
 typeParser :: Parser VarType
-typeParser = do
+typeParser = addContext "Generics fail" $ do
   access <- fromMaybe [] <$> optional (refParser <|> copyParser <|> pointerParser <|> cPointerParser)
-  t <- pItem
+  t <- identifier
   gen <- fromMaybe [] <$> optional generics'
   return $ matchTypeWithAccess gen t access
   where
@@ -106,3 +85,4 @@ typeParser = do
     cPointerParser = do
       void (symbol "cptr")
       return "cptr"
+

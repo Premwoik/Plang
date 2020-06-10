@@ -6,12 +6,12 @@ import           AST
 --import           Compiler.Analyzer.Pre
 import           Compiler.Analyzer.Browser
 import           Compiler.Analyzer.Type
+import Compiler.Analyzer.Error
 import           Control.Monad.State       (get, gets, modify, put)
 import           Control.Monad.Writer      (tell)
 import           Data.Maybe                (fromJust, fromMaybe, listToMaybe)
 import           Debug.Trace
-import Compiler.Analyzer.UniversalCheckers
-import Control.Monad.Except(throwError)
+import Compiler.Analyzer.UniversalCheckers(compareGens, checkFnArgs)
 
 checkImport :: Stmt -> Analyzer' Stmt
 -- TODO check if import path exist
@@ -37,7 +37,6 @@ checkMethod m@(Method o n t a body) bodyAnalyzer = do
   let nType = markGen t' gens
   let nArgs = markGenInArgs gens a'
   className <- gets cName
---  trace ("checkMethod: " ++ show n ++ " " ++ show nType) $ return ()
   addFunction o' n' Nothing nType nArgs
   checkFunctionUniqueness o' ["this", n'] nType nArgs
   return $
@@ -167,9 +166,7 @@ checkAssignFn a@(AssignFn o nameExpr ret aExpr) analyzer =
   
 check o wantedDecl wanted actual res
   | wantedDecl == actual && (wanted == actual || wanted == VAuto) = return extendedIntCheck
-  | otherwise =
-    makeError o $ "Types don't match. You tried to assign " ++ show actual
-      ++ " when should be " ++ show wanted ++ ".\n" ++ show actual ++ " =/= " ++ show wanted
+  | otherwise = makeError o $ AssignTypesMismatch actual wanted
   where
     extendedIntCheck = case wanted of 
       VNum {} -> wanted
@@ -190,7 +187,7 @@ checkAssign (Assign o (Var _ name _ _ Nothing) ret aExpr) analyzer = do
   nType <-
     case firstSig of
       Just e@(SVar _ n _ t s) ->
-          makeError o $ "Global variables cannot be redefined and reallocated. \n " ++ show e
+          makeError o $ NotAllowedGlobalMod n
       Nothing ->
         add type'
   let mergedNameWithScope = concat . scaleNameWithScope $ "g" : [name]
@@ -269,11 +266,10 @@ checkClassAssign aa@(ClassAssign o (Var oV name [] Nothing Nothing) ret aExpr) a
   firstSig <- listToMaybe <$> find' ["this", name]
   nType <- unwrapAllMethod . flip markGen gen <$>
     case firstSig of
-      Just e@SVar {} ->
-        makeError o $ "Global variables cannot be redefined and reallocated. \n " ++ show e
+      Just (SVar _ n _ t s) ->
+        makeError o $ NotAllowedGlobalMod n
       Nothing ->
         check ret type'
---  trace ("ClassVar " ++ show name ++ show )
   addVar o name Nothing nType "this"
   
   let name' = concat . scaleNameWithScope $ "this" : [name]
@@ -284,11 +280,10 @@ checkClassAssign aa@(ClassAssign o (Var oV name [] Nothing Nothing) ret aExpr) a
       | b == VBlank = return a
       | a == b || a == VAuto = return b
       | otherwise =
-        makeError o $
-          "Types don't match. You tried to assign " ++ show b  ++ " when should be " ++ show a ++ ".\n" ++ show a ++ " =/= " ++ show b
+        makeError o $ AssignTypesMismatch b a
 
 forceNoScopeMarker _ ("":_) = return ()
-forceNoScopeMarker o _ = makeError o "Global and class assign can't hava a scope marker."
+forceNoScopeMarker o _ = makeError o NotAllowedScopeMarker
 
 -- | OTHER EXPR
 checkOtherExpr :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]
@@ -302,4 +297,4 @@ checkOtherExpr (OtherFn o aExpr) analyzer = do
 checkBreak :: FunctionStmt -> Analyzer' [FunctionStmt]
 checkBreak t@(Break o) = do
   cond <- isInsideLoop
-  if cond then return [t] else makeError o "Break stmt can be used only inside a loop body."
+  if cond then return [t] else makeError o NotAllowedBrakeStmt

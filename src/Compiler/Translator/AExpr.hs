@@ -43,7 +43,6 @@ varTranslator a@(TypedVar name type' Nothing more') = do
           _ -> n
   return . return . concat $ n' : readyMore
 varTranslator a@(TypedVar name type' (Just args) more') = do
---  trace ("args: " ++ show a) $ return ()
   readyMore <- moreVarTranslator type' more'
   args' <- intercalate ", " . concat <$> mapM (injectTranslator aExprTranslatorGetter) args
   return . return . concat $ unwrapType type' ("(" ++ args' ++ ")") : readyMore
@@ -70,8 +69,7 @@ moreVarTranslator a (Just e) = return . (\[x] -> '.' : x) <$> varTranslator e
 moreVarTranslator _ Nothing = return []
 
 scopeMarkTranslator :: AExpr -> Translator
-scopeMarkTranslator (ScopeMark _ sName (TypedVar n t a m)) = do
---  trace ("SCOPE_TRANSLATOR " ++ sName ++ " | name: " ++ show n ++ " |> ") $ return ()
+scopeMarkTranslator (ScopeMark _ sName (TypedVar n t a m)) = 
   injectTranslator aExprTranslatorGetter $ TypedVar n t a m
 scopeMarkTranslator x = error $ show x
 
@@ -93,7 +91,6 @@ lambdaTranslator (LambdaFn offset t args stmts) = do
     tStmts =
       case stmts of
         [OtherFn o expr] -> do
---          trace ("TranslatorExpr :: " ++ show expr) $ return ()
           res <- head <$> injectTranslator aExprTranslatorGetter expr
           return ["return " ++ res ++ ";\n"]
         _  -> blockTranslator' (injectTranslator fnStmtTranslatorGetter) stmts

@@ -1,0 +1,3 @@
+import Core.Native.Maybe
+myFileFn -> string do
+  ret "ala"

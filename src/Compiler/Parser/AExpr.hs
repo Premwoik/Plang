@@ -88,16 +88,15 @@ varLeftAssignParser aExpr = do
       varParser aExpr
 
 
---  trace (show fun) $ return ()
 varExtendedParser :: Parser AExpr -> Parser AExpr
 varExtendedParser aExpr = do
   o <- getOffset
   fun <- identifier
-  gen <- fromMaybe [] <$> optional generics'
+  gen <- hidden $ fromMaybe [] <$> optional generics'
   args <- optional (parens (functionExecutionArgParser aExpr))
-  accessor <- optional accParser
-  maybe <- optional $ symbol "?"
-  m <- optional more'
+  accessor <- hidden $ optional accParser
+  maybe <- hidden $ optional $ symbol "?"
+  m <- hidden $ optional more'
   return $ wrapOptional maybe $ case accessor of
     Just a ->
       Var o fun gen args (Just (Var o "get" [] (Just a) m))
@@ -111,7 +110,6 @@ varExtendedParser aExpr = do
       varParser aExpr
     wrapOptional Just {} var = Optional 0 var UnknownOT
     wrapOptional Nothing var = var
-
 
 ifStmtParser :: Parser BExpr -> Parser FunctionStmt -> Parser Cond
 ifStmtParser bExpr functionStmt = lexeme $ L.indentBlock scn p

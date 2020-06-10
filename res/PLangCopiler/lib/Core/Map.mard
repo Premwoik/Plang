@@ -1,0 +1,47 @@
+import Core.Native.Maybe
+import Core.Native.List
+//class Pair<K, V> do
+//  k: K
+//  v: V
+//
+//  Pair k: K, v: V do
+//    this.k = k
+//    this.v = v
+//
+//class Pair do
+//  k: string
+//  v: int
+//
+//  Pair k: string, v: int do
+//    this.k = k
+//    this.v = v
+
+
+class Map<K, V> do
+  storage = ArrayList<int>()
+
+  Map do
+    pass
+//    this.storage = List<int>()
+
+//  hasKey key: K -> bool do
+//    ret true
+
+//  findKeyIndex key: K -> int do
+//    ret -1
+//
+//  get key: K, default: V -> V do
+//    index = findKeyIndex(key)
+//    if index > -1 then
+//      ret storage.get(index)
+//    else
+//      ret default
+//
+//  put key: K, value: V -> void do
+//    index = findKeyIndex(key)
+//    if index > -1 then
+//      storage.replace(index, 1)
+//    else
+//      storage.add(1)
+
+

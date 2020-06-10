@@ -15,8 +15,7 @@ import Debug.Trace
 import qualified          Compiler.Importer as Im
 
 analyze' :: [Imported] -> Analyzer' [Imported]
-analyze' a = do
---  trace (show (map (\(IFile n _ _) -> n) a)) $ return ()
+analyze' a = 
   forM a $ \(IFile n p ast) -> do
     res <- analyze n p ast
     saveFile n
@@ -25,14 +24,12 @@ analyze' a = do
 analyze :: String -> String -> AST -> Analyzer' AST
 analyze modName path (AST stmts) = do
   setModuleInfo (-1) modName path
-  traceShow modName $ return ()
   fields <- loadFiles . map (\i -> (Im.getImportName i, Im.getImportAlias i)) . Im.filterImport $ AST stmts
   let (globalFields, fileScopes) = fields
   let globalScope = Scope "global" $ catalogueDecl modName path (AST stmts)
   let importScope = Scope "import" globalFields
   modify (\storage -> storage {scopes = globalScope : importScope : fileScopes})
   s <- gets scopes
---  trace (show s) $ return ()
   stmts' <- mapM statementAnalyzer stmts
   return (AST stmts')
 

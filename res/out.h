@@ -129,6 +129,7 @@ void runTasks(){
    }
 }
 }
+namespace Main{
 using namespace Core;
 using namespace CoreNativeList;
 using namespace CoreNativeEthernet;
@@ -170,6 +171,7 @@ int Main(){
    return 0;
 }
 void loop(){
+   Serial.print("123")   ;
    EthernetClient client = g___server.available();
    while(!client){
       return Void();
@@ -178,7 +180,6 @@ void loop(){
    MessageProcessor proc = MessageProcessor(&client);
     g___lastReadMessageTime = millis();
    while((stillAlive()) && (client.connected())){
-      break;
       SmartHomeTimer::runTasks()      ;
       shared_ptr<Message> msg = shared_ptr<Message>(proc.readMessage());
       if(msg.isNotNull()){
@@ -241,4 +242,5 @@ Message setTimeDimmerCmd(Message& args___msg){
 }
    }
    return Message::okMsg(args___msg.getCode());
+}
 }

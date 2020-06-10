@@ -11,6 +11,7 @@ import           Data.List              (group)
 import qualified Data.List              as L
 import           Data.Maybe             (fromJust, isJust, listToMaybe, maybeToList)
 import           Debug.Trace
+import Compiler.Analyzer.Error
 
 find' :: [String] -> Analyzer' [ScopeField]
 find' name = do
@@ -65,8 +66,7 @@ searchInScopeWithName name scopeName scopes =
     (Just s) -> return $ searchInScope name s
     Nothing -> do
       o <- getOffset
-      makeError o
-          ("Scope with name \"" ++ scopeName ++ "\" doesn't exist.\nExist scopes: " ++ show (getScopesNames scopes))
+      makeError o $ ScopeNoExist scopeName (getScopesNames scopes)
 
 getScopesNames :: Scopes -> [String]
 getScopesNames = map unwrapName
@@ -114,20 +114,18 @@ checkFunctionUniqueness o name t args = do
     noVarWithSameName fns =
       if all isFunction fns
         then return ()
-        else makeError o ("There exists a variable with same name - " ++ show name)
+        else makeError o $ VariableWithSameName (show name)
     allReturnTheSame fns =
       if all (\(SFunction o n p t' a) -> t == t') fns
         then return ()
-        else makeError o $
-               "Not each function with same name return the same type. " ++
-                show fns ++ "\nAll above declarations should return: " ++ show t
+        else makeError o $ FunctionDifferentReturnType (show name) fns t
     notSameArguments fns =
       if all (\g -> length g == 1) .
          group .
          map (\(SFunction _ _ _ _ a) -> map (\(FunArg t _) -> t) a) . filter (\(SFunction i _ _ _ _) -> fOffset i <= o) $
          fns
         then return ()
-        else makeError o ("The same function just exists!\n" ++ show fns)
+        else makeError o $ FunctionRepetition fns
 
 maybeArgsMatch :: Maybe [AExpr] -> [VarType] -> AExprAnalyzer -> ScopeField -> Analyzer' Bool
 maybeArgsMatch (Just args) gen analyzer s = do

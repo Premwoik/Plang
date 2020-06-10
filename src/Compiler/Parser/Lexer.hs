@@ -38,7 +38,7 @@ identifier = (lexeme . try) (p >>= check)
     p = (:) <$> letterChar <*> Control.Applicative.many alphaNumChar
     check x =
       if x `elem` rws
-        then fail $ "keyword " ++ show x ++ " cannot be an identifier"
+        then fail $ "keyword " ++ show x ++ " cannot be an identifier or type"
         else return x
 
 lexemeEnd :: Parser a -> Parser a
@@ -61,7 +61,7 @@ float' :: Parser Float
 float' = lexemeEnd L.float
 
 pItem :: Parser String
-pItem = lexemeEnd (some (alphaNumChar <|> char '-' <|> char '_')) <?> "list item"
+pItem = lexemeEnd (some (hidden (alphaNumChar <|> char '-' <|> char '_')) <?> "type")
 
 stringLiteral :: Parser String
 stringLiteral = char '\"' *> manyTill L.charLiteral (char '\"')
