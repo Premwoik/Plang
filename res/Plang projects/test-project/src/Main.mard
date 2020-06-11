@@ -1,0 +1,17 @@
+module Main where
+//import Core
+
+class TestClass do
+  a = 12
+  TestClass do
+    pass
+
+print txt: string -> void do
+  pass
+
+Main -> int do
+  print("String literal \n")
+  TestClass().a
+  ret 0
+
+

@@ -1,9 +1,0 @@
-module Main where
-//import Core
-
-Main -> int do
-  print("String literal
-  \n")
-  ret 0
-
-
