@@ -1,8 +1,0 @@
-class Obj do
-
-  Obj do
-    pass
-
-testFunc a: copy Obj -> void do
-  pass
-

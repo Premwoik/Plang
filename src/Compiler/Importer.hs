@@ -108,4 +108,4 @@ tryReadFile path = do
         exePath <- getExePath
         let libPath = exePath ++ "lib" ++ drop 3 path
         readFile libPath
-      Right c -> traceShow c $ return c
+      Right c -> return c

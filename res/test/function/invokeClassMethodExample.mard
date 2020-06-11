@@ -1,0 +1,13 @@
+class Obj do
+
+  Obj do
+    pass
+
+  getConst -> int do
+    ret 1
+
+testFunc a: Obj -> void do
+  o = Obj()
+  o.getConst()
+  pass
+

@@ -1,9 +1,0 @@
-module Core.Native.Bitwise where
-link_path "Bitwise.h"
-
-native "setBitHigh" setBitHigh register: cptr uint8, num: int -> void
-native "setBitLow" setBitLow register: cptr uint8, num: int -> void
-native "setAllLow" setALlLow register: cptr uint8 -> void
-native "toggleBit" toggleBit register: cptr uint8, num: int -> void
-
-

@@ -1,10 +1,11 @@
+module Spec where
 import Test.Hspec
 import Test.Hspec.Megaparsec
 
 import qualified ParserSpec
 import qualified AnalyzerSpec
 import qualified TranslatorSpec
-import qualified FullProcessSpec
+import qualified CompilerSpec
 
 main :: IO ()
 main =
@@ -12,4 +13,4 @@ main =
     describe "Parser" ParserSpec.main
     describe "Lexical Analyzer" AnalyzerSpec.main
     describe "Translator" TranslatorSpec.main
-    describe "Acceptance Tests" TranslatorSpec.main
+    describe "Compiler Tests" CompilerSpec.main
