@@ -104,7 +104,8 @@ tryReadFile path = do
   file <- try (readFile path) :: IO (Either IOError String)
   T.pack <$>
     case file of
-      Left _ -> do
+      Left e -> do
+        print e
         exePath <- getExePath
         let libPath = exePath ++ "lib" ++ drop 3 path
         readFile libPath

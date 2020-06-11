@@ -1,3 +1,0 @@
-t -> void do
-  for i in [-12..-20] do
-    pass

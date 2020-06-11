@@ -8,9 +8,11 @@ import qualified TranslatorSpec
 import qualified CompilerSpec
 
 main :: IO ()
-main =
-  hspec $ do
-    describe "Parser" ParserSpec.main
-    describe "Lexical Analyzer" AnalyzerSpec.main
-    describe "Translator" TranslatorSpec.main
-    describe "Compiler Tests" CompilerSpec.main
+main = hspec spec
+
+spec :: Spec
+spec =  do
+  describe "Parser" ParserSpec.main
+  describe "Lexical Analyzer" AnalyzerSpec.main
+  describe "Translator" TranslatorSpec.main
+  describe "Compiler Tests" CompilerSpec.main

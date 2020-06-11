@@ -1,8 +1,0 @@
-class Obj<T> do
-
-  Obj do
-    pass
-
-testFunc a: Obj<int> -> void do
-  pass
-

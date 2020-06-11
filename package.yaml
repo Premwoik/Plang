@@ -48,7 +48,7 @@ executables:
 
 tests:
   l1-test:
-    main:                Spec.hs
+    main:                Main.hs
     source-dirs:         test
     ghc-options:
     - -threaded

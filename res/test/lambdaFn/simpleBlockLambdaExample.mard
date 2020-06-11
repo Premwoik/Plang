@@ -1,9 +1,0 @@
-module SimpleLambdaExample where
-testFunc -> void do
-  lambda: fn<int, int, int> =
-    {\x, z ->
-       y = x + 10
-       y + 13
-    }
-  pass
-

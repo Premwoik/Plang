@@ -1,8 +1,0 @@
-class Obj do
-
-  Obj do
-    pass
-
-testFunc a: ref Obj -> void do
-  pass
-
