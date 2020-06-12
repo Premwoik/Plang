@@ -15,10 +15,50 @@ main =
       it "can parser copy" $ pending
       it "can't modify fun argument" testFunArgCantBeModified
     context "with body behave as" $ do
+      it "can return fun ptr variable" testReturningFunPtrVariable
+      it "can return fun ptr" testReturningFunPtr
+      it "can return fun ptr more complex example" testReturningFunPtr2
+      it "can return variable" testReturningVariable
       it "can access global and arg vars" testGlobalAndArgVars
       it "can invoke class method" testInvokeClassMethod
       it "can invoke gen class method" testInvokeGenClassMethod
       it "can invoke gen (gen is class) class method" testInvokeGen2ClassMethod
+
+testReturningFunPtr2 = do
+  (ast, out) <- compile path "returnFunPtrExample3"
+  let expectedAST = [IFile "returnFunPtrExample3" "res/tests/function/Main.mard" (AST [Function 0 "fun" (VFn [VInt,VInt]) [FunArg VInt "args___i"] [ReturnFn 30 (Just (LambdaFn 34 VInt [FunArg VInt "args___i"] [OtherFn 40 (TypedABinary VInt Add (TypedVar (VName "args___i") VInt Nothing Nothing) (IntConst 44 12))]))]])]
+  let expectedOUT = ["namespace returnFunPtrExample3{\n","int(*fun(int args___i))(int);\n","int(*fun(int args___i))(int){\n","   return [](int args___i){return args___i + 12;\n};\n","}\n","}\n"]
+
+
+
+  ast `shouldBe` expectedAST
+  out `shouldBe` expectedOUT
+
+testReturningFunPtr = do
+  (ast, out) <- compile path "returnFunPtrExample2"
+  let expectedAST = [IFile "returnFunPtrExample2" "res/tests/function/Main.mard" (AST [Function 0 "fun" (VFn [VInt]) [] [ReturnFn 20 (Just (LambdaFn 24 VInt [] [OtherFn 29 (IntConst 29 12)]))]])]
+  let expectedOUT = ["namespace returnFunPtrExample2{\n","int(*fun())();\n","int(*fun())(){\n","   return [](){return 12;\n};\n","}\n","}\n"]
+
+
+  ast `shouldBe` expectedAST
+  out `shouldBe` expectedOUT
+
+testReturningFunPtrVariable = do
+  (ast, out) <- compile path "returnFunPtrExample"
+  let expectedAST = [IFile "returnFunPtrExample" "res/tests/function/Main.mard" (AST [Function 0 "fun" (VFn [VInt]) [] [AssignFn 20 (TypedVar (VName "a") VAuto Nothing Nothing) (VFn [VInt]) (LambdaFn 33 VInt [] [OtherFn 38 (IntConst 38 12)]),ReturnFn 43 (Just (TypedVar (VName "a") (VFn [VInt]) Nothing Nothing))]])]
+  let expectedOUT = ["namespace returnFunPtrExample{\n","int(*fun())();\n","int(*fun())(){\n","   int(*a)() = [](){return 12;\n};\n","   return a;\n","}\n","}\n"]
+
+  ast `shouldBe` expectedAST
+  out `shouldBe` expectedOUT
+
+testReturningVariable = do
+  (ast, out) <- compile path "returnExample"
+  let expectedAST = [IFile "returnExample" "res/tests/function/Main.mard" (AST [Function 0 "fun" VInt [] [AssignFn 16 (TypedVar (VName "a") VAuto Nothing Nothing) VInt (IntConst 20 12),ReturnFn 25 (Just (TypedVar (VName "a") VInt Nothing Nothing))]])]
+  let expectedOUT = ["namespace returnExample{\n","int fun();\n","int fun(){\n","   int a = 12;\n","   return a;\n","}\n","}\n"]
+
+
+  ast `shouldBe` expectedAST
+  out `shouldBe` expectedOUT
 
 --      it "can parser const" testConstFunArg
 testInvokeGen2ClassMethod = do

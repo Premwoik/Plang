@@ -88,7 +88,7 @@ wrapAllocationMethod v = do
 
 
 checkVarFirst :: AExpr -> Maybe [AExpr] -> RetBuilderT -> Maybe ScopeField -> String -> Analyzer' AExprRes
-checkVarFirst var@(Var offset name gen _ more) Nothing retBuilder obj scopeName=
+checkVarFirst var@(Var offset name gen _ more) Nothing retBuilder obj scopeName = 
   case obj of
     Just tvar@(SVar _ n p t s) -> do
      t' <- if isNothing more then wrapAllocationMethod t else return t
@@ -111,12 +111,11 @@ checkVarFirst var@(Var offset name gen _ more) Nothing retBuilder obj scopeName=
       storage <- gets scopes
       makeError offset $ VariableMissing name
 
-checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName= 
+checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName =
   case obj of
-
     Just (SVar i n p (VFn t) s)  -> do
       let funArgs = map (`FunArg` "") $ init t
-      checkVarFirst var args' retBuilder (Just (SFunction i n p (last t) funArgs)) s 
+      checkVarFirst var args' retBuilder (Just (SFunction i n p (last t) funArgs)) s
       
     Just cl@(SClass _ n p g sc) -> do
       if length g == length gen then return () else makeError offset $ GenericMissing (show g)
@@ -172,6 +171,7 @@ checkVar v@(Var offset name gen args more) wantedType scopeName analyzer =
       r <- gets rType
       tt <- find' [scopeName, name]
       candidate <- listToMaybe . checkFunPtr r <$> (filterM (filterArgsMatch args' gen analyzer) =<< find' [scopeName, name])
+      traceShow candidate $ return ()
       readyArgs <- updatePostProcessedArgs args'
       checkVarFirst v readyArgs retBuilder candidate scopeName
 
@@ -206,6 +206,7 @@ checkFunPtr :: VarType -> [ScopeField] -> [ScopeField]
 checkFunPtr t@(VFn a) = isOnlyOne . filter matchArgs 
   where
     matchArgs (SFunction _ _ _ t args) = last a == t && length a - 1 == length args && compareArgs args
+    matchArgs (SVar _ _ _ (VFn ts) _) = a == ts 
     matchArgs _ = False
     compareArgs = all (\(t, FunArg t' _) -> t == t'). zip (init a) 
     isOnlyOne l 

@@ -1,0 +1,2 @@
+fun -> fn<int> do
+  ret \ -> 12

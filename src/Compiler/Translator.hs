@@ -47,6 +47,7 @@ translateFile (IFile fName _ (AST stmts)) = do
 declareFunctions :: [Stmt] -> Translator
 declareFunctions = return . map trans . filter cond
   where
+    trans (Function _ n (VFn t) args _) = typeToString (VFnNamed (n ++ "(" ++ argumentsTranslator args ++ ")") t) ++  ";\n"
     trans (Function _ n t args _) = typeToString t ++ " " ++ n ++ "(" ++ argumentsTranslator args ++ ");\n"
     cond Function {} = True
     cond _           = False

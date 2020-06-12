@@ -13,6 +13,10 @@ linkPathTranslator :: Stmt -> Translator
 linkPathTranslator (LinkPath _ name) = addImport $ "#include \"" ++ name ++ "\"\n"
 
 functionTranslator :: Stmt -> Translator
+functionTranslator (Function _ name (VFn t) args block) = do
+  let readyArgs = argumentsTranslator args
+  readyBlock <- blockTranslator' (injectTranslator fnStmtTranslatorGetter) block
+  return . concat $ [[typeToString (VFnNamed (name ++ "(" ++ readyArgs ++ ")") t) ++ "{\n"], readyBlock, ["}\n"]]
 functionTranslator (Function _ name ret args block) = do
   let readyArgs = argumentsTranslator args
   readyBlock <- blockTranslator' (injectTranslator fnStmtTranslatorGetter) block

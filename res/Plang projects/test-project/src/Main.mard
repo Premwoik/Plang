@@ -1,5 +1,4 @@
 module Main where
-//import Core
 
 class TestClass do
   a = 12
@@ -8,6 +7,12 @@ class TestClass do
 
 print txt: string -> void do
   pass
+
+lambda -> fn<int> do
+  l1: fn<int> = \-> 12
+  t2 = 123
+  ret l1
+
 
 Main -> int do
   print("String literal \n")

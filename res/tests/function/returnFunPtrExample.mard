@@ -1,0 +1,3 @@
+fun -> fn<int> do
+  a: fn<int> = \ -> 12
+  ret a
