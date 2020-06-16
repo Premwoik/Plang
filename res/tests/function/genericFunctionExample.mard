@@ -1,0 +1,2 @@
+fun<T> arg: T -> T do
+  ret arg + 12

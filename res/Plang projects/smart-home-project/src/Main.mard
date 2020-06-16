@@ -98,7 +98,8 @@ setTimeDimmerCmd msg: Message -> Message do
       fun: fn<int, void> =
         {\x ->
           digitalWrite(x, LOW)
-//          println("Postponed task dimmer")
+          println("Postponed task dimmer")
+          print(pin)
         }
       Timer|addTask(fun, pin, timeout)
     else

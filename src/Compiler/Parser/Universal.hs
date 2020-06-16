@@ -63,7 +63,7 @@ matchType' g t =
     "string" -> VString
     "char" -> VChar
     "list" -> VClass (VName "ArrayList") g
-    "fn" -> VFn g
+    "fn" -> VFn g CMAuto
     x -> VClass (VName x) g
 
 typeParser :: Parser VarType

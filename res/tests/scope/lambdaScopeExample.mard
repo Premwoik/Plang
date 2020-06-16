@@ -1,0 +1,10 @@
+i: int = 20
+g = 10
+
+testFunc -> void do
+  l: fn<int> = \ -> ref|g|g + 12
+  ret 0
+
+
+
+

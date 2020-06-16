@@ -1,24 +1,21 @@
-namespace Main{
+namespace Main {
 void print(String args___txt);
-int(*lambda())();
+int (*lambda())();
 int Main();
-class TestClass{
+class TestClass {
 public:
-   int this___a = 12;
-   TestClass(){
-         }
+  int this___a = 12;
+  TestClass() {}
 };
-void print(String args___txt){
-   }
-int(*lambda())(){
-   int(*l1)() = [](){return 12;
-};
-   int t2 = 123;
-   return l1;
+void print(String args___txt) {}
+int (*lambda())() {
+  int (*l1)() = []() { return 12; };
+  int t2 = 123;
+  return l1;
 }
-int Main(){
-   print("String literal \\")   ;
-   TestClass().this___a   ;
-   return 0;
+int Main() {
+  print("String literal \\");
+  TestClass().this___a;
+  return 0;
 }
-}
+} // namespace Main

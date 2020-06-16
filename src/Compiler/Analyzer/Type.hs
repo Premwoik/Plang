@@ -8,7 +8,7 @@ import           Control.Monad.State            (StateT, get, gets, modify, put)
 import           Control.Monad.Writer           (WriterT)
 import           Data.List
 import           Data.Map                       (Map)
-import           Data.Maybe                     (fromJust, fromMaybe)
+import           Data.Maybe                     (fromJust, fromMaybe, listToMaybe)
 import           Debug.Trace
 
 type Analyzer' a = WriterT [String] (StateT Storage (Except AnalyzerException)) a
@@ -31,6 +31,7 @@ data Storage =
     , moduleInfo :: FileInfo
     , postAExpr  :: [AExpr]
     , offsets    :: [Int]
+    , useCapture :: Bool
     , varId      :: Int
     }
   deriving (Show)
@@ -76,7 +77,7 @@ getModInfo offset = do
   fileInfo <- gets moduleInfo
   return $ fileInfo {fOffset = offset}
 
-emptyStorage = Storage [] [] VBlank "" "" (FileInfo (-1) "" "") [] [] 0
+emptyStorage = Storage [] [] VBlank "" "" (FileInfo (-1) "" "") [] [] False 0
 
 setModuleInfo :: Int -> String -> String -> Analyzer' ()
 setModuleInfo offset name path = modify (\s -> s {moduleInfo = FileInfo offset name path})
@@ -139,6 +140,13 @@ removeScope = do
       | otherwise = do
         modify (\storage -> storage {scopes = tail s})
         return $ head s
+
+getScopeName :: Analyzer' String
+getScopeName =
+  unwrap . listToMaybe <$> gets scopes
+  where
+    unwrap (Just (Scope n _)) = n
+    unwrap Nothing = ""
 
 addField :: ScopeField -> Analyzer' ()
 addField field = do
@@ -204,12 +212,12 @@ setFunName :: String -> Analyzer' ()
 setFunName n = modify (\s -> s {fName = n})
 
 getClassScope :: Analyzer' (Maybe Scope)
-getClassScope = do
-  let cl = "this"
-  find (cond cl) <$> gets scopes
+getClassScope = 
+  listToMaybe . reverse . filter cond <$> gets scopes
   where
-    cond cl (Scope n _) = n == cl
-    cond cl _           = False
+    cond (Scope "this" _) = True
+    cond (Scope "fun" _) = True
+    cond _           = False
 
 updateScope :: Scope -> Analyzer' ()
 updateScope s@(Scope n _) = do
@@ -228,12 +236,7 @@ getGlobalScope = do
   fromJust . find (\(Scope n _) -> n == cl) <$> gets scopes
 
 getClassGens :: Analyzer' [String]
-getClassGens = do
-  s <- getClassScope
-  return . map (\(SGen _ s) -> s) . filter genFilter . fromMaybe [] $ s >>= (\(Scope _ f) -> Just f)
-  where
-    genFilter SGen {} = True
-    genFilter _       = False
+getClassGens = map (\(SGen _ s) -> s) <$> getClassGens'
 
 getClassGens' :: Analyzer' [ScopeField]
 getClassGens' = do
@@ -243,7 +246,9 @@ getClassGens' = do
     genFilter SGen {} = True
     genFilter _       = False
 
-
+setCapture :: Bool -> Analyzer' ()
+setCapture b = 
+  modify (\s -> s{useCapture = b})
 
 -- | private
 updateField :: ScopeField -> Scope -> Scope
@@ -300,9 +305,9 @@ type RawWhile b = (BExpr, [b])
 
 type RawWhileConst a b = (BExpr -> [b] -> a)
 
-type RawFunction = (Int, String, VarType, [FunArg], [FunctionStmt])
+type RawFunction = (Int, String, [String], VarType, [FunArg], [FunctionStmt])
 
-type RawFunctionConst a = Int -> String -> VarType -> [FunArg] -> [FunctionStmt] -> a
+--type RawFunctionConst a = Int -> String -> [String] -> VarType -> [FunArg] -> [FunctionStmt] -> a
 
 mockAExprAnalyzer :: AExprAnalyzer
 mockAExprAnalyzer _ = return (VAuto, [], IntConst 0 0)

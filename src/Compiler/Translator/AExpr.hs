@@ -83,10 +83,12 @@ optionalTranslator (Optional _ aExpr BoolOT) = do
 optionalTranslator _ = return []
 
 lambdaTranslator :: AExpr -> Translator
-lambdaTranslator (LambdaFn offset t args stmts) = do
+lambdaTranslator (LambdaFn offset capture t args stmts) = do
   stmts' <- concat <$> tStmts
-  return ["[](" ++ tArgs ++ "){" ++ stmts' ++ "}"]
+  return ["["++ mode capture ++"](" ++ tArgs ++ "){" ++ stmts' ++ "}"]
   where
+    mode CMOn = "="
+    mode _ = ""
     tArgs = intercalate "," $ map (\(FunArg t n) -> unwrapType t n) args
     tStmts =
       case stmts of
@@ -95,7 +97,7 @@ lambdaTranslator (LambdaFn offset t args stmts) = do
           return ["return " ++ res ++ ";\n"]
         _  -> blockTranslator' (injectTranslator fnStmtTranslatorGetter) stmts
         
-    unwrapType (VFn t) n = typeToString (VFnNamed n t)
+    unwrapType (VFn t cm) n = typeToString (VFnNamed n t cm)
     unwrapType x n = typeToString x ++ " " ++ n
 
 listVarTranslator :: AExpr -> Translator

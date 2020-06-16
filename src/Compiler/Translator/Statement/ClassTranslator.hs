@@ -12,12 +12,7 @@ import Debug.Trace
 classTranslator :: Stmt -> Translator
 classTranslator (ClassExpr _ name generics block) = do
   block' <- blockTranslator' (injectTranslator classStmtTranslatorGetter) block
-  let generics' = makeGenerics generics
-  return . concat $ [[generics' ++ "class " ++ name ++ "{\npublic:\n"], block', ["};\n"]]
-  where
-    makeGenerics [] = ""
-    makeGenerics l = "template<" ++ (intercalate ", " . map (\x -> "typename " ++ x)) l ++ ">\n"
-    
+  return . concat $ [[translateGenerics generics],["class " ++ name ++ "{\npublic:\n"], block', ["};\n"]]
     
 classAssignTranslator :: ClassStmt -> Translator
 -- Only declaration without assigning value
@@ -25,7 +20,7 @@ classAssignTranslator (ClassAssign _ name type' Nop) = do
   n <- head <$> injectTranslator aExprTranslatorGetter name
   return [unwrapType type' n ++ ";\n"]
   where
-    unwrapType (VFn t) n = typeToString (VFnNamed n t)
+    unwrapType (VFn t cm) n = typeToString (VFnNamed n t cm)
     unwrapType x n = typeToString x ++ " " ++ n
 -- Pointer
 classAssignTranslator (ClassAssign _ name type' (TypedVar cName (VClass t []) (Just args) Nothing)) = do

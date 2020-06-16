@@ -76,6 +76,15 @@ isInsideLoop = do
   s <- gets scopes
   return . isJust . listToMaybe . filter (\x -> x == "for" || x == "while") . getScopesNames $ s
 
+isVarInLambda :: String -> Analyzer' Bool
+isVarInLambda name = do
+  sc <- gets scopes
+  let s = take (fromJust (L.findIndex isLambdaScope sc) + 2) sc
+  return . not . null $ searchNameInScopes name s
+  where
+    isLambdaScope (Scope n _) = n == "lambda"
+    isLambdaScope _ = False
+
 searchNameInScopes :: String -> Scopes -> [ScopeField]
 searchNameInScopes name = concatMap (searchInScope name)
 
@@ -196,7 +205,7 @@ aExprExtractType analyzer a f@ LambdaFn {} = fixFunArgs a f analyzer
 aExprExtractType _ _ x                             = error (show x)
 
 fixFunArgs :: FunArg -> AExpr -> AExprAnalyzer -> Analyzer' VarType
-fixFunArgs (FunArg t' _) f@(LambdaFn o t args _) analyzer = do
+fixFunArgs (FunArg t' _) f@(LambdaFn o _ t args _) analyzer = do
   tmpRet <- gets rType
   setType t' 
   res <- analyzer f

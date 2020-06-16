@@ -34,7 +34,7 @@ trd (_, _, z) = z
 importMain :: String -> String -> IO [Imported]
 importMain dir mainFileName = do
   main <- tryReadAndParseFile (dir ++ mainFileName ++ ".mard")
-  res <- importAll [] mainFileName dir (dir ++ "Main.mard") Map.empty main
+  res <- importAll [] mainFileName dir (dir ++ mainFileName ++ ".mard") Map.empty main
   let files = snd3 res
   let order = map fst . sortBy (\(_, v1) (_, v2) -> compare v2 v1) . Map.toList . countOccurrence mainFileName $ trd res
   return $ map (\n -> fromJust (find (\(IFile n' _ _) -> n == n') files)) order
@@ -105,7 +105,6 @@ tryReadFile path = do
   T.pack <$>
     case file of
       Left e -> do
-        print e
         exePath <- getExePath
         let libPath = exePath ++ "lib" ++ drop 3 path
         readFile libPath

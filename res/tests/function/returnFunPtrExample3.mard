@@ -1,2 +1,2 @@
-fun i: int-> fn<int,int> do
+fun i: int -> fn<int,int> do
   ret \i -> i + 12

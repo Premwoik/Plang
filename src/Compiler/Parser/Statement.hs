@@ -60,13 +60,14 @@ functionParser functionStmt = L.indentBlock scn p
     p = addLocation "function declaration" $ do
       o <- getOffset
       header <- pItem
+      gen <- fromMaybe [] <$> optional generics
       args <- fromMaybe [] <$> optional functionArgsParser
       type' <-
         optional $ do
           void (symbol "->")
           addContext "You have to specify type after \'->\' eg: int, float, string, MyClass" typeParser
       void (symbolEnd "do")
-      return (L.IndentSome Nothing (return . Function o header (fromMaybe VAuto type') args) (addLocation ("function " ++ header) functionStmt))
+      return (L.IndentSome Nothing (return . Function o header gen (fromMaybe VAuto type') args) (addLocation ("function " ++ header) functionStmt))
 
 nativeFunctionParser :: Parser Stmt
 nativeFunctionParser =

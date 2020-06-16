@@ -22,47 +22,49 @@ checkLinkPath :: Stmt -> Analyzer' Stmt
 checkLinkPath t@(LinkPath _ p) = return t
 
 checkFunction :: Stmt -> FnStmtAnalyzer -> Analyzer' Stmt
-checkFunction f@(Function o n t a body) bodyAnalyzer = do
-  res <- checkFunction' (o, n, t, a, body) Function bodyAnalyzer
+checkFunction f@(Function o n g t a body) bodyAnalyzer = do
+  let nType = markGen t g
+  let nArgs = markGenInArgs g a
+  (_, _, rg, rt, ra, rb) <- checkFunction' (o, n, g, nType, nArgs, body) bodyAnalyzer
   addFunction o n Nothing t a
   
   checkFunctionUniqueness o ["", n] t a
-  return res 
+  return $ Function o n g rt ra rb
 
 checkMethod :: ClassStmt -> FnStmtAnalyzer -> Analyzer' ClassStmt
 checkMethod m@(Method o n t a body) bodyAnalyzer = do
-  method <- checkFunction' (o, n, t, a, body) Method bodyAnalyzer
-  let (Method o' n' t' a' body') = method
   gens <- getClassGens
-  let nType = markGen t' gens
-  let nArgs = markGenInArgs gens a'
+  let nType = markGen t gens
+  let nArgs = markGenInArgs gens a
+  (_, _, _, rt, ra, rb)  <- checkFunction' (o, n, [], nType, nArgs, body) bodyAnalyzer
   className <- gets cName
-  addFunction o' n' Nothing nType nArgs
-  checkFunctionUniqueness o' ["this", n'] nType nArgs
+  addFunction o n Nothing nType nArgs
+  checkFunctionUniqueness o ["this", n] nType nArgs
   return $
     if className == n
-      then Constructor o' n' nArgs body'
-      else Method o' n' nType nArgs body'
+      then Constructor o n ra rb
+      else Method o n rt ra rb
 
-checkFunction' :: RawFunction -> RawFunctionConst a -> FnStmtAnalyzer -> Analyzer' a
-checkFunction' (o, name, type', args, body) wrapper bodyAnalyzer = do
+checkFunction' :: RawFunction -> FnStmtAnalyzer -> Analyzer' RawFunction
+checkFunction' (o, name, gen, type', args, body) bodyAnalyzer = do
   args' <- checkFnArgs args
   setType =<< fixNativeClassType type'
   addArgsScope o args
   setFunName name
   addScope "fun"
+  mapM_ (addField . SGen VAuto) gen
   checkedBody' <- concat <$> mapM bodyAnalyzer body
   nType <- gets rType
   removeScope
   removeScope
-  return $ wrapper o name nType args' checkedBody'
+  return (o, name, gen, nType, args', checkedBody')
 
 checkReturn :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]
 checkReturn (ReturnFn o (Just aExpr)) analyzer = do
   gen <- getClassGens
   funcType <- flip markGen gen <$> gets rType
   (t, inject, res) <- analyzer aExpr
-  nType <- compareGens o funcType t
+  nType <- compareGens o t funcType
   setType nType
   return $ inject ++ [ReturnFn o (Just res)]
 checkReturn (ReturnFn o Nothing) analyzer = do
@@ -132,9 +134,8 @@ checkAssignFn a@(AssignFn o var@(Var vo vname [] Nothing Nothing) ret aExpr) ana
     case firstSig of
       Just (SVar o' n _ t "") ->
         check o t ret type' VBlank
-      Just {} -> add type'
-      Nothing -> add type'
-      
+      Just {} -> add type' 
+      Nothing -> add type' 
   return $ inject ++ [AssignFn o (TypedVar (VName vname) VAuto Nothing Nothing) (unwrapAllMethod nType) res]
   where
     add type' = addVar o vname Nothing (unwrapAllMethod type') "" >> check o type' ret type' type'

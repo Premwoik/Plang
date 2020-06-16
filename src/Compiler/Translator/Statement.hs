@@ -13,14 +13,14 @@ linkPathTranslator :: Stmt -> Translator
 linkPathTranslator (LinkPath _ name) = addImport $ "#include \"" ++ name ++ "\"\n"
 
 functionTranslator :: Stmt -> Translator
-functionTranslator (Function _ name (VFn t) args block) = do
+functionTranslator (Function _ name gen (VFn t cm) args block) = do
   let readyArgs = argumentsTranslator args
   readyBlock <- blockTranslator' (injectTranslator fnStmtTranslatorGetter) block
-  return . concat $ [[typeToString (VFnNamed (name ++ "(" ++ readyArgs ++ ")") t) ++ "{\n"], readyBlock, ["}\n"]]
-functionTranslator (Function _ name ret args block) = do
+  return . concat $ [[translateGenerics gen], [typeToString (VFnNamed (name ++ "(" ++ readyArgs ++ ")") t cm) ++ "{\n"], readyBlock, ["}\n"]]
+functionTranslator (Function _ name gen ret args block) = do
   let readyArgs = argumentsTranslator args
   readyBlock <- blockTranslator' (injectTranslator fnStmtTranslatorGetter) block
-  return . concat $ [[typeToString ret ++ " " ++ name ++ "(" ++ readyArgs ++ "){\n"], readyBlock, ["}\n"]]
+  return . concat $ [[translateGenerics gen],[typeToString ret ++ " " ++ name ++ "(" ++ readyArgs ++ "){\n"], readyBlock, ["}\n"]]
 
 argumentsTranslator :: [FunArg] -> String
 argumentsTranslator = intercalate ", " . map (\(FunArg t name) -> unwrapType t name)
@@ -28,7 +28,7 @@ argumentsTranslator = intercalate ", " . map (\(FunArg t name) -> unwrapType t n
     markRef t = case t of
       VClass {} -> "&"
       _ -> ""
-    unwrapType (VFn t) n = typeToString (VFnNamed n t)
+    unwrapType (VFn t cm) n = typeToString (VFnNamed n t cm)
     unwrapType t name = typeToString t ++ markRef t ++ " " ++ name
 
 nativeTranslator :: Stmt -> Translator
@@ -106,7 +106,7 @@ assignTranslator (Assign _ name type' expr) = do
   where
     lSite = unwrapType type'
     unwrapType (VPointer c SharedPtr) n = "shared_ptr<" ++ typeToString c ++ ">" ++ " " ++ n
-    unwrapType (VFn t) n = typeToString (VFnNamed n t)
+    unwrapType (VFn t cm) n = typeToString (VFnNamed n t cm)
     unwrapType x n = typeToString x ++ " " ++ n
 
 --  TODO replace mock with real feature

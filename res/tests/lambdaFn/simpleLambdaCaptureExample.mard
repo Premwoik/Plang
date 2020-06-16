@@ -1,0 +1,6 @@
+module SimpleLambdaExample where
+testFunc -> void do
+  a = 12
+  lambda: fn<int,int> = \x -> x + a + 10
+  pass
+

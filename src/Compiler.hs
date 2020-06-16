@@ -21,7 +21,7 @@ import           Data.Void                (Void)
 import           Debug.Trace
 import Compiler.Analyzer.Type(emptyStorage, AnalyzerException(..), FileInfo(..))
 import Text.Megaparsec (PosState)
-import           Data.List.NonEmpty as NonEmpty
+import qualified          Data.List.NonEmpty as NonEmpty
 import qualified Data.Set           as Set
 
 compile dir main = do

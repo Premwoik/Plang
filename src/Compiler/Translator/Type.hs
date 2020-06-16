@@ -76,8 +76,11 @@ typeToString t =
     VNum NInt16 -> "int16_t"
     VNum NInt32 -> "int32_t"
     
-    VFn t -> typeToString (last t) ++ "(*)" ++ "(" ++ intercalate "," (map typeToString (init t)) ++ ")"
-    VFnNamed n t -> typeToString (last t) ++ "(*"++ n ++")" ++ "(" ++ intercalate "," (map typeToString (init t)) ++ ")"
+    VFn t CMOff -> typeToString (last t) ++ "(*)" ++ "(" ++ intercalate "," (map typeToString (init t)) ++ ")"
+    VFn t CMOn -> "auto"
+    VFn t CMAuto -> "nonstd::function<" ++ typeToString (last t) ++ "(" ++ intercalate "," (map typeToString (init t)) ++ ")>"
+    VFnNamed n t CMOff -> typeToString (last t) ++ "(*"++ n ++")" ++ "(" ++ intercalate "," (map typeToString (init t)) ++ ")"
+    VFnNamed n t x -> typeToString (VFn t x) ++ " " ++  n
     VRef t -> typeToString t ++ "&"
     VCopy t -> typeToString t
     VClass c gen -> unwrapVarName c ++ genStr gen
@@ -106,5 +109,8 @@ blockTranslator = blockTranslator' (injectTranslator stmtTranslatorGetter)
 blockTranslator' :: (a -> Translator) -> [a] -> Translator
 blockTranslator' trans x = concat' <$> mapM trans x
   where
-    concat' = map makeIndent . concat
+    concat' = map makeIndent . filter (not . null) . concat
 
+translateGenerics [] = ""
+translateGenerics l = "template<" ++ (intercalate ", " . map (\x -> "typename " ++ x)) l ++ ">"
+    

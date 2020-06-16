@@ -37,6 +37,9 @@ stmt' =
   classParser classStmt <|>
   functionParser functionStmt
 
+lambdaStmt :: Parser FunctionStmt
+lambdaStmt = functionStmt
+
 functionStmt :: Parser FunctionStmt
 functionStmt =
   returnParser aExprExtended <|> breakStmt <|> passStmt <|> forStmt aExprExtended ForFn functionStmt <|>
@@ -52,7 +55,7 @@ classStmt :: Parser ClassStmt
 classStmt =
   try (assignParser varLeftAssignParser aExprExtended ClassAssign) <|> try defaultAssignParser <|>
   methodDeclarationParser <|>
-  ((\(Function o a b c d) -> Method o a b c d) <$> functionParser functionStmt)
+  ((\(Function o a _ b c d) -> Method o a b c d) <$> functionParser functionStmt)
 
 aExpr :: Parser AExpr
 aExpr = makeExprParser aTerm aOperators

@@ -1,50 +1,49 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications  #-}
+
 module AST where
 
-import           Control.Monad.State (StateT)
-import           Data.Text           (Text, unpack)
+import           Control.Monad.State  (StateT)
+import qualified Data.Set             as Set
+import           Data.Text            (Text, unpack)
 import           Data.Void
-import           Text.Megaparsec     hiding (State)
-import qualified Data.Set as Set
-import Debug.Trace
+import           Debug.Trace
+import           Text.Megaparsec      hiding (State)
 
 --type Parser = Parsec Void Text
-import Control.Applicative hiding (some)
-import Data.List (intercalate, nub)
-import Data.Set (Set)
-import Data.Text (Text)
-import Data.Void
-import Text.Megaparsec
-import Text.Megaparsec.Char
-import qualified Data.Set as Set
+import           Control.Applicative  hiding (some)
+import           Data.List            (intercalate, nub)
+import           Data.Set             (Set)
+import qualified Data.Set             as Set
+import           Data.Text            (Text)
+import           Data.Void
+import           Text.Megaparsec
+import           Text.Megaparsec.Char
 
 data Custom
   = TrivialWithLocation
-    [String] -- position stack
-    [String] -- context stack
-    (Maybe (ErrorItem Char))
-    (Set (ErrorItem Char))
+      [String] -- position stack
+      [String] -- context stack
+      (Maybe (ErrorItem Char))
+      (Set (ErrorItem Char))
   | FancyWithLocation
-    [String] -- position stack
-    [String] -- context stack
-    (ErrorFancy Void) -- Void, because we do not want to allow to nest Customs
+      [String] -- position stack
+      [String] -- context stack
+      (ErrorFancy Void) -- Void, because we do not want to allow to nest Customs
   deriving (Eq, Ord, Show)
 
 instance ShowErrorComponent Custom where
   showErrorComponent (TrivialWithLocation stack ctxStack us es) =
-    parseErrorTextPretty (TrivialError @Text @Void undefined us es)
-      ++ showPosStack stack ++ "\nTIPS:\n -"
-      ++ showCtxStack (nub ctxStack)
+    parseErrorTextPretty (TrivialError @Text @Void undefined us es) ++
+    showPosStack stack ++ "\nTIPS:\n -" ++ showCtxStack (nub ctxStack)
   showErrorComponent (FancyWithLocation stack ctxStack cs) =
-    parseErrorTextPretty (FancyError @Text @Void undefined (Set.singleton cs))
-      ++ showPosStack stack ++ "\nTIPS:\n -"
-      ++ showCtxStack (nub ctxStack)
+    parseErrorTextPretty (FancyError @Text @Void undefined (Set.singleton cs)) ++
+    showPosStack stack ++ "\nTIPS:\n -" ++ showCtxStack (nub ctxStack)
 
 showPosStack :: [String] -> String
 showPosStack = intercalate ", " . fmap ("in " ++)
 
-showCtxStack:: [String] -> String
+showCtxStack :: [String] -> String
 showCtxStack = intercalate "\n -"
 
 emptyError :: Parser ()
@@ -56,14 +55,12 @@ addCtxToIndent :: String -> Parser a -> Parser a
 addCtxToIndent context p = do
   r <- observing p
   case r of
-    Left (TrivialError _ us es) ->
-      fancyFailure . Set.singleton . ErrorCustom $
-        TrivialWithLocation [] [context] us es
+    Left (TrivialError _ us es) -> fancyFailure . Set.singleton . ErrorCustom $ TrivialWithLocation [] [context] us es
     Left (FancyError _ xs) -> do
-      let f (ErrorIndentation ord rlvl alvl) = ErrorCustom $
-            FancyWithLocation [] [context] (ErrorIndentation ord rlvl alvl)
-          f (ErrorCustom (FancyWithLocation ps pcs cs@ErrorIndentation {})) = ErrorCustom $
-            FancyWithLocation ps (context:pcs) cs
+      let f (ErrorIndentation ord rlvl alvl) =
+            ErrorCustom $ FancyWithLocation [] [context] (ErrorIndentation ord rlvl alvl)
+          f (ErrorCustom (FancyWithLocation ps pcs cs@ErrorIndentation {})) =
+            ErrorCustom $ FancyWithLocation ps (context : pcs) cs
           f x = x
       fancyFailure (Set.map f xs)
     Right x -> return x
@@ -72,18 +69,14 @@ addContext :: String -> Parser a -> Parser a
 addContext context p = do
   r <- observing p
   case r of
-    Left (TrivialError _ us es) ->
-      fancyFailure . Set.singleton . ErrorCustom $
-        TrivialWithLocation [] [context] us es
+    Left (TrivialError _ us es) -> fancyFailure . Set.singleton . ErrorCustom $ TrivialWithLocation [] [context] us es
     Left (FancyError _ xs) -> do
-      let f (ErrorFail msg) = ErrorCustom $
-            FancyWithLocation [] [context] (ErrorFail msg)
-          f (ErrorIndentation ord rlvl alvl) = ErrorCustom $
-            FancyWithLocation [] [context] (ErrorIndentation ord rlvl alvl)
-          f (ErrorCustom (TrivialWithLocation ps pcs us es)) = ErrorCustom $
-            TrivialWithLocation ps (context:pcs) us es
-          f (ErrorCustom (FancyWithLocation ps pcs cs)) = ErrorCustom $
-            FancyWithLocation ps (context:pcs) cs
+      let f (ErrorFail msg) = ErrorCustom $ FancyWithLocation [] [context] (ErrorFail msg)
+          f (ErrorIndentation ord rlvl alvl) =
+            ErrorCustom $ FancyWithLocation [] [context] (ErrorIndentation ord rlvl alvl)
+          f (ErrorCustom (TrivialWithLocation ps pcs us es)) =
+            ErrorCustom $ TrivialWithLocation ps (context : pcs) us es
+          f (ErrorCustom (FancyWithLocation ps pcs cs)) = ErrorCustom $ FancyWithLocation ps (context : pcs) cs
       fancyFailure (Set.map f xs)
     Right x -> return x
 
@@ -91,18 +84,14 @@ addLocation :: String -> Parser a -> Parser a
 addLocation location p = do
   r <- observing p
   case r of
-    Left (TrivialError _ us es) ->
-      fancyFailure . Set.singleton . ErrorCustom $
-        TrivialWithLocation [location] [] us es
+    Left (TrivialError _ us es) -> fancyFailure . Set.singleton . ErrorCustom $ TrivialWithLocation [location] [] us es
     Left (FancyError _ xs) -> do
-      let f (ErrorFail msg) = ErrorCustom $
-            FancyWithLocation [location] [] (ErrorFail msg)
-          f (ErrorIndentation ord rlvl alvl) = ErrorCustom $
-            FancyWithLocation [location] [] (ErrorIndentation ord rlvl alvl)
-          f (ErrorCustom (TrivialWithLocation ps pcs us es)) = ErrorCustom $
-            TrivialWithLocation (location:ps) pcs us es
-          f (ErrorCustom (FancyWithLocation ps pcs cs)) = ErrorCustom $
-            FancyWithLocation (location:ps) pcs cs
+      let f (ErrorFail msg) = ErrorCustom $ FancyWithLocation [location] [] (ErrorFail msg)
+          f (ErrorIndentation ord rlvl alvl) =
+            ErrorCustom $ FancyWithLocation [location] [] (ErrorIndentation ord rlvl alvl)
+          f (ErrorCustom (TrivialWithLocation ps pcs us es)) =
+            ErrorCustom $ TrivialWithLocation (location : ps) pcs us es
+          f (ErrorCustom (FancyWithLocation ps pcs cs)) = ErrorCustom $ FancyWithLocation (location : ps) pcs cs
       fancyFailure (Set.map f xs)
     Right x -> return x
 
@@ -110,16 +99,22 @@ newtype AST =
   AST [Stmt]
   deriving (Show, Eq)
 
-data Imported =
+data Imported
   -- | IFile name path ast
+      =
   IFile String String AST
   deriving (Show, Eq)
 
 data Stmt
-  = Function Int String VarType [FunArg] [FunctionStmt]
+  -- | Function offset name generics returnType arguments body
+  = Function Int String [String] VarType [FunArg] [FunctionStmt]
+  -- | Import offset alias path
   | Import Int String [String]
+  -- | ClassExpr offset name generics body
   | ClassExpr Int String [String] [ClassStmt]
+  -- | Skip offset
   | Skip Int
+  -- | Assign offset leftAExpr type rightAExpr
   | Assign Int AExpr VarType AExpr
   -- | NATIVE
   | NativeAssignDeclaration Int String String VarType
@@ -137,6 +132,11 @@ data ClassStmt
   | Constructor Int String [FunArg] [FunctionStmt]
   -- | NATIVE
   | NativeMethod Int String VarType [FunArg]
+  deriving (Show, Eq)
+
+data LambdaStmt
+  = AssignLambda Int AExpr VarType AExpr
+  | LambdaFunctionStmt FunctionStmt
   deriving (Show, Eq)
 
 --  FOR TRANSLATION ONLY
@@ -176,13 +176,12 @@ data RBinOp
   = Greater
   | Less
   | Equal
-  | NotEqual 
+  | NotEqual
   | EqLess
   | EqGreater
   deriving (Show, Eq)
 
 data AExpr
--- | Var offset name generics (func args/if is a func) more
   = Var Offset String [VarType] (Maybe [AExpr]) (Maybe AExpr)
   | Optional Offset AExpr OptionalType
   | ScopeMark Offset String AExpr
@@ -192,9 +191,8 @@ data AExpr
   | ListVar Offset [AExpr] (Maybe VarType)
   | StringVal Offset String
   | Range Offset (Maybe AExpr) AExpr AExpr
-  | LambdaFn Offset VarType [FunArg]  [FunctionStmt]
+  | LambdaFn Offset CaptureMode VarType [FunArg] [FunctionStmt]
   | If Offset [(BExpr, [FunctionStmt])]
-  
   | Neg AExpr
   | ABinary ABinOp AExpr AExpr
   | ABool BExpr
@@ -207,14 +205,19 @@ data AExpr
   | Nop
   deriving (Show, Eq)
 
-data OptionalType = UnknownOT | NullOT | BoolOT deriving (Show, Eq)
+-- | Var offset name generics (func args/if is a func) more
+data OptionalType
+  = UnknownOT
+  | NullOT
+  | BoolOT
+  deriving (Show, Eq)
 
 type Offset = Int
 
-data VarName 
--- | VName name
+data VarName
+  -- | VName name
   = VName String
--- | VNameNative name native_name
+  -- | VNameNative name native_name
   | VNameNative String String
   deriving (Show, Eq)
 
@@ -237,11 +240,11 @@ data VarType
   | VVoid
   | VAuto
   | VChar
-  | VFn [VarType]
-  -- | VClass name type 
+  | VFn [VarType] CaptureMode
+  -- | VClass name type
   | VClass VarName [VarType]
   -- | Not for parsing
-  | VFnNamed String [VarType]
+  | VFnNamed String [VarType] CaptureMode
   | VGen String
   | VGenPair String VarType
   | VRef VarType
@@ -250,8 +253,14 @@ data VarType
   | VBlank
   deriving (Show)
 
+data CaptureMode
+  = CMOn
+  | CMAuto
+  | CMOff
+  deriving (Show, Eq)
+
 instance Eq VarType where
-  VInt  == VInt = True
+  VInt == VInt = True
   VFloat == VFloat = True
   VString == VString = True
   VNum x == VNum y = True
@@ -261,13 +270,13 @@ instance Eq VarType where
   VInt == VFloat = True
   VNum _ == VInt = True
   VInt == VNum _ = True
-  VFloat == VInt= True
+  VFloat == VInt = True
   VBlank == VBlank = True
-  VFn x1 == VFn x2 = x1 == x2
+  VFn x1 _ == VFn x2 _ = x1 == x2
   (VClass n g) == (VClass n2 g2) = n == n && g == g2
-  (VGen n) == (VGen n2) = n == n2 
-  (VGen n) == (VClass n2 _ ) = eqClassName n n2
-  (VClass n2 _ ) == (VGen n) = eqClassName n n2
+  (VGen n) == (VGen n2) = n == n2
+  (VGen n) == (VClass n2 _) = eqClassName n n2
+  (VClass n2 _) == (VGen n) = eqClassName n n2
   (VGenPair n t) == (VGenPair n2 t2) = n == n2 && t == t2
   (VGenPair _ t) == t2 = t == t2
   t2 == (VGenPair _ t) = t == t2
@@ -283,24 +292,26 @@ instance Eq VarType where
   a == b = False --trace ("Eq error ### left = " ++ show a ++ " | right = " ++ show b) False
 
 eqClassName :: String -> VarName -> Bool
-eqClassName n (VName a) = n == a
+eqClassName n (VName a)         = n == a
 eqClassName n (VNameNative a _) = n == a
 
-
-data PointerType = UniquePtr | SharedPtr | NativePtr deriving(Show, Eq)
+data PointerType
+  = UniquePtr
+  | SharedPtr
+  | NativePtr
+  deriving (Show, Eq)
 
 data NumType
---  = NInt
-  =NUInt8
+  = NUInt8
   | NUInt16
   | NUInt32
   | NInt8
   | NInt16
   | NInt32
---  | NFloat
   deriving (Show, Eq)
-  
 
+--  = NInt
+--  | NFloat
 data BoolOp =
   BoolOp
   deriving (Show, Eq)
@@ -311,10 +322,9 @@ data FunArg =
   FunArg VarType String
   deriving (Show, Eq)
 
-unwrapVarName (VName n) = n
+unwrapVarName (VName n)          = n
 unwrapVarName (VNameNative n "") = n
-unwrapVarName (VNameNative _ p) = p
+unwrapVarName (VNameNative _ p)  = p
 
-unwrapVarNameForce (VName n) = n
+unwrapVarNameForce (VName n)         = n
 unwrapVarNameForce (VNameNative n _) = n
-

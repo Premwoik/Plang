@@ -33,7 +33,7 @@ getDependencies =
 
 translate' :: [Imported] -> Translator
 translate' files = do
-  files' <- concat <$> mapM translateFile files
+  files' <- filter (not . null) . concat <$> mapM translateFile files
   imports <- gets toImport
   return $ imports ++ files'
 
@@ -46,9 +46,10 @@ translateFile (IFile fName _ (AST stmts)) = do
 
 declareFunctions :: [Stmt] -> Translator
 declareFunctions = return . map trans . filter cond
+--TODO
   where
-    trans (Function _ n (VFn t) args _) = typeToString (VFnNamed (n ++ "(" ++ argumentsTranslator args ++ ")") t) ++  ";\n"
-    trans (Function _ n t args _) = typeToString t ++ " " ++ n ++ "(" ++ argumentsTranslator args ++ ");\n"
+    trans (Function _ n _ (VFn t cm) args _) = typeToString (VFnNamed (n ++ "(" ++ argumentsTranslator args ++ ")") t cm) ++  ";\n"
+    trans (Function _ n _ t args _) = typeToString t ++ " " ++ n ++ "(" ++ argumentsTranslator args ++ ");\n"
     cond Function {} = True
     cond _           = False
 
@@ -90,7 +91,7 @@ classStmtTranslator :: ClassStmt -> Translator
 classStmtTranslator c =
   case c of
     t@ClassAssign {}  -> classAssignTranslator t
-    Method o a b c d  -> functionTranslator $ Function o a b c d
+    Method o a b c d  -> functionTranslator $ Function o a [] b c d
     t@Constructor {}  -> constTranslator t
     t@NativeMethod {} -> return []
 

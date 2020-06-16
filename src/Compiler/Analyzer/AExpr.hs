@@ -82,28 +82,34 @@ checkRange (Range o s a b) analyzer  = do
 -- False is for normal assign and True is for invoking checking
 --TODO return can be done only at the end of the last line???
 checkLambdaFn :: Bool -> AExpr -> FnStmtAnalyzer ->  Analyzer' AExprRes
-checkLambdaFn False a@(LambdaFn offset retType args stmts) analyzer = do
+checkLambdaFn False a@(LambdaFn offset capture retType args stmts) analyzer = do
   ret <- gets rType
   allTypesKnown ret
   where
-    allTypesKnown (VFn types) 
+    allTypesKnown (VFn types _)
       | VAuto `notElem` types = do
         let args' = zipWith (\t (FunArg _ n) -> FunArg t n) types args
         let ret' = last types
-        checkLambdaFn True (LambdaFn offset ret' args' stmts) analyzer
+        checkLambdaFn True (LambdaFn offset capture ret' args' stmts) analyzer
       | otherwise = makeError offset ArgumentsTypeMissing
-    allTypesKnown _ = return (VFn [], [], a) --makeError offset "Lambda expression must have defined strict type!"
+    allTypesKnown _ = return (VFn [] CMAuto, [], a) --makeError offset "Lambda expression must have defined strict type!"
     
-checkLambdaFn True a@(LambdaFn offset retType args stmts) analyzer = do
-  args' <- checkFnArgs args 
+checkLambdaFn True a@(LambdaFn offset capture retType args stmts) analyzer = do
+  args' <- checkFnArgs args
   addArgsScope offset args
   addScope "lambda"
+  captureTmp <- gets useCapture
+  setCapture False
   stmts' <- concat <$> mapM analyzer stmts -- =<< checkReturn stmts)
+  cs <- toCaptureMode <$> gets useCapture
+  setCapture captureTmp
   removeScope
   removeScope
-  return (rType, [], LambdaFn offset retType args' stmts')
+  return (rType cs, [], LambdaFn offset cs retType args' stmts')
   where
-    rType = VFn $ map(\(FunArg t _) -> t) args ++ [retType]
+    rType = VFn (map(\(FunArg t _) -> t) args ++ [retType])
+    toCaptureMode True = CMOn
+    toCaptureMode _ = CMOff
 --    checkReturn stmts =
 --      case last stmts of
 --        ReturnFn {} -> return stmts
