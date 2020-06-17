@@ -7,7 +7,7 @@ import           Compiler.Analyzer.Browser
 import           Compiler.Analyzer.Error
 import           Compiler.Analyzer.Type
 import           Compiler.Analyzer.UniversalCheckers (checkTypesMatchGens)
-import           Control.Monad                       (filterM)
+import           Control.Monad                       (filterM, zipWithM)
 import           Control.Monad.State                 (get, gets, modify, put)
 import           Control.Monad.Writer                (tell)
 import           Data.List                           (find)
@@ -88,16 +88,18 @@ wrapAllocationMethod v = do
       (VRef {}, VRef {})       -> v
       (_, VRef {})             -> VRef v
       _                        -> v
-
+-- | variable that have not given args - is not executed
 checkVarFirst :: AExpr -> Maybe [AExpr] -> RetBuilderT -> Maybe ScopeField -> String -> Analyzer' AExprRes
 checkVarFirst var@(Var offset name gen _ more) Nothing retBuilder obj scopeName =
   case obj of
+    -- | casual variable that is not executed
     Just tvar@(SVar _ n p t s) -> do
       t' <-
         if isNothing more
           then wrapAllocationMethod t
           else return t
       retBuilder t' (TypedVar (defaultPath p (scaleNameWithScope' [s, n])) t' Nothing) more
+    -- | pointer to a function - not executed
     Just (SFunction _ n p t a) -> do
       scope <- getFileName scopeName
       let newType = VFn (map (\(FunArg t _) -> t) a ++ [t]) CMOff
@@ -113,12 +115,15 @@ checkVarFirst var@(Var offset name gen _ more) Nothing retBuilder obj scopeName 
     p -> do
       storage <- gets scopes
       makeError offset $ VariableMissing name
---        TODO merge this with scaleNameWithScope
+      
+-- | variable that have given args - is executed
 checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName =
   case obj of
+    -- | name is variable 
     Just (SVar i n p (VFn t _) s) -> do
       let funArgs = map (`FunArg` "") $ init t
       checkVarFirst var args' retBuilder (Just (SFunction i n p (last t) funArgs)) s
+    -- | name is class
     Just cl@(SClass _ n p g sc) -> do
       if length g == length gen
         then return ()
@@ -130,11 +135,15 @@ checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName =
       let args'' = args' >>= (Just . markNativePtr cArgs)
       newType <- wrapAllocationMethod $ VClass (VName n) (markClassAsPointer gen')
       retBuilder newType (TypedVar (defaultPath p n) newType args'') more
-    Just (SFunction _ n p t a) -> do
+    -- | name is function
+    Just f@(SFunction _ n p t a) -> do
+      gen <- prepareFunctionGens gen f <$> zipWithM (aExprExtractType mockAExprAnalyzer) a (fromJust args')
+      let t' = replaceGenWithType gen t 
       let args'' = args' >>= (Just . markNativePtr a)
       scope <- getFileName scopeName
-      retBuilder t (TypedVar (defaultPath p (newName scope)) t args'') more
-      where newName scope =
+      retBuilder t' (TypedVar (defaultPath p (newName scope)) t' args'') more
+      where
+        newName scope =
               case scopeName of
                 ""       -> n
                 "g"      -> scaleNameWithScope' ["::", n]
@@ -146,8 +155,8 @@ checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName =
       storage <- gets scopes
       makeError offset $ VariableMissing name
 
---      t' <- fixNativeClassT t
---        TODO merge this with scaleNameWithScope
+
+
 checkVarMore (Var offset name _ args more) (VClass cName gen) args' retBuilder method =
   case method of
     Just (SVar _ n p t _) -> retBuilder t (TypedVar (defaultPath p (scaleNameWithScope' ["this", n])) t Nothing) more
@@ -173,7 +182,7 @@ checkVar v@(Var offset name gen args more) wantedType scopeName analyzer =
         (listToMaybe . checkFunPtr r <$> (filterM (filterArgsMatch args' gen analyzer) =<< find' [scopeName, name]))
       readyArgs <- updatePostProcessedArgs args'
       checkVarFirst v readyArgs retBuilder candidate scopeName
-    (Just x) -> makeError offset $ NotAClass name --("NotAClass: " ++ show x ++ " | " ++ show v)
+    (Just x) -> makeError offset $ NotAClass name 
   where
     retBuilder :: RetBuilderT
     retBuilder type' var more = makeOutput type' var <$> handleMore more (Just type')
@@ -182,9 +191,16 @@ checkVar v@(Var offset name gen args more) wantedType scopeName analyzer =
     makeOutput _ wrapper (Just (v, i, m)) = (v, i, wrapper (Just m))
     makeOutput t wrapper Nothing          = (t, [], wrapper Nothing)
 
--- |  previous was a class
--- |  this is first, so it has to be variable global or local
--- |  error previous was not a class
+
+-- | `replaceGenWithType` replace generic type with strict defined in gen list
+-- 
+-- @signature@ replaceGenWithType @gen[VGenPair{}] @genType
+replaceGenWithType :: [VarType] -> VarType -> VarType
+replaceGenWithType gen (VGen t) = unwrapGen . fromJust . find name $ gen
+  where
+   name (VGenPair n _) = n == t
+replaceGenWithType _ t = t
+
 detectCaptureInLambda :: Maybe ScopeField -> Analyzer' (Maybe ScopeField)
 detectCaptureInLambda v@(Just (SVar _ n _ t s)) = do
   sName <- getScopeName

@@ -9,6 +9,7 @@ import           Control.Monad.Except   (throwError)
 import           Control.Monad.State    (get, gets)
 import           Data.List              (group)
 import qualified Data.List              as L
+import qualified Data.Map as Map
 import           Data.Maybe             (fromJust, isJust, listToMaybe, maybeToList)
 import           Debug.Trace
 import Compiler.Analyzer.Error
@@ -139,13 +140,28 @@ checkFunctionUniqueness o name t args = do
 maybeArgsMatch :: Maybe [AExpr] -> [VarType] -> AExprAnalyzer -> ScopeField -> Analyzer' Bool
 maybeArgsMatch (Just args) gen analyzer s = do
   args' <- prepareArgs
-  return $ argsMatch args' gen s
+  let gen' = prepareFunctionGens gen s args'
+  let res = argsMatch args' gen' s
+  traceShow res $ return ()
+  return res
   where
     prepareArgs = case s of
       (SFunction _ _ _ _ fargs) -> zipWithM (aExprExtractType analyzer) fargs args
       _ -> mapM (aExprExtractType analyzer (FunArg VAuto "")) args
 maybeArgsMatch Nothing _ _ _ = return True
 
+-- | 'preparedFunctionGens' is used for deducting generics from SFunction 
+prepareFunctionGens :: [VarType] -> ScopeField -> [VarType] -> [VarType]
+prepareFunctionGens [] (SFunction _ n _ _ fargs) args = trace ("JESTEM - " ++ n ++ " - "++ show genMap ++ " - " ++ show fargs) genMap
+  where
+    genMap = map (uncurry VGenPair) . Map.toList $ foldl check initAcc (zip fargs args)
+    initAcc = Map.empty
+    check acc (FunArg (VGen x) _, arg) =
+      case Map.lookup x acc of
+        Just y -> if y /= arg then error "You passed different types as same generic" else acc
+        Nothing -> Map.insert x arg acc
+    check acc _ = acc
+prepareFunctionGens gens _ _ = gens
 --
 argsMatch :: [VarType] -> [VarType] -> ScopeField -> Bool
 argsMatch t gen (SFunction _ _ _ _ args) = argsMatch' t (fixArgs gen args)

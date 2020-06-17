@@ -1,0 +1,10 @@
+module CaptureLambdaExample where
+
+apply<T,R> fn: T -> do
+  pass
+
+testFunc -> void do
+  lambda: fn<int,int> = \x -> x + 10
+  consumeFn(lambda)
+  pass
+

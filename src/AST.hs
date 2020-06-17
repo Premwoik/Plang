@@ -118,7 +118,7 @@ data Stmt
   | Assign Int AExpr VarType AExpr
   -- | NATIVE
   | NativeAssignDeclaration Int String String VarType
-  | NativeFunction Int String String VarType [FunArg]
+  | NativeFunction Int String String [String] VarType [FunArg]
   | NativeClass Int String String [String] [ClassStmt]
   | LinkPath Int String
   deriving (Show, Eq)

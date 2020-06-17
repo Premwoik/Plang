@@ -26,9 +26,9 @@ checkFunction f@(Function o n g t a body) bodyAnalyzer = do
   let nType = markGen t g
   let nArgs = markGenInArgs g a
   (_, _, rg, rt, ra, rb) <- checkFunction' (o, n, g, nType, nArgs, body) bodyAnalyzer
-  addFunction o n Nothing t a
+  addFunction o n Nothing rt ra
   
-  checkFunctionUniqueness o ["", n] t a
+  checkFunctionUniqueness o ["", n] rt ra
   return $ Function o n g rt ra rb
 
 checkMethod :: ClassStmt -> FnStmtAnalyzer -> Analyzer' ClassStmt
@@ -38,8 +38,8 @@ checkMethod m@(Method o n t a body) bodyAnalyzer = do
   let nArgs = markGenInArgs gens a
   (_, _, _, rt, ra, rb)  <- checkFunction' (o, n, [], nType, nArgs, body) bodyAnalyzer
   className <- gets cName
-  addFunction o n Nothing nType nArgs
-  checkFunctionUniqueness o ["this", n] nType nArgs
+  addFunction o n Nothing rt ra 
+  checkFunctionUniqueness o ["this", n] rt ra
   return $
     if className == n
       then Constructor o n ra rb
@@ -80,11 +80,11 @@ checkReturn (ReturnFn o Nothing) analyzer = do
 --    makeError o ("return missmatch: FuncDeclType = " ++ show wanted ++ " =/= FuncRetType " ++ show actual)
 
 checkNative :: Stmt -> Analyzer' Stmt
-checkNative t@(NativeFunction o path name ret args) = do
-  ret' <- fixNativeClassType ret
-  args' <- checkFnArgs args
+checkNative t@(NativeFunction o path name gen ret args) = do
+  ret' <- fixNativeClassType $ markGen ret gen
+  args' <- checkFnArgs $ markGenInArgs gen args
   addFunction o name (Just path) ret' args'
-  return $ NativeFunction o path name ret' args'
+  return $ NativeFunction o path name gen ret' args'
 
 
 checkMethodDeclaration :: ClassStmt -> Analyzer' ClassStmt
@@ -134,8 +134,8 @@ checkAssignFn a@(AssignFn o var@(Var vo vname [] Nothing Nothing) ret aExpr) ana
     case firstSig of
       Just (SVar o' n _ t "") ->
         check o t ret type' VBlank
-      Just {} -> add type' 
-      Nothing -> add type' 
+      Just {} -> add type'
+      Nothing -> add type'
   return $ inject ++ [AssignFn o (TypedVar (VName vname) VAuto Nothing Nothing) (unwrapAllMethod nType) res]
   where
     add type' = addVar o vname Nothing (unwrapAllMethod type') "" >> check o type' ret type' type'

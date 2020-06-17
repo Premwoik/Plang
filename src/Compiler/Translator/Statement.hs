@@ -32,7 +32,7 @@ argumentsTranslator = intercalate ", " . map (\(FunArg t name) -> unwrapType t n
     unwrapType t name = typeToString t ++ markRef t ++ " " ++ name
 
 nativeTranslator :: Stmt -> Translator
-nativeTranslator (NativeFunction _ _ name type' args) = return []
+nativeTranslator NativeFunction {} = return []
 
 whileTranslator :: BExpr -> [a] -> (a -> Translator) -> Translator
 whileTranslator bExpr block trans = do

@@ -76,12 +76,13 @@ nativeFunctionParser =
     void $ symbol "native"
     path <- lexeme stringLiteral
     header <- pItem
+    gen <- fromMaybe [] <$> optional generics
     args <- fromMaybe [] <$> optional functionArgsParser
     type' <-
       optional $ do
         void (symbol "->")
         typeParser
-    return $ NativeFunction o path header (fromMaybe VAuto type') args
+    return $ NativeFunction o path header gen (fromMaybe VAuto type') args
 
 returnParser :: Parser AExpr -> Parser FunctionStmt
 returnParser aExpr = lexeme p

@@ -1,0 +1,5 @@
+native "" nfun<T> arg: T -> T
+
+fun -> int do
+  a = nfun(10)
+  ret nfun(10)

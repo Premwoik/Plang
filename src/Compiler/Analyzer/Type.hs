@@ -212,7 +212,7 @@ setFunName :: String -> Analyzer' ()
 setFunName n = modify (\s -> s {fName = n})
 
 getClassScope :: Analyzer' (Maybe Scope)
-getClassScope = 
+getClassScope =
   listToMaybe . reverse . filter cond <$> gets scopes
   where
     cond (Scope "this" _) = True
@@ -247,7 +247,7 @@ getClassGens' = do
     genFilter _       = False
 
 setCapture :: Bool -> Analyzer' ()
-setCapture b = 
+setCapture b =
   modify (\s -> s{useCapture = b})
 
 -- | private
