@@ -141,9 +141,7 @@ maybeArgsMatch :: Maybe [AExpr] -> [VarType] -> AExprAnalyzer -> ScopeField -> A
 maybeArgsMatch (Just args) gen analyzer s = do
   args' <- prepareArgs
   let gen' = prepareFunctionGens gen s args'
-  let res = argsMatch args' gen' s
-  traceShow res $ return ()
-  return res
+  return $ argsMatch args' gen' s
   where
     prepareArgs = case s of
       (SFunction _ _ _ _ fargs) -> zipWithM (aExprExtractType analyzer) fargs args
@@ -152,7 +150,7 @@ maybeArgsMatch Nothing _ _ _ = return True
 
 -- | 'preparedFunctionGens' is used for deducting generics from SFunction 
 prepareFunctionGens :: [VarType] -> ScopeField -> [VarType] -> [VarType]
-prepareFunctionGens [] (SFunction _ n _ _ fargs) args = trace ("JESTEM - " ++ n ++ " - "++ show genMap ++ " - " ++ show fargs) genMap
+prepareFunctionGens [] (SFunction _ n _ _ fargs) args = genMap
   where
     genMap = map (uncurry VGenPair) . Map.toList $ foldl check initAcc (zip fargs args)
     initAcc = Map.empty

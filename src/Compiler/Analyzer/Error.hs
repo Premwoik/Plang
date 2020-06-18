@@ -26,6 +26,8 @@ data SemanticError
   | GenericMissing String
   | ClassVariableMissing String String
   | NotAClass String
+  | ApplyNotAFunction
+  | CustomError String
   deriving (Show)
 
 makeError :: Int -> SemanticError -> Analyzer' a
@@ -63,4 +65,6 @@ errorToText err =
     ClassVariableMissing cName name ->
       "Class of type - " ++ cName ++ " don't have method or variable named - " ++ name ++ "!"
     NotAClass name -> "Variable - " ++ name ++ " is not of Class type."
+    ApplyNotAFunction -> "Only functions can be applied!"
+    CustomError s -> s
 --    e -> error $ "Unsupported error code - " ++ show e

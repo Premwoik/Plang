@@ -22,11 +22,27 @@ main =
       it "is global var not classified as capture" simpleLambdaGlobalVarTest
       it "can lambda be passed to function in args" canPassedLambdaToFunctionTest
       it "can capture lambda be passed to function in args" canPassedCaptureLambdaToFunctionTest
-      it "can be invoked" pending
+      it "can be apply in place" applyLambdaInPlaceTest
     context "with body block" $ do
       it "can be declared" canBeBlockDeclaredTest
-      it "can be invoked" pending
+      it "can compile void return " voidLambdaTest
 
+voidLambdaTest = do
+  (ast, out) <- compile path "voidLambdaExample"
+  let expectedAST = [IFile "voidLambdaExample" "res/tests/lambdaFn/voidLambdaExample.mard" (AST [Skip 0,Function 33 "testFunc" [] VVoid [] [AssignFn 55 (TypedVar (VName "lambda") VAuto Nothing Nothing) (VFn [VInt,VInt,VVoid] CMOff) (LambdaFn 89 CMOff VVoid [FunArg VInt "args___x",FunArg VInt "args___z"] [AssignFn 105 (TypedVar (VName "y") VAuto Nothing Nothing) VInt (TypedABinary VInt Add (TypedVar (VName "args___x") VInt Nothing Nothing) (IntConst 113 10)),AssignFn 123 (TypedVar (VName "y") VAuto Nothing Nothing) VBlank (TypedABinary VInt Add (TypedVar (VName "y") VInt Nothing Nothing) (IntConst 131 13))]),Pass]])]
+  let expectedOUT = ["namespace voidLambdaExample{\n","void testFunc();\n","void testFunc(){\n","   void(*lambda)(int,int) = [](int args___x,int args___z){   int y = args___x + 10;\n    y = y + 13;\n};\n","}\n","}\n"]
+
+  ast `shouldBe` expectedAST
+  out `shouldBe` expectedOUT
+
+applyLambdaInPlaceTest = do
+  (ast, out) <- compile path "applyLambdaInPlaceExample"
+  let expectedAST = [IFile "applyLambdaInPlaceExample" "res/tests/lambdaFn/applyLambdaInPlaceExample.mard" (AST [Skip 0,Function 35 "testFunc" [] VVoid [] [AssignFn 57 (TypedVar (VName "result") VAuto Nothing Nothing) VInt (ABracketApply 66 (LambdaFn 67 CMOff VInt [FunArg VInt "args___x"] [OtherFn 73 (TypedABinary VInt Add (TypedVar (VName "args___x") VInt Nothing Nothing) (IntConst 77 10))]) [IntConst 81 11]),Pass]])]
+
+  let expectedOUT = ["namespace applyLambdaInPlaceExample{\n","void testFunc();\n","void testFunc(){\n","   int result = ([](int args___x){return args___x + 10;\n})(11);\n","}\n","}\n"]
+
+  ast `shouldBe` expectedAST
+  out `shouldBe` expectedOUT
 
 canPassedCaptureLambdaToFunctionTest = do
   (ast, out) <- compile path "simpleCaptureLambdaPassExample"
@@ -76,8 +92,8 @@ canBeInvokedTest = pending
 
 canBeBlockDeclaredTest = do
   (ast, out) <- compile path "simpleBlockLambdaExample"
-  let expectedAST = [IFile "simpleBlockLambdaExample" "res/tests/lambdaFn/simpleBlockLambdaExample.mard" (AST [Skip 0,Function 33 "testFunc" [] VVoid [] [AssignFn 55 (TypedVar (VName "lambda") VAuto Nothing Nothing) (VFn [VInt,VInt,VInt] CMAuto) (LambdaFn 88 CMOff VInt [FunArg VInt "args___x",FunArg VInt "args___z"] [AssignFn 104 (TypedVar (VName "y") VAuto Nothing Nothing) VInt (TypedABinary VInt Add (TypedVar (VName "args___x") VInt Nothing Nothing) (IntConst 112 10)),AssignFn 122 (TypedVar (VName "y") VAuto Nothing Nothing) VBlank (TypedABinary VInt Add (TypedVar (VName "y") VInt Nothing Nothing) (IntConst 130 13))]),Pass]])]
-  let expectedOUT = ["namespace simpleBlockLambdaExample{\n","void testFunc();\n","void testFunc(){\n","   int(*lambda)(int,int) = [](int args___x,int args___z){   int y = args___x + 10;\n    y = y + 13;\n};\n","}\n","}\n"]
+  let expectedAST = [IFile "simpleBlockLambdaExample" "res/tests/lambdaFn/simpleBlockLambdaExample.mard" (AST [Skip 0,Function 33 "testFunc" [] VVoid [] [AssignFn 55 (TypedVar (VName "lambda") VAuto Nothing Nothing) (VFn [VInt,VInt,VInt] CMOff) (LambdaFn 88 CMOff VInt [FunArg VInt "args___x",FunArg VInt "args___z"] [AssignFn 104 (TypedVar (VName "y") VAuto Nothing Nothing) VInt (TypedABinary VInt Add (TypedVar (VName "args___x") VInt Nothing Nothing) (IntConst 112 10)),AssignFn 122 (TypedVar (VName "y") VAuto Nothing Nothing) VBlank (TypedABinary VInt Add (TypedVar (VName "y") VInt Nothing Nothing) (IntConst 130 13)),ReturnFn 140 (Just (IntConst 144 0))]),Pass]])]
+  let expectedOUT = ["namespace simpleBlockLambdaExample{\n","void testFunc();\n","void testFunc(){\n","   int(*lambda)(int,int) = [](int args___x,int args___z){   int y = args___x + 10;\n    y = y + 13;\n   return 0;\n};\n","}\n","}\n"]
 
   ast `shouldBe` expectedAST
   out `shouldBe` expectedOUT

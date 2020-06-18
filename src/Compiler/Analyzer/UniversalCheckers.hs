@@ -1,4 +1,4 @@
-module Compiler.Analyzer.UniversalCheckers(checkFnArgs, checkTypesMatchGens, compareGens) where
+module Compiler.Analyzer.UniversalCheckers(checkFnArgs, checkTypesMatchGens, compareGens, check) where
 
 import AST
 import Compiler.Analyzer.Type
@@ -54,5 +54,13 @@ replaceAuto notAuto n auto
     updateScope =<< updateField (SGen notAuto n) . fromJust <$> getClassScope
     return notAuto
   | otherwise = return auto
+
+check o wantedDecl wanted actual res
+  | wantedDecl == actual && (wanted == actual || wanted == VAuto) = return extendedIntCheck
+  | otherwise = makeError o $ AssignTypesMismatch actual wanted
+  where
+    extendedIntCheck = case wanted of 
+      VNum {} -> wanted
+      _ -> res
 
 

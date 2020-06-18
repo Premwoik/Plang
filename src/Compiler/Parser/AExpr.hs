@@ -18,7 +18,10 @@ bracketParser :: Parser AExpr -> Parser AExpr
 bracketParser aExpr = do
   o <- getOffset
   p <- parens aExpr
-  return $ ABracket o p
+  apply <- optional (parens (functionExecutionArgParser aExpr))
+  return $ case apply of
+    Just args -> ABracketApply o p args
+    Nothing -> ABracket o p
 
 anonymousFunctionParser :: Parser [FunArg] -> Parser AExpr -> Parser AExpr
 anonymousFunctionParser functionArgsParser aExpr = lexeme p

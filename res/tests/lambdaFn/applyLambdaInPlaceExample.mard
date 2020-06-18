@@ -1,0 +1,6 @@
+module CaptureLambdaExample where
+
+testFunc -> void do
+  result = (\x -> x + 10)(11)
+  pass
+

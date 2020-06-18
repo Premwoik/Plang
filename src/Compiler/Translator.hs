@@ -104,6 +104,7 @@ aExprTranslator expr =
     Var _ a _ b c   -> varTranslator (TypedVar (VName a) VAuto b c)
     e@Optional {} -> optionalTranslator e
     e@ABracket {} -> bracketTranslator e
+    e@ABracketApply {} -> bracketApplyTranslator e
     IntConst _ i    -> return . return $ show i
     FloatConst _ f  -> return . return $ show f
     StringVal _ s   -> return . return $ show s

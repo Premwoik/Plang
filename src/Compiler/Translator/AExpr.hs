@@ -15,6 +15,11 @@ bracketTranslator (ABracket _ aExpr) = do
   res <- injectTranslator aExprTranslatorGetter aExpr
   return ["(" ++ head res ++ ")"]
 
+bracketApplyTranslator (ABracketApply _ aExpr args) = do
+  res <- injectTranslator aExprTranslatorGetter aExpr
+  args' <- intercalate ", " . concat <$> mapM (injectTranslator aExprTranslatorGetter) args
+  return ["(" ++ head res ++ ")(" ++ args' ++ ")"]
+
 binaryTranslator :: AExpr -> Translator
 binaryTranslator (ABinary op a b) = do
   let op' = binaryOperatorToString op

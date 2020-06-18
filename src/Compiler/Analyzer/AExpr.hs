@@ -11,131 +11,156 @@ module Compiler.Analyzer.AExpr
   , checkFloatConst
   , checkIntConst
   , checkABool
+  , checkBracketApply
   , checkOptional
-  , checkScopeMark) where
+  , checkScopeMark
+  ) where
 
-import           Compiler.Analyzer.Type
-import           Control.Monad.State      (get, gets, put, modify)
-import Control.Monad.Writer(tell)
 import           AST
-import Compiler.Analyzer.Browser
-import Data.Maybe(fromMaybe)
-import Debug.Trace
-import Control.Monad.Except(throwError)
-import Data.List(find)
-import Compiler.Analyzer.AExpr.Var
-import Compiler.Analyzer.UniversalCheckers(compareGens, checkFnArgs)
-import Compiler.Analyzer.Error
-
+import           Compiler.Analyzer.AExpr.Var
+import           Compiler.Analyzer.Browser
+import           Compiler.Analyzer.Error
+import           Compiler.Analyzer.Type
+import           Compiler.Analyzer.UniversalCheckers (checkFnArgs, compareGens, check)
+import           Control.Monad.Except                (throwError)
+import           Control.Monad.State                 (get, gets, modify, put)
+import           Control.Monad.Writer                (tell)
+import           Data.List                           (find)
+import           Data.Maybe                          (fromMaybe)
+import           Debug.Trace
 
 checkOptional :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkOptional (Optional o aExpr _) analyzer = do
--- TODO add checking if class has implemented bool interface
-  (t,_, a) <- analyzer aExpr
+  (t, _, a) <- analyzer aExpr
   case t of
-    VPointer {} -> 
-      return (VBool, [], Optional o a NullOT)
-    VClass {} -> 
-      return (VBool, [], Optional o a BoolOT)
-    t -> makeError o $ NotAllowedOptionalUse t
+    VPointer {} -> return (VBool, [], Optional o a NullOT)
+    VClass {}   -> return (VBool, [], Optional o a BoolOT)
+    t           -> makeError o $ NotAllowedOptionalUse t
 
+-- TODO add checking if class has implemented bool interface
 checkScopeMark :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkScopeMark (ScopeMark o scopeName aExpr) analyzer = do
-  addOffset o 
+  addOffset o
   res <- (\(a, b, res) -> (a, b, ScopeMark o scopeName res)) <$> checkVar aExpr Nothing scopeName analyzer
   removeOffset
   return res
 
-
 checkListVar :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
-checkListVar (ListVar _ [] (Just t)) _ = 
-  return (VClass (VName "ArrayList") [VGenPair "T" t], [], TypedVar (VName "ArrayList") (VClass (VName "ArrayList") [VGenPair "T" t]) (Just []) Nothing)
-checkListVar (ListVar o [] Nothing) _ =
-  makeError o NotProvidedListType
+checkListVar (ListVar _ [] (Just t)) _ =
+  return
+    ( VClass (VName "ArrayList") [VGenPair "T" t]
+    , []
+    , TypedVar (VName "ArrayList") (VClass (VName "ArrayList") [VGenPair "T" t]) (Just []) Nothing)
+checkListVar (ListVar o [] Nothing) _ = makeError o NotProvidedListType
 checkListVar a@(ListVar o elems wantedType) analyzer = do
   let len = show $ length elems
   (types', injs, elems') <-
-    classToPointer . foldr (\(t', inj, res) (ts, injs, ress) -> (t':ts, inj: injs, res:ress)) ([], [], []) 
-    <$> mapM analyzer elems
-  if checkType types' then return () else makeError o $ NotAllElementsHaveSameType elems wantedType
+    classToPointer . foldr (\(t', inj, res) (ts, injs, ress) -> (t' : ts, inj : injs, res : ress)) ([], [], []) <$>
+    mapM analyzer elems
+  if checkType types'
+    then return ()
+    else makeError o $ NotAllElementsHaveSameType elems wantedType
   let itemType = head types'
-  let args = Just [TypedListVar elems' itemType, TypedVar (VName len) VInt Nothing Nothing, TypedVar (VName len) VInt Nothing Nothing]
+  let args =
+        Just
+          [ TypedListVar elems' itemType
+          , TypedVar (VName len) VInt Nothing Nothing
+          , TypedVar (VName len) VInt Nothing Nothing
+          ]
   let t = VClass (VName "ArrayList") [VGenPair "T" itemType]
   return (t, concat injs, TypedVar (VName "ArrayList") t args Nothing)
   where
---    typesMatchOrError types = 
     checkType (t:ts) = all (\x -> t == x) ts && t == fromMaybe t wantedType
     classToPointer (t, i, e) = (markClassAsPointer t, i, markVarClassAsPointer e)
 
+--    typesMatchOrError types =
 checkRange :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
-checkRange (Range o s a b) analyzer  = do
+checkRange (Range o s a b) analyzer = do
   (ta, _, a') <- analyzer a
   (tb, _, b') <- analyzer b
   (ts, _, s') <- analyzer . fromMaybe (IntConst o 1) $ s
   allInt ta tb ts
-  return (VInt,[], Range o (Just s') a' b')
+  return (VInt, [], Range o (Just s') a' b')
   where
-    allInt a b c 
-      | a == b && a == c && a == VInt = return () 
+    allInt a b c
+      | a == b && a == c && a == VInt = return ()
       | otherwise = makeError o NotAllowedRangeType
-      
+
 -- False is for normal assign and True is for invoking checking
 --TODO return can be done only at the end of the last line???
-checkLambdaFn :: Bool -> AExpr -> FnStmtAnalyzer ->  Analyzer' AExprRes
+checkLambdaFn :: Bool -> AExpr -> FnStmtAnalyzer -> Analyzer' AExprRes
 checkLambdaFn False a@(LambdaFn offset capture retType args stmts) analyzer = do
   ret <- gets rType
   allTypesKnown ret
   where
     allTypesKnown (VFn types _)
-      | VAuto `notElem` types = do
+      | VAuto `notElem` init types = do
         let args' = zipWith (\t (FunArg _ n) -> FunArg t n) types args
         let ret' = last types
         checkLambdaFn True (LambdaFn offset capture ret' args' stmts) analyzer
       | otherwise = makeError offset ArgumentsTypeMissing
     allTypesKnown _ = return (VFn [] CMAuto, [], a) --makeError offset "Lambda expression must have defined strict type!"
-    
 checkLambdaFn True a@(LambdaFn offset capture retType args stmts) analyzer = do
   args' <- checkFnArgs args
   addArgsScope offset args
   addScope "lambda"
   captureTmp <- gets useCapture
   setCapture False
-  stmts' <- concat <$> mapM analyzer stmts -- =<< checkReturn stmts)
+  retTmp <- gets rType
+  setType retType
+  stmts' <- concat <$> mapM analyzer stmts  -- =<< checkReturn stmts
+  setType retTmp
+  nRet <- checkReturn stmts'
   cs <- toCaptureMode <$> gets useCapture
   setCapture captureTmp
   removeScope
   removeScope
-  return (rType cs, [], LambdaFn offset cs retType args' stmts')
+  return (makeRet nRet cs, [], LambdaFn offset cs nRet args' stmts')
   where
-    rType = VFn (map(\(FunArg t _) -> t) args ++ [retType])
+    makeRet nRet = VFn (map (\(FunArg t _) -> t) args ++ [nRet])
     toCaptureMode True = CMOn
-    toCaptureMode _ = CMOff
---    checkReturn stmts =
---      case last stmts of
---        ReturnFn {} -> return stmts
---        OtherFn o e -> return $ init stmts  ++ [ReturnFn o e]
-----        TODO add check also for returns inside function body - not only last return
---        _ -> makeError offset "Anonymous last statement must be returnable."
-
+    toCaptureMode _    = CMOff
+    checkReturn stmts 
+      | retType /= VVoid = do
+        r <- case last stmts of
+          ReturnFn o (Just e) -> aExprExtractType mockAExprAnalyzer (FunArg VAuto "") e
+          OtherFn o e -> aExprExtractType mockAExprAnalyzer (FunArg VAuto "") e
+          _ -> makeError offset $ CustomError "cant match return type in case Analyzer/AExpr 124"
+        check offset r retType r r
+      | otherwise = return VVoid
 checkNegBlock (Neg a) analyzer = do
   (t, _, a') <- analyzer a
-  return (t,[], addNeg a')
+  return (t, [], addNeg a')
   where
-    addNeg (IntConst o x) = IntConst o (-x)
+    addNeg (IntConst o x)   = IntConst o (-x)
     addNeg (FloatConst o x) = FloatConst o (-x)
-    addNeg x = Neg x
+    addNeg x                = Neg x
 
 checkBracket :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkBracket (ABracket o aExpr) analyzer = do
   (t', inc, aExpr') <- analyzer aExpr
   return (t', inc, ABracket o aExpr')
 
+checkBracketApply :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
+checkBracketApply (ABracketApply o aExpr args) analyzer = do
+  args' <- fromMaybe [] <$> checkArgs [] (Just args) analyzer
+  argTypes <- mapM (aExprExtractType analyzer (FunArg VAuto "")) args'
+  tmpType <- gets rType
+  setType (VFn (argTypes ++ [VAuto]) CMAuto) 
+  (t', inc, aExpr') <- analyzer aExpr
+  setType tmpType
+  ret <-
+    case t' of
+      VFn ts _ -> return $ last ts
+      _        -> makeError o ApplyNotAFunction
+  return (ret, inc, ABracketApply o aExpr' args')
+
 checkABinary :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
 checkABinary t@(ABinary op a b) aAnalyzer = do
   (ta, _, a') <- aAnalyzer a
-  (tb, _,  b') <- aAnalyzer b
+  (tb, _, b') <- aAnalyzer b
   nType <- compareGens 0 ta tb
-  return (nType,[], TypedABinary nType op a' b')
+  return (nType, [], TypedABinary nType op a' b')
 
 checkIfStatement :: AExpr -> FnStmtAnalyzer -> BExprAnalyzer -> Analyzer' AExprRes
 checkIfStatement (If o ifs) analyzer bAnalyzer = do
@@ -150,34 +175,33 @@ checkIfStatement (If o ifs) analyzer bAnalyzer = do
       (aE, rest) <- unpackLastExpr . reverse . concat <$> mapM analyzer body
       let ret = reverse $ AssignFn (-1) (toVar varName) VBlank aE : rest
       return (aExprToType aE, (cond', ret))
-    unpackLastExpr (OtherFn _ aE: rest) = (aE, rest)
---    unpackLastExpr (a:_) = throwError $ UnsupportedTypeException (show a)
-    retType (t:s) = if all (==t) s then t else error "If statement return' type is not the same in every block"
+    unpackLastExpr (OtherFn _ aE:rest) = (aE, rest)
+    retType (t:s) =
+      if all (== t) s
+        then t
+        else error "If statement return' type is not the same in every block"
     retType _ = error "If statement return' type is not the same in every block"
     toVar n = Var (-1) n [] Nothing Nothing
 
+--    unpackLastExpr (a:_) = throwError $ UnsupportedTypeException (show a)
 aExprToType :: AExpr -> VarType
-aExprToType a = case a of
-  IntConst {} -> VInt
-  FloatConst {} -> VFloat
-  StringVal {} -> VString
-  ABool {} -> VBool
-  TypedVar _ t _ _ -> t
-  _ -> VAuto
-
-
+aExprToType a =
+  case a of
+    IntConst {}      -> VInt
+    FloatConst {}    -> VFloat
+    StringVal {}     -> VString
+    ABool {}         -> VBool
+    TypedVar _ t _ _ -> t
+    _                -> VAuto
 
 checkIntConst :: AExpr -> Analyzer' AExprRes
-checkIntConst e@(IntConst o i) = 
-  return (VInt, [], e)
+checkIntConst e@(IntConst o i) = return (VInt, [], e)
 
 checkFloatConst :: AExpr -> Analyzer' AExprRes
-checkFloatConst e@(FloatConst o f) =
-  return (VFloat, [], e)
+checkFloatConst e@(FloatConst o f) = return (VFloat, [], e)
 
 checkStringConst :: AExpr -> Analyzer' AExprRes
-checkStringConst e@(StringVal o s) =
-  return (VString, [], e)
+checkStringConst e@(StringVal o s) = return (VString, [], e)
 
 checkABool :: AExpr -> BExprAnalyzer -> Analyzer' AExprRes
 checkABool (ABool bExpr) analyzer = do

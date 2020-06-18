@@ -186,6 +186,7 @@ data AExpr
   | Optional Offset AExpr OptionalType
   | ScopeMark Offset String AExpr
   | ABracket Offset AExpr
+  | ABracketApply Offset AExpr [AExpr]
   | IntConst Offset Integer
   | FloatConst Offset Float
   | ListVar Offset [AExpr] (Maybe VarType)

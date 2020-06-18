@@ -11,7 +11,7 @@ import           Control.Monad.State       (get, gets, modify, put)
 import           Control.Monad.Writer      (tell)
 import           Data.Maybe                (fromJust, fromMaybe, listToMaybe)
 import           Debug.Trace
-import Compiler.Analyzer.UniversalCheckers(compareGens, checkFnArgs)
+import Compiler.Analyzer.UniversalCheckers(compareGens, checkFnArgs, check)
 
 checkImport :: Stmt -> Analyzer' Stmt
 -- TODO check if import path exist
@@ -165,13 +165,6 @@ checkAssignFn a@(AssignFn o nameExpr ret aExpr) analyzer =
   
   
   
-check o wantedDecl wanted actual res
-  | wantedDecl == actual && (wanted == actual || wanted == VAuto) = return extendedIntCheck
-  | otherwise = makeError o $ AssignTypesMismatch actual wanted
-  where
-    extendedIntCheck = case wanted of 
-      VNum {} -> wanted
-      _ -> res
 
 
 checkNativeAssign :: Stmt -> AExprAnalyzer -> Analyzer' Stmt

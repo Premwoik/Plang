@@ -82,6 +82,7 @@ classStmtAnalyzer name s =
 aExprAnalyzer :: AExpr -> Analyzer' AExprRes
 aExprAnalyzer expr =
   case expr of
+    e@ABracketApply {} -> checkBracketApply e aExprAnalyzer
     e@Optional {} -> checkOptional e aExprAnalyzer
     Nop             -> return (VBlank, [], Nop)
     e@ScopeMark {} -> checkScopeMark e aExprAnalyzer
