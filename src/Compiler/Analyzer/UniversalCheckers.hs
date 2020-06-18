@@ -7,6 +7,15 @@ import Data.Maybe(fromMaybe, fromJust)
 import Data.List(find)
 
 
+compareTypes :: VarType -> VarType -> Analyzer' Bool
+compareTypes (VClass n g1) (VClass n2 g2)
+  | n == n2 && g1 == g2 = return True
+  | otherwise = do
+--    b <- getClassInheritance n2
+    let b = [VName "A", VName "B"]
+    return $ n `elem` b && g1 == g2
+compareTypes a b = return $ a == b 
+
 checkFnArgs :: [FunArg] -> Analyzer' [FunArg]
 checkFnArgs = return . map (\(FunArg t n) -> FunArg t (concat (scaleNameWithScope ["args", n])))
 

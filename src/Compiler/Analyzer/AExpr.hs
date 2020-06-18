@@ -29,34 +29,34 @@ import           Data.List                           (find)
 import           Data.Maybe                          (fromMaybe)
 import           Debug.Trace
 
-checkOptional :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
-checkOptional (Optional o aExpr _) analyzer = do
-  (t, _, a) <- analyzer aExpr
+checkOptional :: AExpr -> Analyzer' AExprRes
+checkOptional (Optional o aExpr _) = do
+  (t, _, a) <- injectAnalyzer aExprAnalyzerGetter aExpr
   case t of
     VPointer {} -> return (VBool, [], Optional o a NullOT)
     VClass {}   -> return (VBool, [], Optional o a BoolOT)
     t           -> makeError o $ NotAllowedOptionalUse t
 
 -- TODO add checking if class has implemented bool interface
-checkScopeMark :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
-checkScopeMark (ScopeMark o scopeName aExpr) analyzer = do
+checkScopeMark :: AExpr -> Analyzer' AExprRes
+checkScopeMark (ScopeMark o scopeName aExpr) = do
   addOffset o
-  res <- (\(a, b, res) -> (a, b, ScopeMark o scopeName res)) <$> checkVar aExpr Nothing scopeName analyzer
+  res <- (\(a, b, res) -> (a, b, ScopeMark o scopeName res)) <$> checkVar aExpr Nothing scopeName 
   removeOffset
   return res
 
-checkListVar :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
-checkListVar (ListVar _ [] (Just t)) _ =
+checkListVar :: AExpr -> Analyzer' AExprRes
+checkListVar (ListVar _ [] (Just t)) =
   return
     ( VClass (VName "ArrayList") [VGenPair "T" t]
     , []
     , TypedVar (VName "ArrayList") (VClass (VName "ArrayList") [VGenPair "T" t]) (Just []) Nothing)
-checkListVar (ListVar o [] Nothing) _ = makeError o NotProvidedListType
-checkListVar a@(ListVar o elems wantedType) analyzer = do
+checkListVar (ListVar o [] Nothing) = makeError o NotProvidedListType
+checkListVar a@(ListVar o elems wantedType) = do
   let len = show $ length elems
   (types', injs, elems') <-
     classToPointer . foldr (\(t', inj, res) (ts, injs, ress) -> (t' : ts, inj : injs, res : ress)) ([], [], []) <$>
-    mapM analyzer elems
+    mapM (injectAnalyzer aExprAnalyzerGetter) elems
   if checkType types'
     then return ()
     else makeError o $ NotAllElementsHaveSameType elems wantedType
@@ -74,8 +74,9 @@ checkListVar a@(ListVar o elems wantedType) analyzer = do
     classToPointer (t, i, e) = (markClassAsPointer t, i, markVarClassAsPointer e)
 
 --    typesMatchOrError types =
-checkRange :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
-checkRange (Range o s a b) analyzer = do
+checkRange :: AExpr -> Analyzer' AExprRes
+checkRange (Range o s a b) = do
+  let analyzer = injectAnalyzer aExprAnalyzerGetter
   (ta, _, a') <- analyzer a
   (tb, _, b') <- analyzer b
   (ts, _, s') <- analyzer . fromMaybe (IntConst o 1) $ s
@@ -88,8 +89,8 @@ checkRange (Range o s a b) analyzer = do
 
 -- False is for normal assign and True is for invoking checking
 --TODO return can be done only at the end of the last line???
-checkLambdaFn :: Bool -> AExpr -> FnStmtAnalyzer -> Analyzer' AExprRes
-checkLambdaFn False a@(LambdaFn offset capture retType args stmts) analyzer = do
+checkLambdaFn :: Bool -> AExpr -> Analyzer' AExprRes
+checkLambdaFn False a@(LambdaFn offset capture retType args stmts) = do
   ret <- gets rType
   allTypesKnown ret
   where
@@ -97,10 +98,10 @@ checkLambdaFn False a@(LambdaFn offset capture retType args stmts) analyzer = do
       | VAuto `notElem` init types = do
         let args' = zipWith (\t (FunArg _ n) -> FunArg t n) types args
         let ret' = last types
-        checkLambdaFn True (LambdaFn offset capture ret' args' stmts) analyzer
+        checkLambdaFn True (LambdaFn offset capture ret' args' stmts) 
       | otherwise = makeError offset ArgumentsTypeMissing
     allTypesKnown _ = return (VFn [] CMAuto, [], a) --makeError offset "Lambda expression must have defined strict type!"
-checkLambdaFn True a@(LambdaFn offset capture retType args stmts) analyzer = do
+checkLambdaFn True a@(LambdaFn offset capture retType args stmts) = do
   args' <- checkFnArgs args
   addArgsScope offset args
   addScope "lambda"
@@ -108,7 +109,7 @@ checkLambdaFn True a@(LambdaFn offset capture retType args stmts) analyzer = do
   setCapture False
   retTmp <- gets rType
   setType retType
-  stmts' <- concat <$> mapM analyzer stmts  -- =<< checkReturn stmts
+  stmts' <- concat <$> mapM (injectAnalyzer functionStmtAnalyzerGetter) stmts  -- =<< checkReturn stmts
   setType retTmp
   nRet <- checkReturn stmts'
   cs <- toCaptureMode <$> gets useCapture
@@ -123,31 +124,33 @@ checkLambdaFn True a@(LambdaFn offset capture retType args stmts) analyzer = do
     checkReturn stmts 
       | retType /= VVoid = do
         r <- case last stmts of
-          ReturnFn o (Just e) -> aExprExtractType mockAExprAnalyzer (FunArg VAuto "") e
-          OtherFn o e -> aExprExtractType mockAExprAnalyzer (FunArg VAuto "") e
+          ReturnFn o (Just e) -> aExprExtractType (FunArg VAuto "") e
+          OtherFn o e -> aExprExtractType (FunArg VAuto "") e
           _ -> makeError offset $ CustomError "cant match return type in case Analyzer/AExpr 124"
         check offset r retType r r
       | otherwise = return VVoid
-checkNegBlock (Neg a) analyzer = do
-  (t, _, a') <- analyzer a
+      
+      
+checkNegBlock (Neg a) = do
+  (t, _, a') <- injectAnalyzer aExprAnalyzerGetter a
   return (t, [], addNeg a')
   where
     addNeg (IntConst o x)   = IntConst o (-x)
     addNeg (FloatConst o x) = FloatConst o (-x)
     addNeg x                = Neg x
 
-checkBracket :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
-checkBracket (ABracket o aExpr) analyzer = do
-  (t', inc, aExpr') <- analyzer aExpr
+checkBracket :: AExpr -> Analyzer' AExprRes
+checkBracket (ABracket o aExpr) = do
+  (t', inc, aExpr') <- injectAnalyzer aExprAnalyzerGetter aExpr
   return (t', inc, ABracket o aExpr')
 
-checkBracketApply :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
-checkBracketApply (ABracketApply o aExpr args) analyzer = do
-  args' <- fromMaybe [] <$> checkArgs [] (Just args) analyzer
-  argTypes <- mapM (aExprExtractType analyzer (FunArg VAuto "")) args'
+checkBracketApply :: AExpr -> Analyzer' AExprRes
+checkBracketApply (ABracketApply o aExpr args) = do
+  args' <- fromMaybe [] <$> checkArgs [] (Just args) 
+  argTypes <- mapM (aExprExtractType (FunArg VAuto "")) args'
   tmpType <- gets rType
   setType (VFn (argTypes ++ [VAuto]) CMAuto) 
-  (t', inc, aExpr') <- analyzer aExpr
+  (t', inc, aExpr') <- injectAnalyzer aExprAnalyzerGetter aExpr
   setType tmpType
   ret <-
     case t' of
@@ -155,15 +158,16 @@ checkBracketApply (ABracketApply o aExpr args) analyzer = do
       _        -> makeError o ApplyNotAFunction
   return (ret, inc, ABracketApply o aExpr' args')
 
-checkABinary :: AExpr -> AExprAnalyzer -> Analyzer' AExprRes
-checkABinary t@(ABinary op a b) aAnalyzer = do
+checkABinary :: AExpr -> Analyzer' AExprRes
+checkABinary t@(ABinary op a b) = do
+  let aAnalyzer = injectAnalyzer aExprAnalyzerGetter
   (ta, _, a') <- aAnalyzer a
   (tb, _, b') <- aAnalyzer b
   nType <- compareGens 0 ta tb
   return (nType, [], TypedABinary nType op a' b')
 
-checkIfStatement :: AExpr -> FnStmtAnalyzer -> BExprAnalyzer -> Analyzer' AExprRes
-checkIfStatement (If o ifs) analyzer bAnalyzer = do
+checkIfStatement :: AExpr -> Analyzer' AExprRes
+checkIfStatement (If o ifs) = do
   varName <- takeVarName
   (types, newIfs) <- unzip <$> mapM (makeIf varName) ifs
   let readyRetType = retType types
@@ -171,8 +175,8 @@ checkIfStatement (If o ifs) analyzer bAnalyzer = do
   return (readyRetType, newCache, Var o varName [] Nothing Nothing)
   where
     makeIf varName (cond, body) = do
-      cond' <- bAnalyzer cond
-      (aE, rest) <- unpackLastExpr . reverse . concat <$> mapM analyzer body
+      cond' <- injectAnalyzer bExprAnalyzerGetter cond
+      (aE, rest) <- unpackLastExpr . reverse . concat <$> mapM (injectAnalyzer functionStmtAnalyzerGetter) body
       let ret = reverse $ AssignFn (-1) (toVar varName) VBlank aE : rest
       return (aExprToType aE, (cond', ret))
     unpackLastExpr (OtherFn _ aE:rest) = (aE, rest)
@@ -203,7 +207,7 @@ checkFloatConst e@(FloatConst o f) = return (VFloat, [], e)
 checkStringConst :: AExpr -> Analyzer' AExprRes
 checkStringConst e@(StringVal o s) = return (VString, [], e)
 
-checkABool :: AExpr -> BExprAnalyzer -> Analyzer' AExprRes
-checkABool (ABool bExpr) analyzer = do
-  bExpr' <- analyzer bExpr
+checkABool :: AExpr -> Analyzer' AExprRes
+checkABool (ABool bExpr) = do
+  bExpr' <- injectAnalyzer bExprAnalyzerGetter bExpr
   return (VBool, [], ABool bExpr')

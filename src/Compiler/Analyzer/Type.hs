@@ -6,14 +6,25 @@ import           Control.Monad.Except
 import           Control.Monad.Identity         (Identity)
 import           Control.Monad.State            (StateT, get, gets, modify, put)
 import           Control.Monad.Writer           (WriterT)
+import           Control.Monad.Reader (ReaderT, asks)
 import           Data.List
 import           Data.Map                       (Map)
 import           Data.Maybe                     (fromJust, fromMaybe, listToMaybe)
 import           Debug.Trace
 
-type Analyzer' a = WriterT [String] (StateT Storage (Except AnalyzerException)) a
+type Analyzer' a = ReaderT Dependencies (WriterT [String] (StateT Storage (Except AnalyzerException))) a
 
 type Analyzer = Analyzer' [String]
+
+injectAnalyzer getter arg = asks getter >>= (\x -> x arg)
+
+data Dependencies = Dependencies
+  { aExprAnalyzerGetter :: AExpr -> Analyzer' AExprRes
+  , bExprAnalyzerGetter :: BExpr -> Analyzer' BExpr
+  , stmtAnalyzerGetter :: Stmt -> Analyzer' Stmt
+  , functionStmtAnalyzerGetter :: FunctionStmt -> Analyzer' [FunctionStmt]
+  , classStmtAnalyzerGetter :: ClassStmt -> Analyzer' ClassStmt
+  }
 
 data AnalyzerException
 --  = NotAClass String

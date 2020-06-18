@@ -6,7 +6,7 @@ import           Text.Megaparsec.Error    as Err
 import Text.Megaparsec
 import           AST
 import           Compiler.Importer
-import           Compiler.LexicalAnalyzer
+import           Compiler.SemanticAnalyzer
 import           Compiler.Parser
 import           Compiler.Translator
 import qualified Compiler.Translator.Type as TT
@@ -26,7 +26,7 @@ import qualified Data.Set           as Set
 
 compile dir main = do
   res <- importMain dir main 
-  case runExcept (evalStateT (runWriterT (analyze' res)) emptyStorage) of
+  case runExcept (evalStateT (runWriterT (runReaderT (analyze' res) getAnalyzers)) emptyStorage) of
     Right (a, w) -> do
       putStrLn "Compiling process ended succesfully!"
       let (a', w') = evalState (runWriterT (runReaderT (translate' a) getDependencies)) TT.emptyStorage

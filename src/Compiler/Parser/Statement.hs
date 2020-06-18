@@ -183,6 +183,7 @@ methodDeclarationParser =
         typeParser
     return $ NativeMethod o header (fromMaybe VAuto type') args
 
+
 classParser :: Parser ClassStmt -> Parser Stmt
 classParser classStmt = lexeme $ L.indentBlock scn p
   where
@@ -191,8 +192,17 @@ classParser classStmt = lexeme $ L.indentBlock scn p
       void (symbol "class")
       name <- identifier
       gen <- fromMaybe [] <$> optional generics
+      inheritance <- optional inheritanceParser
       void (symbolEnd "do")
       return (L.IndentSome Nothing (return . ClassExpr o name gen) classStmt)
+    inheritanceParser = do
+      void (symbol ":")
+      lexeme (sepBy1 c (symbol ","))
+    c = do
+      n <- identifier
+      gen <- fromMaybe [] <$> optional generics
+      return (n, gen)
+    
 
 --      gen <- return Nothing
 nativeClassParser :: Parser ClassStmt -> Parser Stmt

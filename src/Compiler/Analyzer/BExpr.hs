@@ -4,23 +4,23 @@ import Compiler.Analyzer.Type
 import AST
 import Control.Monad.Writer(tell)
 
-notAnalyzer :: BExpr -> BExprAnalyzer -> Analyzer' BExpr
-notAnalyzer (Not bExpr) analyzer = 
-  Not <$> analyzer bExpr
+notAnalyzer :: BExpr -> Analyzer' BExpr
+notAnalyzer (Not bExpr) = 
+  Not <$> injectAnalyzer bExprAnalyzerGetter bExpr
 
-boolVarAnalyzer :: BExpr -> AExprAnalyzer -> Analyzer' BExpr
-boolVarAnalyzer (BoolVar aExpr) analyzer = do
-  (_, _, a) <- analyzer aExpr
+boolVarAnalyzer :: BExpr -> Analyzer' BExpr
+boolVarAnalyzer (BoolVar aExpr) = do
+  (_, _, a) <- injectAnalyzer aExprAnalyzerGetter aExpr
   return $ BoolVar a
 
-rBinaryAnalyzer :: BExpr -> AExprAnalyzer -> Analyzer' BExpr
-rBinaryAnalyzer t@(RBinary op a b) analyzer = do
-  (_, _, a') <- analyzer a
-  (_, _, b') <- analyzer b
+rBinaryAnalyzer :: BExpr -> Analyzer' BExpr
+rBinaryAnalyzer t@(RBinary op a b) = do
+  (_, _, a') <- injectAnalyzer aExprAnalyzerGetter a
+  (_, _, b') <- injectAnalyzer aExprAnalyzerGetter b
   return $ RBinary op a' b'
 
-bBinaryAnalyzer :: BExpr -> BExprAnalyzer -> Analyzer' BExpr
-bBinaryAnalyzer (BBinary op a b) analyzer = do
-  a' <- analyzer a 
-  b' <- analyzer b
+bBinaryAnalyzer :: BExpr -> Analyzer' BExpr
+bBinaryAnalyzer (BBinary op a b) = do
+  a' <- injectAnalyzer bExprAnalyzerGetter a 
+  b' <- injectAnalyzer bExprAnalyzerGetter b
   return $ BBinary op a' b'

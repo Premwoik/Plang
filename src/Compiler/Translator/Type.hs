@@ -18,14 +18,14 @@ type Translator = ReaderT Dependencies Translator' [String]
 --type RTranslator' t a = ReaderT t Translator' a
 type Translator' = WriterT [String] (State Storage)
 
-type DPair = (VarType, ExecutableType)
-
--- vars, funcDec, classDec
-data ExecutableType
-  = ClassDecl
-  | FunctionDecl
-  | Instance
-  deriving (Show)
+--type DPair = (VarType, ExecutableType)
+--
+---- vars, funcDec, classDec
+--data ExecutableType
+--  = ClassDecl
+--  | FunctionDecl
+--  | Instance
+--  deriving (Show)
   
 injectTranslator getter arg = asks getter >>= (\x -> x arg)
 

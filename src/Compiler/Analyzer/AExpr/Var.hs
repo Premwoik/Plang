@@ -55,26 +55,26 @@ fixPtrGenInArgs gens (TypedVar n t a m) = TypedVar n newType a m
         Nothing   -> t
 fixPtrGenInArgs _ t = t
 
-checkArgs :: [VarType] -> Maybe [AExpr] -> AExprAnalyzer -> Analyzer' (Maybe [AExpr])
-checkArgs gen args analyzer =
+checkArgs :: [VarType] -> Maybe [AExpr] -> Analyzer' (Maybe [AExpr])
+checkArgs gen args =
   case args of
-    (Just a) -> Just . map (fixPtrGenInArgs gen . (\(_, _, x) -> x)) <$> mapM analyzer a
+    (Just a) -> Just . map (fixPtrGenInArgs gen . (\(_, _, x) -> x)) <$> mapM (injectAnalyzer aExprAnalyzerGetter) a
     Nothing -> return Nothing
 
 -- | filterARgsMatch args gen field
-filterArgsMatch :: Maybe [AExpr] -> [VarType] -> AExprAnalyzer -> ScopeField -> Analyzer' Bool
-filterArgsMatch Nothing _ _ SVar {} = return True
-filterArgsMatch Nothing [] _ SFunction {} = return True
-filterArgsMatch (Just a) gen analyzer v@SVar {} = maybeArgsMatchVar a gen analyzer v
-filterArgsMatch (Just args) gen analyzer f = maybeArgsMatch (Just args) gen analyzer f
-filterArgsMatch a g _ f = error (show a ++ " | " ++ show g ++ " | " ++ show f)
+filterArgsMatch :: Maybe [AExpr] -> [VarType] -> ScopeField -> Analyzer' Bool
+filterArgsMatch Nothing _ SVar {} = return True
+filterArgsMatch Nothing [] SFunction {} = return True
+filterArgsMatch (Just a) gen v@SVar {} = maybeArgsMatchVar a gen v
+filterArgsMatch (Just args) gen f = maybeArgsMatch (Just args) gen f
+filterArgsMatch a g f = error (show a ++ " | " ++ show g ++ " | " ++ show f)
 
 -- this function must have access to monad to check if lambdas is ok with given params
-maybeArgsMatchVar :: [AExpr] -> [VarType] -> AExprAnalyzer -> ScopeField -> Analyzer' Bool
-maybeArgsMatchVar args gen analyzer (SVar o n p (VFn t _) _) =
+maybeArgsMatchVar :: [AExpr] -> [VarType] -> ScopeField -> Analyzer' Bool
+maybeArgsMatchVar args gen (SVar o n p (VFn t _) _) =
   let funArgs = map (`FunArg` "") $ init t
-   in maybeArgsMatch (Just args) gen analyzer (SFunction o n p (last t) funArgs)
-maybeArgsMatchVar _ _ _ _ = return False
+   in maybeArgsMatch (Just args) gen (SFunction o n p (last t) funArgs)
+maybeArgsMatchVar _ _ _ = return False
 
 wrapAllocationMethod :: VarType -> Analyzer' VarType
 wrapAllocationMethod v = do
@@ -137,7 +137,7 @@ checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName =
       retBuilder newType (TypedVar (defaultPath p n) newType args'') more
     -- | name is function
     Just f@(SFunction _ n p t a) -> do
-      gen <- prepareFunctionGens gen f <$> zipWithM (aExprExtractType mockAExprAnalyzer) a (fromJust args')
+      gen <- prepareFunctionGens gen f <$> zipWithM aExprExtractType a (fromJust args')
       let t' = replaceGenWithType gen t 
       let args'' = args' >>= (Just . markNativePtr a)
       scope <- getFileName scopeName
@@ -166,27 +166,27 @@ checkVarMore (Var offset name _ args more) (VClass cName gen) args' retBuilder m
       retBuilder nType (TypedVar (defaultPath p n) nType args'') more
     x -> makeError offset $ ClassVariableMissing (unwrapVarName cName) name
 
-checkVar :: AExpr -> Maybe VarType -> String -> AExprAnalyzer -> Analyzer' AExprRes
-checkVar v@(Var offset name gen args more) wantedType scopeName analyzer =
+checkVar :: AExpr -> Maybe VarType -> String -> Analyzer' AExprRes
+checkVar v@(Var offset name gen args more) wantedType scopeName =
   case extractPtr wantedType of
     Just c@(VClass cName gen) -> do
-      args' <- checkArgs gen args analyzer
-      candidate <- listToMaybe <$> (filterM (filterArgsMatch args' gen analyzer) =<< findInClass cName name)
+      args' <- checkArgs gen args 
+      candidate <- listToMaybe <$> (filterM (filterArgsMatch args' gen ) =<< findInClass cName name)
       readyArgs <- updatePostProcessedArgs args'
       checkVarMore v c readyArgs retBuilder candidate
     Nothing -> do
-      args' <- checkArgs gen args analyzer
+      args' <- checkArgs gen args 
       r <- gets rType
       candidate <-
         detectCaptureInLambda =<<
-        (listToMaybe . checkFunPtr r <$> (filterM (filterArgsMatch args' gen analyzer) =<< find' [scopeName, name]))
+        (listToMaybe . checkFunPtr r <$> (filterM (filterArgsMatch args' gen ) =<< find' [scopeName, name]))
       readyArgs <- updatePostProcessedArgs args'
       checkVarFirst v readyArgs retBuilder candidate scopeName
     (Just x) -> makeError offset $ NotAClass name 
   where
     retBuilder :: RetBuilderT
     retBuilder type' var more = makeOutput type' var <$> handleMore more (Just type')
-    handleMore (Just m) x = Just <$> checkVar m x "" analyzer
+    handleMore (Just m) x = Just <$> checkVar m x "" 
     handleMore Nothing _  = return Nothing
     makeOutput _ wrapper (Just (v, i, m)) = (v, i, wrapper (Just m))
     makeOutput t wrapper Nothing          = (t, [], wrapper Nothing)

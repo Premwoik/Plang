@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Compiler.Translator where
+module Compiler.Translator(translate', getDependencies) where
 
 import           AST
 import           Compiler.Translator.Type

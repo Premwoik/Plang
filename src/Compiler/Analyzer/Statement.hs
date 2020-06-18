@@ -21,22 +21,22 @@ checkLinkPath :: Stmt -> Analyzer' Stmt
 -- TODO check if import path exist
 checkLinkPath t@(LinkPath _ p) = return t
 
-checkFunction :: Stmt -> FnStmtAnalyzer -> Analyzer' Stmt
-checkFunction f@(Function o n g t a body) bodyAnalyzer = do
+checkFunction :: Stmt -> Analyzer' Stmt
+checkFunction f@(Function o n g t a body) = do
   let nType = markGen t g
   let nArgs = markGenInArgs g a
-  (_, _, rg, rt, ra, rb) <- checkFunction' (o, n, g, nType, nArgs, body) bodyAnalyzer
+  (_, _, rg, rt, ra, rb) <- checkFunction' (o, n, g, nType, nArgs, body) 
   addFunction o n Nothing rt ra
   
   checkFunctionUniqueness o ["", n] rt ra
   return $ Function o n g rt ra rb
 
-checkMethod :: ClassStmt -> FnStmtAnalyzer -> Analyzer' ClassStmt
-checkMethod m@(Method o n t a body) bodyAnalyzer = do
+checkMethod :: ClassStmt -> Analyzer' ClassStmt
+checkMethod m@(Method o n t a body) = do
   gens <- getClassGens
   let nType = markGen t gens
   let nArgs = markGenInArgs gens a
-  (_, _, _, rt, ra, rb)  <- checkFunction' (o, n, [], nType, nArgs, body) bodyAnalyzer
+  (_, _, _, rt, ra, rb)  <- checkFunction' (o, n, [], nType, nArgs, body) 
   className <- gets cName
   addFunction o n Nothing rt ra 
   checkFunctionUniqueness o ["this", n] rt ra
@@ -45,29 +45,29 @@ checkMethod m@(Method o n t a body) bodyAnalyzer = do
       then Constructor o n ra rb
       else Method o n rt ra rb
 
-checkFunction' :: RawFunction -> FnStmtAnalyzer -> Analyzer' RawFunction
-checkFunction' (o, name, gen, type', args, body) bodyAnalyzer = do
+checkFunction' :: RawFunction -> Analyzer' RawFunction
+checkFunction' (o, name, gen, type', args, body) = do
   args' <- checkFnArgs args
   setType =<< fixNativeClassType type'
   addArgsScope o args
   setFunName name
   addScope "fun"
   mapM_ (addField . SGen VAuto) gen
-  checkedBody' <- concat <$> mapM bodyAnalyzer body
+  checkedBody' <- concat <$> mapM (injectAnalyzer functionStmtAnalyzerGetter) body
   nType <- gets rType
   removeScope
   removeScope
   return (o, name, gen, nType, args', checkedBody')
 
-checkReturn :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]
-checkReturn (ReturnFn o (Just aExpr)) analyzer = do
+checkReturn :: FunctionStmt -> Analyzer' [FunctionStmt]
+checkReturn (ReturnFn o (Just aExpr)) = do
   gen <- getClassGens
   funcType <- flip markGen gen <$> gets rType
-  (t, inject, res) <- analyzer aExpr
+  (t, inject, res) <- injectAnalyzer aExprAnalyzerGetter aExpr
   nType <- compareGens o t funcType
   setType nType
   return $ inject ++ [ReturnFn o (Just res)]
-checkReturn (ReturnFn o Nothing) analyzer = do
+checkReturn (ReturnFn o Nothing) = do
   gen <- getClassGens
   funcType <- flip markGen gen <$> gets rType
   nType <- compareGens o funcType VVoid
@@ -122,12 +122,12 @@ unwrapAllMethod x = x
 markNativePtr (VPointer t NativePtr, i, res) = (VPointer t SharedPtr, i, NativePtrRes res)
 markNativePtr x = x
 
-checkAssignFn :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]
-checkAssignFn a@(AssignFn o var@(Var vo vname [] Nothing Nothing) ret aExpr) analyzer = do
+checkAssignFn :: FunctionStmt -> Analyzer' [FunctionStmt]
+checkAssignFn a@(AssignFn o var@(Var vo vname [] Nothing Nothing) ret aExpr) = do
   s <- get
   retTmp <- gets rType
   setType ret
-  (type', inject, res) <- markNativePtr <$> analyzer aExpr
+  (type', inject, res) <- markNativePtr <$> injectAnalyzer aExprAnalyzerGetter aExpr
   setType retTmp
   firstSig <- listToMaybe <$> find' ["", vname]
   nType <-
@@ -140,14 +140,14 @@ checkAssignFn a@(AssignFn o var@(Var vo vname [] Nothing Nothing) ret aExpr) ana
   where
     add type' = addVar o vname Nothing (unwrapAllMethod type') "" >> check o type' ret type' type'
 
-checkAssignFn a@(AssignFn o nameExpr ret aExpr) analyzer =
+checkAssignFn a@(AssignFn o nameExpr ret aExpr) =
   case hasSet nameExpr aExpr of
     Just resExpr -> do
-      (nType, nInject, nRes) <- analyzer resExpr
+      (nType, nInject, nRes) <- injectAnalyzer aExprAnalyzerGetter resExpr
       return $ nInject ++ [OtherFn o nRes]
     Nothing -> do
-      (type', inject, res) <- markNativePtr <$> analyzer aExpr
-      (nType, nInject, nRes) <- analyzer nameExpr
+      (type', inject, res) <- markNativePtr <$> injectAnalyzer aExprAnalyzerGetter aExpr
+      (nType, nInject, nRes) <- injectAnalyzer aExprAnalyzerGetter nameExpr
       nType <- check o nType ret type' VBlank
       let assign = AssignFn o nRes nType res
       return $ nInject ++ inject ++ [assign]
@@ -167,16 +167,16 @@ checkAssignFn a@(AssignFn o nameExpr ret aExpr) analyzer =
   
 
 
-checkNativeAssign :: Stmt -> AExprAnalyzer -> Analyzer' Stmt
-checkNativeAssign s@(NativeAssignDeclaration o p n t) analyzer = do
+checkNativeAssign :: Stmt -> Analyzer' Stmt
+checkNativeAssign s@(NativeAssignDeclaration o p n t) = do
   addVar o n (Just p) t ""
   return s
 
 
-checkAssign :: Stmt -> AExprAnalyzer -> Analyzer' Stmt
-checkAssign (Assign o (Var _ name _ _ Nothing) ret aExpr) analyzer = do
+checkAssign :: Stmt -> Analyzer' Stmt
+checkAssign (Assign o (Var _ name _ _ Nothing) ret aExpr) = do
   setType ret
-  (type', inject, res) <- markNativePtr <$> analyzer aExpr
+  (type', inject, res) <- markNativePtr <$> injectAnalyzer aExprAnalyzerGetter aExpr
   firstSig <- listToMaybe <$> find' [name]
   nType <-
     case firstSig of
@@ -188,41 +188,35 @@ checkAssign (Assign o (Var _ name _ _ Nothing) ret aExpr) analyzer = do
   return $ Assign o (TypedVar (VName mergedNameWithScope) VAuto Nothing Nothing) nType res
   where
     add type' = addVar o name Nothing (unwrapAllMethod type') "g" >> check o type' ret type' type'
---    check wantedDecl wanted actual res
---      | wantedDecl == actual && (wanted == actual || wanted == VAuto) = return res
---      | otherwise =
---          makeError o $
---           "Types don't match. You tried2 to assign " ++
---           show actual ++ " when should be " ++ show wanted ++ ".\n" ++ show actual ++ " =/= " ++ show wanted
 
 
-checkWhile :: FunctionStmt -> FnStmtAnalyzer -> BExprAnalyzer -> Analyzer' [FunctionStmt]
-checkWhile t@(WhileFn o cond block) analyzer bAnalyzer = do
+checkWhile :: FunctionStmt -> Analyzer' [FunctionStmt]
+checkWhile t@(WhileFn o cond block) = do
   addScope "while"
-  cond' <- bAnalyzer cond
-  block' <- concat <$> mapM analyzer block
+  cond' <- injectAnalyzer bExprAnalyzerGetter cond
+  block' <- concat <$> mapM (injectAnalyzer functionStmtAnalyzerGetter) block
   removeScope
   return . return $ WhileFn o cond' block'
 
-checkIfFunction :: FunctionStmt -> FnStmtAnalyzer -> BExprAnalyzer -> Analyzer' [FunctionStmt]
-checkIfFunction t@(IfFn o ifs) analyzer bExprAnalyzer = do
+checkIfFunction :: FunctionStmt -> Analyzer' [FunctionStmt]
+checkIfFunction t@(IfFn o ifs) = do
   newIfs <- mapM makeIf ifs
   return [IfFn o newIfs]
   where
     makeIf (cond, body) = do
       addScope "if"
-      body' <- concat <$> mapM analyzer body
-      cond' <- bExprAnalyzer cond
+      body' <- concat <$> mapM (injectAnalyzer functionStmtAnalyzerGetter) body
+      cond' <- injectAnalyzer bExprAnalyzerGetter cond
       removeScope
       return (cond', body')
 
-checkFor :: FunctionStmt -> FnStmtAnalyzer -> AExprAnalyzer -> Analyzer' [FunctionStmt]
+checkFor :: FunctionStmt -> Analyzer' [FunctionStmt]
 -- TODO
-checkFor (ForFn o (Var vo n _ _ _) range body) fnAnalyzer aAnalyzer = do
-  (t, _, range') <- aAnalyzer range
+checkFor (ForFn o (Var vo n _ _ _) range body) = do
+  (t, _, range') <- injectAnalyzer aExprAnalyzerGetter range
   addVar vo n Nothing (itemType t) ""
   addScope "for"
-  body' <- concat <$> mapM fnAnalyzer body
+  body' <- concat <$> mapM (injectAnalyzer functionStmtAnalyzerGetter) body
   removeScope
   return [ForFn o (TypedVar (VName n) (itemType t) Nothing Nothing) range' body']
   where
@@ -231,31 +225,31 @@ checkFor (ForFn o (Var vo n _ _ _) range body) fnAnalyzer aAnalyzer = do
     itemType t = t
 
 -- | CLASS
-checkClass :: Stmt -> ClassStmtAnalyzer -> Analyzer' Stmt
-checkClass c@(ClassExpr o name gen body) analyzer = do
+checkClass :: Stmt -> Analyzer' Stmt
+checkClass c@(ClassExpr o name gen body) = do
   setClassName name
   addScope "this"
   mapM_ (addField . SGen VAuto) gen
-  body' <- mapM (analyzer name) body
+  body' <- mapM (injectAnalyzer classStmtAnalyzerGetter) body
   cScope <- removeScope
   addClass o name Nothing gen cScope
   return $ ClassExpr o name gen body'
 
 -- TODO
-checkNativeClass :: Stmt -> ClassStmtAnalyzer -> Analyzer' Stmt
-checkNativeClass c@(NativeClass o p name cast body) analyzer = do
+checkNativeClass :: Stmt -> Analyzer' Stmt
+checkNativeClass c@(NativeClass o p name cast body) = do
   setClassName name
   addScope "this"
   mapM_ (addField . SGen VAuto) cast
-  body' <- mapM (analyzer name) body
+  body' <- mapM (injectAnalyzer classStmtAnalyzerGetter) body
   cScope <- removeScope
   addClass o name (Just p) cast cScope
   return $ NativeClass o p name cast body'
 
-checkClassAssign :: ClassStmt -> AExprAnalyzer -> Analyzer' ClassStmt
-checkClassAssign aa@(ClassAssign o (Var oV name [] Nothing Nothing) ret aExpr) analyzer = do
+checkClassAssign :: ClassStmt -> Analyzer' ClassStmt
+checkClassAssign aa@(ClassAssign o (Var oV name [] Nothing Nothing) ret aExpr) = do
   setType ret
-  (type', inject, res) <- markNativePtr <$> analyzer aExpr
+  (type', inject, res) <- markNativePtr <$> injectAnalyzer aExprAnalyzerGetter aExpr
   gen <- getClassGens
   firstSig <- listToMaybe <$> find' ["this", name]
   nType <- unwrapAllMethod . flip markGen gen <$>
@@ -280,11 +274,11 @@ forceNoScopeMarker _ ("":_) = return ()
 forceNoScopeMarker o _ = makeError o NotAllowedScopeMarker
 
 -- | OTHER EXPR
-checkOtherExpr :: FunctionStmt -> AExprAnalyzer -> Analyzer' [FunctionStmt]
-checkOtherExpr (OtherFn o aExpr) analyzer = do
+checkOtherExpr :: FunctionStmt -> Analyzer' [FunctionStmt]
+checkOtherExpr (OtherFn o aExpr) = do
   retTmp <- gets rType
   setType VAuto
-  res <- trd <$> analyzer aExpr
+  res <- trd <$> injectAnalyzer aExprAnalyzerGetter aExpr
   setType retTmp
   return [OtherFn o res]
 
