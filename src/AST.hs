@@ -127,16 +127,50 @@ data Stmt
 --  FOR TRANSLATION ONLY
 --  -------------------------------------------------------
 data ClassStmt
-  = ClassAssign Int AExpr VarType AExpr
-  | Method Int String VarType [FunArg] [FunctionStmt]
-  | Constructor Int String [FunArg] [FunctionStmt]
+  = ClassAssign
+      { classAssignOffset  :: Int
+      , classAssignLeft    :: AExpr
+      , classAssignType    :: VarType
+      , classAssignDetails :: MethodDetails
+      , classAssignRight   :: AExpr
+      }
+  | Method
+      { methodOffset  :: Int
+      , methodName    :: String
+      , methodRet     :: VarType
+      , methodArgs    :: [FunArg]
+      , methodDetails :: MethodDetails
+      , methodBody    :: [FunctionStmt]
+      }
+  | Constructor
+      { constructorOffset :: Int
+      , constructorName   :: String
+      , constructorArgs   :: [FunArg]
+      , constructorBody   :: [FunctionStmt]
+      }
+  | ClassDecorator
+      { decOffset :: Offset
+      , decType   :: DecoratorType
+      , decStmt   :: ClassStmt
+      }
   -- | NATIVE
   | NativeMethod Int String VarType [FunArg]
   deriving (Show, Eq)
 
-data LambdaStmt
-  = AssignLambda Int AExpr VarType AExpr
-  | LambdaFunctionStmt FunctionStmt
+defaultMethodDetails = MethodDetails "public" False
+
+data MethodDetails =
+  MethodDetails
+    { visibilityMD :: String
+    , isOverrideMD :: Bool
+    }
+  deriving (Show, Eq)
+
+data DecoratorType
+  = PrivateDec
+  | PublicDec
+  | OverrideDec
+  | CustomDec String
   deriving (Show, Eq)
 
 --  FOR TRANSLATION ONLY

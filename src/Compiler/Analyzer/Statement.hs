@@ -36,7 +36,7 @@ checkFunction f@(Function o n g t a body) = do
   return $ Function o n g rt ra rb
 
 checkMethod :: ClassStmt -> Analyzer' ClassStmt
-checkMethod m@(Method o n t a body) = do
+checkMethod m@(Method o n t a details body) = do
   gens <- getClassGens
   let nType = markGen t gens
   let nArgs = markGenInArgs gens a
@@ -47,7 +47,7 @@ checkMethod m@(Method o n t a body) = do
   return $
     if className == n
       then Constructor o n ra rb
-      else Method o n rt ra rb
+      else Method o n rt ra details rb
 
 checkFunction' :: RawFunction -> Analyzer' RawFunction
 checkFunction' (o, name, gen, type', args, body) = do
@@ -203,6 +203,25 @@ checkFor (ForFn o (Var vo n _ _ _) range body) = do
     itemType t                                             = t
 
 -- | CLASS
+checkDecorator :: ClassStmt -> Analyzer' ClassStmt
+checkDecorator dec@(ClassDecorator offset name classStmt) =
+  case classStmt of
+    ClassDecorator {} -> updateStmt =<< injectAnalyzer classStmtAnalyzerGetter classStmt
+    _ -> injectAnalyzer classStmtAnalyzerGetter =<< updateStmt classStmt
+  where
+    updateStmt classStmt =
+      case (classStmt, name) of
+        (Method {}, PrivateDec) ->
+          return $ classStmt {methodDetails = (methodDetails classStmt) {visibilityMD = "private"}}
+        (Method {}, PublicDec) ->
+          return $ classStmt {methodDetails = (methodDetails classStmt) {visibilityMD = "public"}}
+        (Method {}, OverrideDec) -> return $ classStmt {methodDetails = (methodDetails classStmt) {isOverrideMD = True}}
+        (ClassAssign {}, PublicDec) ->
+          return $ classStmt {classAssignDetails = (classAssignDetails classStmt) {visibilityMD = "public"}}
+        (ClassAssign {}, PrivateDec) ->
+          return $ classStmt {classAssignDetails = (classAssignDetails classStmt) {visibilityMD = "private"}}
+        (_, x) -> makeError offset $ CustomError ("Custom decorators are unsupported yet - unsupported " ++ show x)
+
 checkClass :: Stmt -> Analyzer' Stmt
 checkClass c@(ClassExpr o name gen parents body) = do
   setClassName name
@@ -229,7 +248,8 @@ checkParentsUniqueness offset (SClass o n p g parents (Scope _ fields)) = do
       | length current == length (S.difference current acc) = return $ S.union acc current
       | otherwise =
         makeError offset $
-        CustomError $ "Members " ++ show (getNotUnique acc current) ++ " find in multiple parent classes of different type!"
+        CustomError $
+        "Members " ++ show (getNotUnique acc current) ++ " find in multiple parent classes of different type!"
     getNotUnique acc current = current S.\\ S.difference current acc
 
 -- TODO
@@ -244,7 +264,7 @@ checkNativeClass c@(NativeClass o p name cast body) = do
   return $ NativeClass o p name cast body'
 
 checkClassAssign :: ClassStmt -> Analyzer' ClassStmt
-checkClassAssign aa@(ClassAssign o (Var oV name [] Nothing Nothing) ret aExpr) = do
+checkClassAssign aa@(ClassAssign o (Var oV name [] Nothing Nothing) ret details aExpr) = do
   setType ret
   (type', inject, res) <- markNativePtr <$> injectAnalyzer aExprAnalyzerGetter aExpr
   gen <- getClassGens
@@ -257,7 +277,7 @@ checkClassAssign aa@(ClassAssign o (Var oV name [] Nothing Nothing) ret aExpr) =
   addVar o name Nothing nType "this"
   let name' = concat . scaleNameWithScope $ "this" : [name]
   let newLeft = ScopeMark oV "this" (TypedVar (VName name') VAuto Nothing Nothing)
-  return $ ClassAssign o newLeft nType res
+  return $ ClassAssign o newLeft nType details res
   where
     check a b
       | b == VBlank = return a

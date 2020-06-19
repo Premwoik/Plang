@@ -128,6 +128,16 @@ assignParser lAExpr aExpr wrapper = lexeme $ do
     void (symbol "=")
     wrapper o var (fromMaybe VAuto type') <$> aExpr
     
+classAssignParser :: (Parser AExpr -> Parser AExpr) -> Parser AExpr -> Parser ClassStmt
+classAssignParser lAExpr aExpr = lexeme $ do
+   o <- getOffset
+   var <- lAExpr aExpr
+   type' <- optional $ do
+       void (symbol ":")
+       typeParser
+   void (symbol "=")
+   ClassAssign o var (fromMaybe VAuto type') defaultMethodDetails <$> aExpr
+     
    
 assignOrOtherParser:: (Parser AExpr -> Parser AExpr) -> Parser AExpr -> Parser FunctionStmt
 assignOrOtherParser lAExpr aExpr = do
@@ -154,7 +164,7 @@ defaultAssignParser =
     type' <-
       do void (symbol ":")
          typeParser
-    return $ ClassAssign o (Var o var [] Nothing Nothing) type' Nop
+    return $ ClassAssign o (Var o var [] Nothing Nothing) type' defaultMethodDetails Nop
 
 nativeAssignDeclParser :: Parser Stmt
 nativeAssignDeclParser =
@@ -168,6 +178,19 @@ nativeAssignDeclParser =
         void (symbol ":")
         typeParser
     return $ NativeAssignDeclaration o path name (fromMaybe VAuto type')
+
+decoratorParser :: Parser ClassStmt -> Parser ClassStmt
+decoratorParser bodyParser = lexeme $ do
+  o <- getOffset
+  void (symbol "@")
+  name <- matchName <$> identifier 
+  ClassDecorator o name <$> bodyParser
+  where
+    matchName n = case n of
+      "override" -> OverrideDec
+      "private" -> PrivateDec
+      "public" -> PublicDec 
+      x -> CustomDec x
 
 methodDeclarationParser :: Parser ClassStmt
 methodDeclarationParser =

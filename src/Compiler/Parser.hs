@@ -46,16 +46,15 @@ functionStmt =
   whileStmt bExpr WhileFn functionStmt <|>
   fullIfFuncParser bExpr functionStmt <|>
   caseStmtParser aExprExtended functionStmt <|>
-  assignOrOtherParser leftParser aExprExtended 
+  assignOrOtherParser leftParser aExprExtended
 
 leftParser x = try ((scopeMarkParser . varLeftAssignParser) x) <|> varLeftAssignParser x
 
-
 classStmt :: Parser ClassStmt
 classStmt =
-  try (assignParser varLeftAssignParser aExprExtended ClassAssign) <|> try defaultAssignParser <|>
+  decoratorParser classStmt <|> try (classAssignParser leftParser aExprExtended) <|> try defaultAssignParser <|>
   methodDeclarationParser <|>
-  ((\(Function o a _ b c d) -> Method o a b c d) <$> functionParser functionStmt)
+  ((\(Function o a _ b c d) -> Method o a b c defaultMethodDetails d) <$> functionParser functionStmt)
 
 aExpr :: Parser AExpr
 aExpr = makeExprParser aTerm aOperators
@@ -75,8 +74,8 @@ aOperators =
     , InfixL ((\x y -> ABool (RBinary NotEqual x y)) <$ hidden (symbol "!="))
     , InfixL ((\x y -> ABool (RBinary Greater x y)) <$ hidden (symbol ">"))
     , InfixL ((\x y -> ABool (RBinary Less x y)) <$ hidden (symbol "<"))
-    , InfixL ((\x y -> ABool (RBinary EqGreater x y)) <$ hidden(symbol ">="))
-    , InfixL ((\x y -> ABool (RBinary EqLess x y)) <$ hidden(symbol "=<"))
+    , InfixL ((\x y -> ABool (RBinary EqGreater x y)) <$ hidden (symbol ">="))
+    , InfixL ((\x y -> ABool (RBinary EqLess x y)) <$ hidden (symbol "=<"))
     ]
   ]
 
@@ -98,7 +97,7 @@ aTerm =
 --  <|> ABool <$> bExpr
 aTermExtended :: Parser AExpr
 aTermExtended =
-  bracketParser aExprExtended <|> try (scopeMarkParser aExprExtended) <|> try (varExtendedParser aExprExtended)  <|>
+  bracketParser aExprExtended <|> try (scopeMarkParser aExprExtended) <|> try (varExtendedParser aExprExtended) <|>
   try (listParser aExprExtended) <|>
   rangeParser aExpr <|>
   try floatParser <|>

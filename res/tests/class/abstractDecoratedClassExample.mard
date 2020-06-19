@@ -6,6 +6,12 @@ class Base do
   def print2 arg: string -> void
 
 class ThisTest : Base do
+  @private
+  t = 10
+
+  @private
+  test -> void do
+    pass
 
   ThisTest do
     test()
@@ -15,12 +21,10 @@ class ThisTest : Base do
     pass
 
   @override
+  @private
   print2 arg: string -> void do
     pass
 
-  @private
-  test -> void do
-    print("Jestem prywatny")
 
 main -> int do
   a = ThisTest()

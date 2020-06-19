@@ -84,6 +84,7 @@ functionStmtAnalyzer s =
 classStmtAnalyzer :: ClassStmt -> Analyzer' ClassStmt
 classStmtAnalyzer s =
   case s of
+    t@ClassDecorator {} -> checkDecorator t
     t@ClassAssign {} -> checkClassAssign t 
     t@Method {}         -> checkMethod t 
     t@NativeMethod {}   -> checkMethodDeclaration t

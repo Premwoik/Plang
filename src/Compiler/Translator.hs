@@ -90,7 +90,7 @@ classStmtTranslator :: ClassStmt -> Translator
 classStmtTranslator c =
   case c of
     t@ClassAssign {}  -> classAssignTranslator t
-    Method o a b c d  -> functionTranslator $ Function o a [] b c d
+    t@Method {}  -> methodTranslator t
     t@Constructor {}  -> constTranslator t
     t@NativeMethod {} -> abstractFunctionTranslator t
 

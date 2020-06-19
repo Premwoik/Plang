@@ -32,17 +32,27 @@ void printMemStats() {
 class range {
 public:
   int this___start = 0;
+
+public:
   int this___end = 0;
+
+public:
   int this___step = 1;
+
+public:
   range(int args___start, int args___end) {
     this___start = args___start;
     this___end = args___end;
   }
+
+public:
   range(int args___start, int args___end, int args___step) {
     this___start = args___start;
     this___end = args___end;
     this___step = args___step;
   }
+
+public:
   ArrayList<int> toList() {
     int len = (this___end - this___start);
     return ArrayList<int>();
@@ -79,16 +89,28 @@ void runTasks();
 class Task {
 public:
   nonstd::function<void(int)> this___fun;
+
+public:
   uint32_t this___time;
+
+public:
   int this___pin;
+
+public:
   Task() {}
+
+public:
   Task(nonstd::function<void(int)> args___fun, int args___pin,
        uint32_t args___time) {
     this___pin = args___pin;
     this___fun = args___fun;
     this___time = args___time;
   }
+
+public:
   void runFun() { this___fun(this___pin); }
+
+public:
   uint32_t getTime() { return this___time; }
 };
 ArrayList<Task> g___tasks = ArrayList<Task>();
