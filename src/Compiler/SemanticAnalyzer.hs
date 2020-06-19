@@ -52,8 +52,8 @@ catalogueDecl modName p (AST stmts) = map mapper . filter cond $ stmts
     cond _            = False
     mapper (Function o n _ t a _) = SFunction (FileInfo o modName p) n Nothing t a
     mapper (NativeFunction o p n _ t a) = SFunction (FileInfo o modName p) n (Just p) t a
-    mapper (NativeClass o p n g _) = SClass (FileInfo o modName p) n (Just p) g (Scope n []) 
-    mapper (ClassExpr o n g _)  = SClass (FileInfo o modName p) n Nothing g (Scope n []) 
+    mapper (NativeClass o p n g _) = SClass (FileInfo o modName p) n (Just p) g [] (Scope n []) 
+    mapper (ClassExpr o n g ps _)  = SClass (FileInfo o modName p) n Nothing g ps (Scope n []) 
 
 statementAnalyzer :: Stmt -> Analyzer' Stmt
 statementAnalyzer s =

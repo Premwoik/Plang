@@ -7,13 +7,20 @@ import AST
 import Debug.Trace
 
 
---  TODO replace mock with real feature
---  TODO add generics support (as template)
 classTranslator :: Stmt -> Translator
-classTranslator (ClassExpr _ name generics block) = do
+classTranslator (ClassExpr _ name generics parents block) = do
   block' <- blockTranslator' (injectTranslator classStmtTranslatorGetter) block
-  return . concat $ [[translateGenerics generics],["class " ++ name ++ "{\npublic:\n"], block', ["};\n"]]
-    
+  return . concat $ [[translateGenerics generics],["class " ++ name ++ translateInheritance parents ++ "{\npublic:\n"], block', ["};\n"]]
+
+translateInheritance :: [VarType] -> String
+translateInheritance [] = ""
+translateInheritance parens = " : " ++ (intercalate "," . map translateGen $ parens)
+  where
+    genStr' [] = ""
+    genStr' g =  "<" ++ (intercalate ", " . map translateGen) g ++ ">"
+    translateGen (VClass n g) = "public " ++ unwrapVarName n ++ genStr' g
+    translateGen g = typeToString g
+
 classAssignTranslator :: ClassStmt -> Translator
 -- Only declaration without assigning value
 classAssignTranslator (ClassAssign _ name type' Nop) = do
@@ -43,8 +50,6 @@ classAssignTranslator (ClassAssign _ name type' (TypedVar cName (VClass t gen) (
      translateGen (VClass n g) = unwrapVarName n ++ genStr' g
      translateGen g = typeToString g
      
-
-     
 -- Default assign
 classAssignTranslator (ClassAssign _ name type' expr) = do
   let t = typeToString type'
@@ -59,3 +64,7 @@ constTranslator (Constructor _ name args block) = do
   readyBlock <- blockTranslator' (injectTranslator fnStmtTranslatorGetter) block
   return . concat $ [[name ++ "(" ++ readyArgs ++ "){\n"] ++ readyBlock ++ ["}\n"]]
 
+abstractFunctionTranslator :: ClassStmt -> Translator
+abstractFunctionTranslator (NativeMethod o n r a) = do
+  let readyArgs = argumentsTranslator a
+  return . concat $ [["virtual " ++ typeToString r ++ " " ++ n ++ "(" ++ readyArgs ++ ") = 0;\n"]]

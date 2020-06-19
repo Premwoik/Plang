@@ -1,0 +1,28 @@
+class Base do
+  Base do
+    pass
+
+  def print arg: string -> void
+  def print2 arg: string -> void
+
+class ThisTest : Base do
+
+  ThisTest do
+    test()
+
+  @override
+  print arg: string -> void do
+    pass
+
+  @override
+  print2 arg: string -> void do
+    pass
+
+  @private
+  test -> void do
+    print("Jestem prywatny")
+
+main -> int do
+  a = ThisTest()
+  a.print2("12")
+  a.print("12")

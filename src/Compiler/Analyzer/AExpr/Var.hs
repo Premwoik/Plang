@@ -6,6 +6,7 @@ import           AST
 import           Compiler.Analyzer.Browser
 import           Compiler.Analyzer.Error
 import           Compiler.Analyzer.Type
+import Compiler.Analyzer.Universal
 import           Compiler.Analyzer.UniversalCheckers (checkTypesMatchGens)
 import           Control.Monad                       (filterM, zipWithM)
 import           Control.Monad.State                 (get, gets, modify, put)
@@ -124,13 +125,13 @@ checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName =
       let funArgs = map (`FunArg` "") $ init t
       checkVarFirst var args' retBuilder (Just (SFunction i n p (last t) funArgs)) s
     -- | name is class
-    Just cl@(SClass _ n p g sc) -> do
+    Just cl@(SClass _ n p g ps sc) -> do
       if length g == length gen
         then return ()
         else makeError offset $ GenericMissing (show g)
       let gen' = zipWith VGenPair g gen
       checkTypesMatchGens offset sc gen'
-      constructor <- filterConstructor args' gen' cl
+      constructor <- filterConstructor offset args' gen' cl
       let (SFunction o n _ _ cArgs) = constructor
       let args'' = args' >>= (Just . markNativePtr cArgs)
       newType <- wrapAllocationMethod $ VClass (VName n) (markClassAsPointer gen')
@@ -192,14 +193,6 @@ checkVar v@(Var offset name gen args more) wantedType scopeName =
     makeOutput t wrapper Nothing          = (t, [], wrapper Nothing)
 
 
--- | `replaceGenWithType` replace generic type with strict defined in gen list
--- 
--- @signature@ replaceGenWithType @gen[VGenPair{}] @genType
-replaceGenWithType :: [VarType] -> VarType -> VarType
-replaceGenWithType gen (VGen t) = unwrapGen . fromJust . find name $ gen
-  where
-   name (VGenPair n _) = n == t
-replaceGenWithType _ t = t
 
 detectCaptureInLambda :: Maybe ScopeField -> Analyzer' (Maybe ScopeField)
 detectCaptureInLambda v@(Just (SVar _ n _ t s)) = do

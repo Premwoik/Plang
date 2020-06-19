@@ -1,0 +1,10 @@
+class Ethernet do
+  Ethernet do
+    pass
+
+native class "" MessageProcessor do
+  def MessageProcessor client: cptr Ethernet
+
+main -> int do
+  e: ptr Ethernet = Ethernet()
+  proc = MessageProcessor(e)

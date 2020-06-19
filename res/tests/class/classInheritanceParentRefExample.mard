@@ -1,0 +1,21 @@
+class Base do
+  Base do
+    pass
+  print arg: string -> void do
+    pass
+class Base2 do
+  Base2 do
+    pass
+  print1 arg: string -> void do
+    pass
+
+class ThisTest : Base, Base2 do
+   ThisTest do
+      pass
+
+tester b: Base, txt: string -> void do
+  b.print(txt)
+
+main -> int do
+  a = ThisTest()
+  tester(a, "JD")

@@ -5,14 +5,15 @@ module Compiler.Analyzer.Browser where
 import           AST
 import           Compiler.Analyzer.Error
 import           Compiler.Analyzer.Type
-import           Control.Monad           (mapM, zipWithM)
-import           Control.Monad.Except    (throwError)
-import           Control.Monad.State     (get, gets)
-import           Data.List               (group)
-import qualified Data.List               as L
-import qualified Data.Map                as Map
-import           Data.Maybe              (fromJust, isJust, listToMaybe,
-                                          maybeToList)
+import           Compiler.Analyzer.Universal
+import           Control.Monad               (mapM, zipWithM, filterM)
+import           Control.Monad.Except        (throwError)
+import           Control.Monad.State         (get, gets)
+import           Data.List                   (group)
+import qualified Data.List                   as L
+import qualified Data.Map                    as Map
+import           Data.Maybe                  (fromJust, isJust, listToMaybe,
+                                              maybeToList)
 import           Debug.Trace
 
 find' :: [String] -> Analyzer' [ScopeField]
@@ -36,17 +37,28 @@ fixNativeClassType it@(VClass (VName n) gen) = do
   cl <- listToMaybe <$> find' [n]
   return $
     case cl of
-      Just (SClass _ _ (Just path) _ _) -> VClass (VNameNative n path) gen
-      _                                 -> it
+      Just (SClass _ _ (Just path) _ _ _) -> VClass (VNameNative n path) gen
+      _                                   -> it
 fixNativeClassType x = return x
 
+fixArgsNativeClassType :: [FunArg] -> Analyzer' [FunArg]
+fixArgsNativeClassType = mapM fixer
+  where
+    fixer (FunArg t n) = do
+      nt <- fixNativeClassType t
+      return $ FunArg nt n
+
+-- | 'findInClass' function searching only in class scope
 findInClass :: VarName -> String -> Analyzer' [ScopeField]
 findInClass cName name = do
   c <- listToMaybe <$> find' [unwrapVarNameForce cName]
-  return $
-    case c of
-      Just (SClass o _ _ gen s) -> searchInScope name s
-      Nothing                   -> []
+  case c of
+    Just (SClass o _ _ gen parents s) -> searchDeeper (searchInScope name s) parents
+    Nothing -> return []
+  where
+    searchDeeper :: [ScopeField] -> [VarType] -> Analyzer' [ScopeField]
+    searchDeeper res [] = return res
+    searchDeeper res p = L.nub . concat . (:) res <$> mapM ((`findInClass` name) . unwrapClassName) p
 
 getFileName :: String -> Analyzer' String
 getFileName alias = do
@@ -87,6 +99,37 @@ isVarInLambda name = do
     isLambdaScope (Scope n _) = n == "lambda"
     isLambdaScope _           = False
 
+-- | 'compareTypes' should be used to compare types with polymorphism check
+--  compareTypes lowerClass upperClass
+--  @lowerClass@ -
+--  @upperClass@ -
+compareTypes :: Offset -> VarType -> VarType -> Analyzer' Bool
+compareTypes o (VRef t) (VRef t2) = compareTypes o t t2
+compareTypes o (VPointer t _) (VPointer t2 _) = compareTypes o t t2
+compareTypes o c1@(VClass n g1) c2@(VClass n2 g2)
+  | unwrapVarNameForce n == unwrapVarNameForce n2 && g1 == g2 = return True
+  | otherwise = do
+    p <- getClassInheritance c2
+    case L.find (\x -> unwrapClassName x == n) p of
+      Just rc@(VClass rn rg) ->
+        if rg == g1
+          then return True
+          else makeError o $ AssignTypesMismatch c1 rc
+      Nothing -> return False
+compareTypes _ a b = return $ a == b
+
+-- | 'getClassInheritance' -
+getClassInheritance :: VarType -> Analyzer' [VarType]
+getClassInheritance (VClass n g) = do
+  cl <- listToMaybe <$> find' ["", unwrapVarName n]
+  case cl of
+    Just (SClass o n p gen parents s) -> do
+      let typedGen = addTypeToGens g gen
+      let typedParents = map (replaceGenWithType typedGen) parents
+      res <- L.nub . concat <$> mapM getClassInheritance typedParents
+      return $ VClass (VName n) typedGen : res
+    Nothing -> makeError 0 $ CustomError $ "Can't find class with name - " ++ show n
+
 searchNameInScopes :: String -> Scopes -> [ScopeField]
 searchNameInScopes name = concatMap (searchInScope name)
 
@@ -94,8 +137,8 @@ searchInScope :: String -> Scope -> [ScopeField]
 searchInScope name scope = filter cond (unwrapFields scope)
   where
     cond (SFunction o n _ t a_) = n == name
-    cond (SVar o n _ t __)      = n == name
-    cond (SClass o n _ g s_)    = n == name
+    cond (SVar o n _ t _)       = n == name
+    cond (SClass o n _ g _ s)   = n == name
     cond _                      = False
 
 unwrapFields (Scope _ s)    = s
@@ -115,33 +158,11 @@ getScope :: String -> Scopes -> Maybe Scope
 getScope name = L.find (\s -> name == unwrapName s)
 
 ----    MATCH
-checkFunctionUniqueness o name t args = do
-  fns <- find' name
-  noVarWithSameName fns
-  allReturnTheSame fns
-  notSameArguments fns
-  where
-    noVarWithSameName fns =
-      if all isFunction fns
-        then return ()
-        else makeError o $ VariableWithSameName (show name)
-    allReturnTheSame fns =
-      if all (\(SFunction o n p t' a) -> t == t') fns
-        then return ()
-        else makeError o $ FunctionDifferentReturnType (show name) fns t
-    notSameArguments fns =
-      if all (\g -> length g == 1) .
-         group .
-         map (\(SFunction _ _ _ _ a) -> map (\(FunArg t _) -> t) a) . filter (\(SFunction i _ _ _ _) -> fOffset i <= o) $
-         fns
-        then return ()
-        else makeError o $ FunctionRepetition fns
-
 maybeArgsMatch :: Maybe [AExpr] -> [VarType] -> ScopeField -> Analyzer' Bool
 maybeArgsMatch (Just args) gen s = do
   args' <- prepareArgs
   let gen' = prepareFunctionGens gen s args'
-  return $ argsMatch args' gen' s
+  argsMatch args' gen' s
   where
     prepareArgs =
       case s of
@@ -165,32 +186,41 @@ prepareFunctionGens [] (SFunction _ n _ _ fargs) args = genMap
     check acc _ = acc
 prepareFunctionGens gens _ _ = gens
 
-argsMatch :: [VarType] -> [VarType] -> ScopeField -> Bool
+argsMatch :: [VarType] -> [VarType] -> ScopeField -> Analyzer' Bool
 argsMatch t gen (SFunction _ _ _ _ args) = argsMatch' t (fixArgs gen args)
-argsMatch t gen (SClass _ n _ g (Scope _ s)) = any (match (mergeGen g)) s
+argsMatch t gen (SClass _ n _ g _ (Scope _ s)) = or <$> mapM (match (mergeGen g)) s
   where
-    match gen (SFunction o n' _ _ args) = n' == n && constructorArgsMatch t (fixArgs gen args)
-    match _ _ = False
+    match gen (SFunction o n' _ _ args) = (\x -> return ((n' == n) && x))  =<< constructorArgsMatch t (fixArgs gen args)
+    match _ _ = return False
     mergeGen gns = zipWith VGenPair gns gen
 
-argsMatch' :: [VarType] -> [FunArg] -> Bool
-argsMatch' t args = (length t == length args) && all match (zip t args)
+argsMatch' :: [VarType] -> [FunArg] -> Analyzer' Bool
+argsMatch' t args = do
+  let lenCheck = length t == length args
+  argsCheck <- and <$> mapM match (zip t args)
+  return $ lenCheck && argsCheck
   where
-    match (VClass (VName "ArrayList") [t], FunArg (VPointer t2 NativePtr) _) = t == t2
-    match (w, FunArg ot _) = w == ot
+    match (VClass (VName "ArrayList") [t], FunArg (VPointer t2 NativePtr) _) = compareTypes 0 t t2
+    match (w, FunArg ot _) = compareTypes 0 ot w
 
-constructorArgsMatch :: [VarType] -> [FunArg] -> Bool
-constructorArgsMatch t args = (length t == length args) && all match (zip t args)
+constructorArgsMatch :: [VarType] -> [FunArg] -> Analyzer' Bool
+constructorArgsMatch t args = do
+  let lenCheck = length t == length args
+  argsCheck <- and <$> mapM match (zip t args)
+  return $ lenCheck && argsCheck
   where
-    match (w, FunArg ot _) = w == ot
+    match (w, FunArg ot _) = compareTypes 0 ot w
 
-filterConstructor :: Maybe [AExpr] -> [VarType] -> ScopeField -> Analyzer' ScopeField
-filterConstructor (Just args) gen (SClass _ n _ _ (Scope _ s)) = do
+filterConstructor :: Offset -> Maybe [AExpr] -> [VarType] -> ScopeField -> Analyzer' ScopeField
+filterConstructor o (Just args) gen (SClass _ n _ _ _ (Scope _ s)) = do
   argsT <- mapM (aExprExtractType (FunArg VAuto "")) args
-  return . head . filter (match argsT) $ s
+  res <- listToMaybe <$> filterM (match argsT) s
+  case res of
+    Just c -> return c
+    Nothing -> makeError o $ CustomError $ "Cant find constructor that takes such args - " ++ show args ++ "in class with name: " ++ n
   where
-    match argsT (SFunction o n' _ _ args) = n' == n && constructorArgsMatch argsT (fixArgs gen args)
-    match _ _ = False
+    match argsT (SFunction o n' _ _ args) = (\x -> return ((n' == n) && x))  =<< constructorArgsMatch argsT (fixArgs gen args)
+    match _ _ = return False
 
 --
 fixArgs :: [VarType] -> [FunArg] -> [FunArg]

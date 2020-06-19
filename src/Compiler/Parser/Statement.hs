@@ -192,16 +192,16 @@ classParser classStmt = lexeme $ L.indentBlock scn p
       void (symbol "class")
       name <- identifier
       gen <- fromMaybe [] <$> optional generics
-      inheritance <- optional inheritanceParser
+      parents <- fromMaybe [] <$> optional inheritanceParser
       void (symbolEnd "do")
-      return (L.IndentSome Nothing (return . ClassExpr o name gen) classStmt)
+      return (L.IndentSome Nothing (return . ClassExpr o name gen parents) classStmt)
     inheritanceParser = do
       void (symbol ":")
       lexeme (sepBy1 c (symbol ","))
     c = do
       n <- identifier
-      gen <- fromMaybe [] <$> optional generics
-      return (n, gen)
+      gen <- fromMaybe [] <$> optional generics'
+      return $ VClass (VName n) gen
     
 
 --      gen <- return Nothing

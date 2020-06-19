@@ -110,8 +110,8 @@ data Stmt
   = Function Int String [String] VarType [FunArg] [FunctionStmt]
   -- | Import offset alias path
   | Import Int String [String]
-  -- | ClassExpr offset name generics body
-  | ClassExpr Int String [String] [ClassStmt]
+  -- | ClassExpr offset name generics parents body
+  | ClassExpr Int String [String] [VarType] [ClassStmt]
   -- | Skip offset
   | Skip Int
   -- | Assign offset leftAExpr type rightAExpr
@@ -274,7 +274,7 @@ instance Eq VarType where
   VFloat == VInt = True
   VBlank == VBlank = True
   VFn x1 _ == VFn x2 _ = x1 == x2
-  (VClass n g) == (VClass n2 g2) = n == n && g == g2
+  (VClass n g) == (VClass n2 g2) = unwrapVarNameForce n == unwrapVarNameForce n2 && g == g2
   (VGen n) == (VGen n2) = n == n2
   (VGen n) == (VClass n2 _) = eqClassName n n2
   (VClass n2 _) == (VGen n) = eqClassName n n2
@@ -322,6 +322,8 @@ type BodyBlock = [Stmt]
 data FunArg =
   FunArg VarType String
   deriving (Show, Eq)
+
+unwrapClassName (VClass n _) = n
 
 unwrapVarName (VName n)          = n
 unwrapVarName (VNameNative n "") = n

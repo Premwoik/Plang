@@ -87,6 +87,10 @@ public:
         }
         return *this;
     }
+
+    T* getNativePtr(){
+        return pData;
+    }
 };
 
 #endif //MT_TEST_SHARED_PTR_H

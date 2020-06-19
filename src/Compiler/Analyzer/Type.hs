@@ -54,7 +54,7 @@ data Scope
   = Scope String [ScopeField]
   -- | FScope alias fullName fields
   | FScope String String [ScopeField]
-  deriving (Show)
+  deriving (Show, Eq)
 
 data FileScopes =
   FileScope String Scopes
@@ -76,12 +76,18 @@ data ScopeField
   = SFunction FileInfo String (Maybe String) VarType [FunArg]
   -- | SVar ord name path type scope
   | SVar FileInfo String (Maybe String) VarType String
-  -- | SClass ord name path gen scope
-  | SClass FileInfo String (Maybe String) [String] Scope
+  -- | SClass ord name path gen parents(only VClass) scope 
+  | SClass FileInfo String (Maybe String) [String] [VarType] Scope
   -- | SConstructor function class
   -- | SGen type name
   | SGen VarType String
-  deriving (Show)
+  deriving (Show, Eq)
+
+getFieldName f = case f of
+  SFunction _ n _ _ _ -> n
+  SVar _ n _ _ _ -> n
+  SClass _ n _ _ _ _ -> n
+  SGen _ n -> n
   
 getModInfo :: Offset -> Analyzer' FileInfo
 getModInfo offset = do
@@ -159,29 +165,30 @@ getScopeName =
     unwrap (Just (Scope n _)) = n
     unwrap Nothing = ""
 
-addField :: ScopeField -> Analyzer' ()
+addField :: ScopeField -> Analyzer' ScopeField
 addField field = do
   s <- gets scopes
   modify (\storage -> storage {scopes = add (head s) : tail s})
+  return field
   where
     add s@(Scope n f)
       | isInScope field s = updateField field s
       | otherwise = Scope n (field : f)
 
-addFunction :: Int -> String -> Maybe String -> VarType -> [FunArg] -> Analyzer' ()
+addFunction :: Int -> String -> Maybe String -> VarType -> [FunArg] -> Analyzer' ScopeField
 addFunction offset name path type' args = do
   mod <- getModInfo offset
   addField $ SFunction mod name path type' args
 
-addVar :: Int -> String -> Maybe String -> VarType -> String -> Analyzer' ()
+addVar :: Int -> String -> Maybe String -> VarType -> String -> Analyzer' ScopeField
 addVar offset name path type' scopeName = do
   mod <- getModInfo offset
   addField $ SVar mod name path type' scopeName
 
-addClass :: Int -> String -> Maybe String -> [String] -> Scope -> Analyzer' ()
-addClass offset name path gen scope = do
+addClass :: Int -> String -> Maybe String -> [String] -> [VarType] -> Scope -> Analyzer' ScopeField
+addClass offset name path gen parents scope = do
   mod <- getModInfo offset
-  addField $ SClass mod name path gen scope
+  addField $ SClass mod name path gen parents scope
 
 addPostAExpr :: AExpr -> Analyzer' ()
 addPostAExpr aExpr = modify (\s -> s {postAExpr = aExpr : postAExpr s})
@@ -267,7 +274,7 @@ updateField f (Scope n fs) = Scope n $ map (updater f) fs
   where
     updater a@(SFunction o1 _ _ _ _) b@(SFunction o2 _ _ _ _) = match o1 o2 a b
     updater a@(SVar o1 _ _ _ _) b@(SVar o2 _ _ _ _) = match o1 o2 a b
-    updater a@(SClass o1 _ _ _ _) b@(SClass o2 _ _ _ _) = match o1 o2 a b
+    updater a@(SClass o1 _ _ _ _ _) b@(SClass o2 _ _ _ _ _) = match o1 o2 a b
     updater a@(SGen _ n1) b@(SGen _ n2) = match n1 n2 a b
     updater _ v = v
     match o1 o2 a b =
@@ -281,7 +288,7 @@ isInScope field (Scope _ f) = any (cond field) f
   where
     cond (SFunction o1 _ _ _ _) (SFunction o2 _ _ _ _) = o1 == o2
     cond (SVar o1 _ _ _ _) (SVar o2 _ _ _ _)           = o1 == o2
-    cond (SClass o1 _ _ _ _) (SClass o2 _ _ _ _)       = o1 == o2
+    cond (SClass o1 _ _ _ _ _) (SClass o2 _ _ _ _ _)       = o1 == o2
     cond _ _                                           = False
 
 isFunction :: ScopeField -> Bool

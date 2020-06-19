@@ -46,7 +46,6 @@ translateFile (IFile fName _ (AST stmts)) = do
 
 declareFunctions :: [Stmt] -> Translator
 declareFunctions = return . map trans . filter cond
---TODO
   where
     trans (Function _ n _ (VFn t cm) args _) = typeToString (VFnNamed (n ++ "(" ++ argumentsTranslator args ++ ")") t cm) ++  ";\n"
     trans (Function _ n _ t args _) = typeToString t ++ " " ++ n ++ "(" ++ argumentsTranslator args ++ ");\n"
@@ -93,7 +92,7 @@ classStmtTranslator c =
     t@ClassAssign {}  -> classAssignTranslator t
     Method o a b c d  -> functionTranslator $ Function o a [] b c d
     t@Constructor {}  -> constTranslator t
-    t@NativeMethod {} -> return []
+    t@NativeMethod {} -> abstractFunctionTranslator t
 
 -- (right_in, before, after)
 aExprTranslator :: AExpr -> Translator
