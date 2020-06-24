@@ -116,7 +116,8 @@ aExprTranslator expr =
     e@ABinary {}  -> binaryTranslator e
     TypedABinary _ a  b c -> binaryTranslator $ ABinary a b c 
     ABool bExpr -> bExprTranslator bExpr
-    Nop           -> return ["nullptr"]
+--    Nop           -> return ["nullptr"]
+    e@Null {} -> return ["nullptr"]
     a             -> throw $ UnsupportedTypeException (show a)
 
 bExprTranslator :: BExpr -> Translator

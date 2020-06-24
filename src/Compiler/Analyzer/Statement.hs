@@ -103,7 +103,6 @@ markGenInArgs gen = map checkType
     checkType i = i
 
 unwrapAllMethod :: VarType -> VarType
---unwrapAllMethod (VRef x) = x
 unwrapAllMethod (VCopy (VPointer x _)) = VCopy x
 unwrapAllMethod (VRef (VCopy x))       = VRef x
 unwrapAllMethod (VPointer (VCopy x) y) = VPointer x y
@@ -277,6 +276,7 @@ checkClassAssign aa@(ClassAssign o (Var oV name [] Nothing Nothing) ret details 
   addVar o name Nothing nType "this"
   let name' = concat . scaleNameWithScope $ "this" : [name]
   let newLeft = ScopeMark oV "this" (TypedVar (VName name') VAuto Nothing Nothing)
+  trace (show name ++ " - NOOWY TYP " ++ show nType) $ return ()
   return $ ClassAssign o newLeft nType details res
   where
     check a b

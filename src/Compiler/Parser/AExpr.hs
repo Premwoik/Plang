@@ -55,6 +55,11 @@ scopeMarkParser aExpr = do
   var <- varExtendedParser aExpr
   return $ ScopeMark o s var
 
+nullParser :: Parser AExpr
+nullParser = do
+  o <-getOffset
+  void (symbol "null")
+  return $ Null o
 
 varParser :: Parser AExpr -> Parser AExpr
 varParser aExpr = do

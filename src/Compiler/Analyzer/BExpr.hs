@@ -3,6 +3,7 @@ module Compiler.Analyzer.BExpr where
 import Compiler.Analyzer.Type
 import AST
 import Control.Monad.Writer(tell)
+import Control.Monad.State(gets)
 
 notAnalyzer :: BExpr -> Analyzer' BExpr
 notAnalyzer (Not bExpr) = 
@@ -10,7 +11,10 @@ notAnalyzer (Not bExpr) =
 
 boolVarAnalyzer :: BExpr -> Analyzer' BExpr
 boolVarAnalyzer (BoolVar aExpr) = do
+  tmpType <- gets rType
+  setType VBool
   (_, _, a) <- injectAnalyzer aExprAnalyzerGetter aExpr
+  setType tmpType
   return $ BoolVar a
 
 rBinaryAnalyzer :: BExpr -> Analyzer' BExpr

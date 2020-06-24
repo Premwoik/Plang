@@ -14,6 +14,7 @@ module Compiler.Analyzer.AExpr
   , checkBracketApply
   , checkOptional
   , checkScopeMark
+  , checkNull
   ) where
 
 import           AST
@@ -60,7 +61,7 @@ checkListVar a@(ListVar o elems wantedType) = do
   if checkType types'
     then return ()
     else makeError o $ NotAllElementsHaveSameType elems wantedType
-  let itemType = head types'
+  let itemType = fromMaybe (head types') wantedType
   let args =
         Just
           [ TypedListVar elems' itemType
@@ -211,3 +212,10 @@ checkABool :: AExpr -> Analyzer' AExprRes
 checkABool (ABool bExpr) = do
   bExpr' <- injectAnalyzer bExprAnalyzerGetter bExpr
   return (VBool, [], ABool bExpr')
+
+checkNull :: AExpr -> Analyzer' AExprRes
+checkNull n@(Null offset) = do
+  ret <- gets rType
+  case ret of
+    VPointer {} -> return (ret, [], n)
+    t -> makeError offset $ CustomError $ "Null can be used only with ptr type. You tried to used it with type - " ++ show t

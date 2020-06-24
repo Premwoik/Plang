@@ -17,9 +17,29 @@ main =
     context "casual" $ do
       it "can parse casual class" canParseClassTest
       it "can parse native class" canParseNativeClassTest
+      it "can construct class as ptr" canConstructClassAsPar
+      it "can pass list to native cptr argument in class constructor" canPassListToNativeCptrTest
       it "can parse native class with cptr as constructor argument" canParseNativeClassWithCptrTest
     context "decorated" $ do
       it "can parse decorated abstract class" canParseAbstractDecoratedClassTest
+
+canConstructClassAsPar = do
+  (ast, out) <- compile path "constructPtrClassExample"
+  let expectedAST = [IFile "constructPtrClassExample" "res/tests/class/constructPtrClassExample.mard" (AST [ClassExpr 0 "Test" [] [] [Constructor {constructorOffset = 16, constructorName = "Test", constructorArgs = [FunArg (VPointer VInt NativePtr) "args___a"], constructorBody = [Pass]},Constructor {constructorOffset = 48, constructorName = "Test", constructorArgs = [], constructorBody = [Pass]}],Function 66 "main" [] VInt [] [AssignFn 83 (TypedVar (VName "l") VAuto Nothing Nothing) (VClass (VName "ArrayList") [VGenPair "T" VInt]) (TypedVar (VName "ArrayList") (VClass (VName "ArrayList") [VGenPair "T" VInt]) (Just []) Nothing),AssignFn 96 (TypedVar (VName "test") VAuto Nothing Nothing) (VPointer (VClass (VName "Test") []) SharedPtr) (TypedVar (VName "Test") (VPointer (VCopy (VClass (VName "Test") [])) SharedPtr) (Just [NativePtrInput (TypedVar (VName "l") (VClass (VName "ArrayList") [VGenPair "T" VInt]) Nothing Nothing)]) Nothing)]])]
+  let expectedOUT = ["namespace constructPtrClassExample{\n","int main();\n","class Test{\n","   public:\n","   Test(int* args___a){\n","   }\n","   public:\n","   Test(){\n","   }\n","};\n","int main(){\n","   ArrayList<int> l = ArrayList<int>();\n","   shared_ptr<Test> test = new Test(l.getNativePtr());\n","}\n","}\n"]
+
+  ast `shouldBe` expectedAST
+  out `shouldBe` expectedOUT
+
+
+canPassListToNativeCptrTest = do
+  (ast, out) <- compile path "nativeClassExample2"
+  let expectedAST = [IFile "nativeClassExample2" "res/tests/class/nativeClassExample2.mard" (AST [NativeClass 0 "" "MessageProcessor" [] [NativeMethod 38 "MessageProcessor" VAuto [FunArg (VPointer VInt NativePtr) "client"]],Function 77 "main" [] VInt [] [AssignFn 94 (TypedVar (VName "l") VAuto Nothing Nothing) (VClass (VName "ArrayList") [VGenPair "T" VInt]) (TypedVar (VName "ArrayList") (VClass (VName "ArrayList") [VGenPair "T" VInt]) (Just []) Nothing),AssignFn 107 (TypedVar (VName "proc") VAuto Nothing Nothing) (VClass (VName "MessageProcessor") []) (TypedVar (VName "MessageProcessor") (VClass (VName "MessageProcessor") []) (Just [NativePtrInput (TypedVar (VName "l") (VClass (VName "ArrayList") [VGenPair "T" VInt]) Nothing Nothing)]) Nothing)]])]
+  let expectedOUT = ["namespace nativeClassExample2{\n","int main();\n","int main(){\n","   ArrayList<int> l = ArrayList<int>();\n","   MessageProcessor proc = MessageProcessor(l.getNativePtr());\n","}\n","}\n"]
+
+  ast `shouldBe` expectedAST
+  out `shouldBe` expectedOUT
+
 
 canParseAbstractDecoratedClassTest = do
   (ast, out) <- compile path "abstractDecoratedClassExample"

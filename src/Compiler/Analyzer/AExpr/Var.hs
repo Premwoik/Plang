@@ -77,50 +77,57 @@ maybeArgsMatchVar args gen (SVar o n p (VFn t _) _) =
    in maybeArgsMatch (Just args) gen (SFunction o n p (last t) funArgs)
 maybeArgsMatchVar _ _ _ = return False
 
-wrapAllocationMethod :: VarType -> Analyzer' VarType
+wrapAllocationMethod :: VarType -> Analyzer' (VarType, VarType)
 wrapAllocationMethod v = do
   ret <- gets rType
   return $
     case (v, ret) of
-      (VPointer t _, VCopy {}) -> VCopy v
-      (VPointer {}, _)         -> v
-      (VClass {}, VPointer {}) -> VPointer (VCopy v) SharedPtr
-      (_, VPointer {})         -> VPointer v SharedPtr
-      (VRef {}, VRef {})       -> v
-      (_, VRef {})             -> VRef v
-      _                        -> v
+      (VPointer t _, VCopy {}) -> (t, VCopy v)
+      (VPointer {}, _)         -> same v
+      (VClass {}, VPointer {}) -> (VPointer v SharedPtr, VPointer (VCopy v) SharedPtr)
+      (_, VPointer {})         -> (VPointer v SharedPtr, VPointer (VCopy v) SharedPtr)
+      (VRef {}, VRef {})       -> same v
+      (_, VRef {})             -> same $ VRef v
+      _                        -> same v
+  where
+    same x = (x,x)
+
+zipTypesWithClassGen (VClass n g) = do
+  cl <- listToMaybe <$> find' ["", unwrapVarNameForce n]
+  case cl of
+    Just (SClass _ _ _ gn _ _) -> return $ VClass n (zipWith VGenPair gn g)
+    Nothing -> makeError 0 $ CustomError $ "Cant find class - " ++ show (unwrapVarNameForce n)
+zipTypesWithClassGen x = return x
+
 -- | variable that have not given args - is not executed
 checkVarFirst :: AExpr -> Maybe [AExpr] -> RetBuilderT -> Maybe ScopeField -> String -> Analyzer' AExprRes
 checkVarFirst var@(Var offset name gen _ more) Nothing retBuilder obj scopeName =
   case obj of
     -- | casual variable that is not executed
     Just tvar@(SVar _ n p t s) -> do
+      scope <- getFileName scopeName
       t' <-
         if isNothing more
           then wrapAllocationMethod t
-          else return t
-      retBuilder t' (TypedVar (defaultPath p (scaleNameWithScope' [s, n])) t' Nothing) more
+          else do
+            zt <- zipTypesWithClassGen t
+            return (zt,zt)
+      let newName = wrapVarInsideScopeMark scope scopeName (scaleNameWithScope' [s, n])
+      retBuilder (fst t') (TypedVar (defaultPath p newName) (snd t') Nothing) more
     -- | pointer to a function - not executed
     Just (SFunction _ n p t a) -> do
       scope <- getFileName scopeName
       let newType = VFn (map (\(FunArg t _) -> t) a ++ [t]) CMOff
-      retBuilder newType (TypedVar (defaultPath p (newName scope)) newType Nothing) more
-      where newName scope =
-              case scopeName of
-                ""       -> n
-                "g"      -> scaleNameWithScope' ["::", n]
-                "global" -> scaleNameWithScope' ["::", n]
-                "args"   -> scaleNameWithScope' ["args", n]
-                "this"   -> scaleNameWithScope' ["this", n]
-                _        -> scaleNameWithScope' [scope, "::", n]
+      retBuilder newType (TypedVar (defaultPath p (wrapInsideScopeMark scope scopeName n)) newType Nothing) more
     p -> do
       storage <- gets scopes
+--      traceShow storage $ return ()
       makeError offset $ VariableMissing name
-      
+
 -- | variable that have given args - is executed
 checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName =
   case obj of
-    -- | name is variable 
+    -- | name is variable
     Just (SVar i n p (VFn t _) s) -> do
       let funArgs = map (`FunArg` "") $ init t
       checkVarFirst var args' retBuilder (Just (SFunction i n p (last t) funArgs)) s
@@ -135,27 +142,32 @@ checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName =
       let (SFunction o n _ _ cArgs) = constructor
       let args'' = args' >>= (Just . markNativePtr cArgs)
       newType <- wrapAllocationMethod $ VClass (VName n) (markClassAsPointer gen')
-      retBuilder newType (TypedVar (defaultPath p n) newType args'') more
+      retBuilder (fst newType) (TypedVar (defaultPath p n) (snd newType) args'') more
     -- | name is function
     Just f@(SFunction _ n p t a) -> do
       gen <- prepareFunctionGens gen f <$> zipWithM aExprExtractType a (fromJust args')
-      let t' = replaceGenWithType gen t 
+      let t' = replaceGenWithType gen t
       let args'' = args' >>= (Just . markNativePtr a)
       scope <- getFileName scopeName
-      retBuilder t' (TypedVar (defaultPath p (newName scope)) t' args'') more
-      where
-        newName scope =
-              case scopeName of
-                ""       -> n
-                "g"      -> scaleNameWithScope' ["::", n]
-                "global" -> scaleNameWithScope' ["::", n]
-                "args"   -> scaleNameWithScope' ["args", n]
-                "this"   -> scaleNameWithScope' ["this", n]
-                _        -> scaleNameWithScope' [scope, "::", n]
+      retBuilder t' (TypedVar (defaultPath p (wrapInsideScopeMark scope scopeName n)) t' args'') more
+
     p -> do
       storage <- gets scopes
+--      traceShow storage $ return ()
       makeError offset $ VariableMissing name
 
+wrapInsideScopeMark scope scopeName n =
+  case scopeName of
+    ""       -> n
+    "g"      -> scaleNameWithScope' ["::", n]
+    "global" -> scaleNameWithScope' ["::", n]
+    "args"   -> scaleNameWithScope' ["args", n]
+    "this"   -> scaleNameWithScope' ["this", n]
+    _        -> scaleNameWithScope' [scope, "::", n]
+
+wrapVarInsideScopeMark scope scopeName n
+  | scopeName `notElem` ["", "g", "global", "args", "this", "fun"] = scaleNameWithScope' [scope, "::", n]
+  | otherwise = n
 
 
 checkVarMore (Var offset name _ args more) (VClass cName gen) args' retBuilder method =
@@ -163,7 +175,8 @@ checkVarMore (Var offset name _ args more) (VClass cName gen) args' retBuilder m
     Just (SVar _ n p t _) -> retBuilder t (TypedVar (defaultPath p (scaleNameWithScope' ["this", n])) t Nothing) more
     Just (SFunction _ n p t a) -> do
       let args'' = Just $ markNativePtr a (fromMaybe [] args')
-      let nType = fixType gen t
+      traceShow ("fnc: " ++ show n) $ return ()
+      nType <- fixType gen t
       retBuilder nType (TypedVar (defaultPath p n) nType args'') more
     x -> makeError offset $ ClassVariableMissing (unwrapVarName cName) name
 
@@ -171,23 +184,25 @@ checkVar :: AExpr -> Maybe VarType -> String -> Analyzer' AExprRes
 checkVar v@(Var offset name gen args more) wantedType scopeName =
   case extractPtr wantedType of
     Just c@(VClass cName gen) -> do
-      args' <- checkArgs gen args 
+      args' <- checkArgs gen args
       candidate <- listToMaybe <$> (filterM (filterArgsMatch args' gen ) =<< findInClass cName name)
       readyArgs <- updatePostProcessedArgs args'
       checkVarMore v c readyArgs retBuilder candidate
     Nothing -> do
-      args' <- checkArgs gen args 
       r <- gets rType
+      setType VAuto
+      args' <- checkArgs gen args
+      setType r
       candidate <-
         detectCaptureInLambda =<<
         (listToMaybe . checkFunPtr r <$> (filterM (filterArgsMatch args' gen ) =<< find' [scopeName, name]))
       readyArgs <- updatePostProcessedArgs args'
       checkVarFirst v readyArgs retBuilder candidate scopeName
-    (Just x) -> makeError offset $ NotAClass name 
+    (Just x) -> makeError offset $ NotAClass name
   where
     retBuilder :: RetBuilderT
     retBuilder type' var more = makeOutput type' var <$> handleMore more (Just type')
-    handleMore (Just m) x = Just <$> checkVar m x "" 
+    handleMore (Just m) x = Just <$> checkVar m x ""
     handleMore Nothing _  = return Nothing
     makeOutput _ wrapper (Just (v, i, m)) = (v, i, wrapper (Just m))
     makeOutput t wrapper Nothing          = (t, [], wrapper Nothing)

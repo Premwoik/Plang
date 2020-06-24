@@ -8,6 +8,7 @@ import qualified CompilerTest.LambdaFnSpec as LambdaFn
 import qualified CompilerTest.FunctionSpec as Function
 import qualified CompilerTest.ScopeSpec as Scope 
 import qualified CompilerTest.ClassSpec as Class 
+import qualified CompilerTest.ListSpec as List
 
 
 main = do
@@ -15,4 +16,6 @@ main = do
   LambdaFn.main
   Scope.main
   Class.main
+  List.main
+  
 

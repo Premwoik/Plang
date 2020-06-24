@@ -34,22 +34,22 @@ classAssignTranslator (ClassAssign _ name type' d Nop) = do
     unwrapType (VFn t cm) n = typeToString (VFnNamed n t cm)
     unwrapType x n          = typeToString x ++ " " ++ n
 -- Pointer
-classAssignTranslator (ClassAssign _ name type' d (TypedVar cName (VClass t []) (Just args) Nothing)) = do
-  let uName = unwrapVarName cName
-  args' <- intercalate ", " . concat <$> mapM (injectTranslator aExprTranslatorGetter) args
-  n <- head <$> injectTranslator aExprTranslatorGetter name
-  return [visibilityMD d ++ ":\n" ++ "public:\n" ++ "unique_ptr<" ++ uName ++ "> " ++ n ++ "{new " ++ uName ++ "{" ++ args' ++ "}};\n"]
+--classAssignTranslator (ClassAssign _ name type' d (TypedVar cName (VClass t []) (Just args) Nothing)) = do
+--  let uName = unwrapVarName cName
+--  args' <- intercalate ", " . concat <$> mapM (injectTranslator aExprTranslatorGetter) args
+--  n <- head <$> injectTranslator aExprTranslatorGetter name
+--  return [visibilityMD d ++ ":\n" ++ "unique_ptr<" ++ uName ++ "> " ++ n ++ "{new " ++ uName ++ "{" ++ args' ++ "}};\n"]
 -- Generic Pointer
-classAssignTranslator (ClassAssign _ name type' d (TypedVar cName (VClass t gen) (Just args) Nothing)) = do
-  let uName = unwrapVarName cName
-  n <- head <$> injectTranslator aExprTranslatorGetter name
-  args' <- intercalate ", " . concat <$> mapM (injectTranslator aExprTranslatorGetter) args
-  return [visibilityMD d ++ ":\n" ++ "unique_ptr<" ++ uName ++ genStr ++ "> " ++ n ++ "{new " ++ uName ++ genStr ++ "{" ++ args' ++ "}};\n"]
-  where
-    genStr = genStr' gen
-    genStr' g = "<" ++ (intercalate ", " . map translateGen) g ++ ">"
-    translateGen (VClass n g) = unwrapVarName n ++ genStr' g
-    translateGen g            = typeToString g
+--classAssignTranslator (ClassAssign _ name type' d (TypedVar cName (VClass t gen) (Just args) Nothing)) = do
+--  let uName = unwrapVarName cName
+--  n <- head <$> injectTranslator aExprTranslatorGetter name
+--  args' <- intercalate ", " . concat <$> mapM (injectTranslator aExprTranslatorGetter) args
+--  return [visibilityMD d ++ ":\n" ++ "unique_ptr<" ++ uName ++ genStr ++ "> " ++ n ++ "{new " ++ uName ++ genStr ++ "{" ++ args' ++ "}};\n"]
+--  where
+--    genStr = genStr' gen
+--    genStr' g = "<" ++ (intercalate ", " . map translateGen) g ++ ">"
+--    translateGen (VClass n g) = unwrapVarName n ++ genStr' g
+--    translateGen g            = typeToString g
 -- Default assign
 classAssignTranslator (ClassAssign _ name type' d expr) = do
   let t = typeToString type'

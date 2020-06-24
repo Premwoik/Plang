@@ -1,22 +1,80 @@
 module SmartHome.Message where
-link_path "Message.h"
+//link_path "Message.h"
+//
+//native class "" Message do
+//  def Message data: cptr uint8, length: uint8
+//  def Message code: uint8, status: uint8, args: cptr uint8
+//  def Message
+//  def setArgs args: cptr uint8 -> void
+//  def setArgs index: uint8, byte: uint8 -> void
+//  def getArg index: uint8 -> uint8
+//  def getLength -> uint8
+//  def getCode -> uint8
+//  def toBytes -> cptr uint8
+//  def bytesLength -> uint8
+//  def print -> void
+//  def validate -> bool
+//
+//native "Message::okMsg" okMessage code: uint8 -> Message
+//native "Message::errorMsg" errorMessage code: uint8, error: uint8 -> Message
+import Core.Native.List
+import Core
 
-native class "" Message do
-  def Message code: uint8, status: uint8, args: cptr uint8
-  def Message data: cptr uint8, length: uint8
-  def Message
-  def setArgs args: cptr uint8 -> void
-  def setArgs index: uint8, byte: uint8 -> void
-  def getArg index: uint8 -> uint8
-  def getLength -> uint8
-  def getCode -> uint8
-  def toBytes -> cptr uint8
-  def bytesLength -> uint8
-  def print -> void
-  def validate -> bool
+class Message do
 
-native "Message::okMsg" okMessage code: uint8 -> Message
-native "Message::errorMsg" errorMessage code: uint8, error: uint8 -> Message
+  @private
+  code: uint8 = 0
+  @private
+  status: uint8 = 0
+  @private
+  args = [uint8|]
+
+  valid: bool = false
+
+  Message code: uint8, status: uint8, args: list<uint8> do
+    this|code = code
+    this|status = status
+    this|args = args
+
+  Message code: uint8, status: uint8 do
+    this|code = code
+    this|status = status
 
 
+  Message data: list<uint8>, s: int do
+    this|code = data[0] // makes error
+    data.remove(0)
+    this|args = data
 
+  toBytes -> list<uint8> do
+    bytes = [uint8| 255, code]
+    if status > 0 then
+      bytes.add(status)
+    for a in args do
+      bytes.add(a)
+    bytes.add(250)
+    ret bytes
+
+  bytesLength -> uint8 do
+    if status > 0 then
+      ret args.size() + 4
+    else
+      ret args.size() + 3
+
+  print -> void do
+    pass
+
+  getCode -> uint8 do
+    ret code
+
+  getLength -> uint8 do
+    ret args.size()
+
+  getArg i: int -> uint8 do
+    ret args[i]
+
+okMsg code: uint8 -> Message do
+  ret Message(code, 200)
+
+errorMsg code: uint8 -> Message do
+  ret Message(code, 40)

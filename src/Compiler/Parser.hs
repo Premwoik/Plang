@@ -97,7 +97,8 @@ aTerm =
 --  <|> ABool <$> bExpr
 aTermExtended :: Parser AExpr
 aTermExtended =
-  bracketParser aExprExtended <|> try (scopeMarkParser aExprExtended) <|> try (varExtendedParser aExprExtended) <|>
+  nullParser <|> bracketParser aExprExtended <|> try (scopeMarkParser aExprExtended) <|>
+  try (varExtendedParser aExprExtended) <|>
   try (listParser aExprExtended) <|>
   rangeParser aExpr <|>
   try floatParser <|>

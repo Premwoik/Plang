@@ -75,6 +75,7 @@ moreVarTranslator _ Nothing = return []
 
 scopeMarkTranslator :: AExpr -> Translator
 scopeMarkTranslator (ScopeMark _ sName (TypedVar n t a m)) = 
+  trace ("scopeTranslator - " ++ show sName) $ 
   injectTranslator aExprTranslatorGetter $ TypedVar n t a m
 scopeMarkTranslator x = error $ show x
 

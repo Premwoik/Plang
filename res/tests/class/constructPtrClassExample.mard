@@ -1,0 +1,10 @@
+class Test do
+  Test a: cptr int do
+    pass
+
+  Test do
+    pass
+
+main -> int do
+  l = [int|]
+  test: ptr auto = Test(l)

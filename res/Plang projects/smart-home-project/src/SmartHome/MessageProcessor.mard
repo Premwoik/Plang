@@ -1,8 +1,43 @@
 module SmartHome.MessageProcessor where
-link_path "MessageProcessor.h"
 
-native class "" MessageProcessor do
-  def MessageProcessor client: cptr EthernetClient
-  def readMessage -> cptr Message
-  def sendMessage msg: Message -> void
+import Core
+import Core.Native.List
+import Core.Native.Ethernet
+import SmartHome.Message
+
+//link_path "MessageProcessor.h"
+//
+//native class "" MessageProcessor do
+//  def MessageProcessor client: cptr EthernetClient
+//  def readMessage -> cptr Message
+//  def sendMessage msg: Message -> void
+
+class MessageProcessor do
+  @private
+  client: EthernetClient
+
+  MessageProcessor client: EthernetClient do
+    this|client = client
+
+  readMessage -> ptr Message do
+    if client.available() > 0 then
+      println("Start recaiving message...")
+      tmp = [uint8|]
+      isMessage = false
+      while client.available() > 0 do
+        readByte: uint8 = client.read()
+        if isMessage then
+          if readByte == 250 then
+            ret Message(tmp, tmp.size())
+          tmp.add(readByte)
+        else
+          if readByte == 255 then
+            isMessage = true
+    ret null
+
+  sendMessage message: Message -> void do
+    println("Sending response...")
+    message.print()
+    bytes: cptr auto = message.toBytes()
+    client.write(bytes, message.bytesLength())
 

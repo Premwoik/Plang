@@ -1,0 +1,9 @@
+class Empty do
+  Empty do
+    pass
+
+fun -> ptr Empty do
+  ret null
+
+Main -> int do
+  a = fun()

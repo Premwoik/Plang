@@ -1,0 +1,11 @@
+class Empty do
+  Empty do
+    pass
+
+fun -> ptr Empty do
+  a = Empty()
+  b: ptr auto = Empty()
+  ret a
+
+Main -> int do
+  a = fun()

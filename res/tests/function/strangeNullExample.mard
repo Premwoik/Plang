@@ -1,0 +1,11 @@
+module StrangeNullExample where
+// error occurred because rType value was set to pointer because a function was returning a pointer.
+// solution - set rType flag as vBool in if statement or to vAuto
+fun -> ptr int do
+  while true do
+    isMessage = false
+    if isMessage then
+      pass
+    else
+      pass
+  ret 0

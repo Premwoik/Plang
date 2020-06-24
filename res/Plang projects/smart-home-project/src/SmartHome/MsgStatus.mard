@@ -1,7 +1,8 @@
 module SmartHome.MsgStatus where
-link_path "Message.h"
+//link_path "Message.h"
 
-native var "Message::WrongCode" WrongCode: int
+WrongCode: int = 50
+
 
 //enum STATUS {Ok = 200, Error = 40, WrongCode = 50, NotValid = 60, ArgsMissing = 70};
 

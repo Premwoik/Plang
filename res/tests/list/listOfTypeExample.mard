@@ -1,0 +1,4 @@
+module ListOfTypeExample where
+
+Main -> int do
+  l = [uint8| 10, 12]

@@ -40,12 +40,27 @@ protected:
     typedef const T* const_iterator;
 
 public:
+
+    // A simplistic implementation of operator= (see better implementation below)
+    ArrayListBase<T>& operator= (const ArrayListBase<T> &rhs)
+    {
+        if(this->arr != nullptr) {
+            this->clear();
+        }
+        if(rhs.arr != nullptr){
+            for(auto e : rhs){
+                this->add(e);
+            }
+        }
+        return *this;
+    }
+
     iterator begin() { return &arr[0]; }
     const_iterator begin() const { return &arr[0]; }
     iterator end() { return &arr[accSize]; }
     const_iterator end() const { return &arr[accSize]; }
 
-    T getNativePtr(){
+    T* getNativePtr(){
         return arr;
     }
 

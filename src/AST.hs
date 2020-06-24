@@ -116,6 +116,7 @@ data Stmt
   | Skip Int
   -- | Assign offset leftAExpr type rightAExpr
   | Assign Int AExpr VarType AExpr
+
   -- | NATIVE
   | NativeAssignDeclaration Int String String VarType
   | NativeFunction Int String String [String] VarType [FunArg]
@@ -231,6 +232,8 @@ data AExpr
   | Neg AExpr
   | ABinary ABinOp AExpr AExpr
   | ABool BExpr
+  -- | Null offset
+  | Null Int
  -- | Only for translation
   | NativePtrRes AExpr
   | NativePtrInput AExpr
@@ -298,6 +301,7 @@ instance Eq VarType where
   VInt == VInt = True
   VFloat == VFloat = True
   VString == VString = True
+  VChar == VNum NUInt8 = True
   VNum x == VNum y = True
   VBool == VBool = True
   VVoid == VVoid = True

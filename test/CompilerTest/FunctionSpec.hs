@@ -27,6 +27,7 @@ main =
       it "can parse generic native function" testGenericNativeFunction
       it "can't modify fun argument" testFunArgCantBeModified
     context "with body behave as" $ do
+      it "not occure crazy new example" testStrangeNewExample
       it "can return capture fun ptr variable" testReturningCaptureFunPtr
       it "can return fun ptr variable" testReturningFunPtrVariable
       it "can return fun ptr" testReturningFunPtr
@@ -36,6 +37,33 @@ main =
       it "can invoke class method" testInvokeClassMethod
       it "can invoke gen class method" testInvokeGenClassMethod
       it "can invoke gen (gen is class) class method" testInvokeGen2ClassMethod
+    context "with return" $ do
+      it "can return ptr" testReturnPtr
+      it "can return null ptr" testReturnNullPtr
+
+testStrangeNewExample = do
+  (ast, out) <- compile path "strangeNullExample"
+  let expectedAST = [IFile "strangeNullExample" "res/tests/function/strangeNullExample.mard" (AST [Skip 0,Function 199 "fun" [] VInt [] [WhileFn 219 (BoolConst True) [AssignFn 237 (TypedVar (VName "isMessage") VAuto Nothing Nothing) VBool (ABool (BoolConst False)),IfFn 259 [(BoolVar (TypedVar (VName "isMessage") VBool Nothing Nothing),[Pass]),(BoolConst True,[Pass])]],ReturnFn 310 (Just (IntConst 314 0))]])]
+  let expectedOUT = ["namespace strangeNullExample{\n","int fun();\n","int fun(){\n","   while(true){\n","      bool isMessage = false;\n","      if(isMessage){\n}\n","      else {\n}\n","   }\n","   return 0;\n","}\n","}\n"]
+
+  ast `shouldBe` expectedAST
+  out `shouldBe` expectedOUT
+
+testReturnNullPtr = do
+  (ast, out) <- compile path "returnNullPtrExample"
+  let expectedAST = [IFile "returnNullPtrExample" "res/tests/function/returnNullPtrExample.mard" (AST [ClassExpr 0 "Empty" [] [] [Constructor {constructorOffset = 17, constructorName = "Empty", constructorArgs = [], constructorBody = [Pass]}],Function 36 "fun" [] (VPointer (VClass (VName "Empty") []) SharedPtr) [] [ReturnFn 58 (Just (Null 62))],Function 68 "Main" [] VInt [] [AssignFn 85 (TypedVar (VName "a") VAuto Nothing Nothing) (VPointer (VClass (VName "Empty") []) SharedPtr) (TypedVar (VName "fun") (VPointer (VClass (VName "Empty") []) SharedPtr) (Just []) Nothing)]])]
+  let expectedOUT = ["namespace returnNullPtrExample{\n","shared_ptr<Empty> fun();\n","int Main();\n","class Empty{\n","   public:\n","   Empty(){\n","   }\n","};\n","shared_ptr<Empty> fun(){\n","   return nullptr;\n","}\n","int Main(){\n","   shared_ptr<Empty> a = fun();\n","}\n","}\n"]
+
+  ast `shouldBe` expectedAST
+  out `shouldBe` expectedOUT
+
+testReturnPtr = do
+  (ast, out) <- compile path "returnPtrExample"
+  let expectedAST = [IFile "returnPtrExample" "res/tests/function/returnPtrExample.mard" (AST [ClassExpr 0 "Empty" [] [] [Constructor {constructorOffset = 17, constructorName = "Empty", constructorArgs = [], constructorBody = [Pass]}],Function 36 "fun" [] (VPointer (VCopy (VClass (VName "Empty") [])) SharedPtr) [] [AssignFn 58 (TypedVar (VName "a") VAuto Nothing Nothing) (VClass (VName "Empty") []) (TypedVar (VName "Empty") (VClass (VName "Empty") []) (Just []) Nothing),AssignFn 72 (TypedVar (VName "b") VAuto Nothing Nothing) (VPointer (VClass (VName "Empty") []) SharedPtr) (TypedVar (VName "Empty") (VPointer (VCopy (VClass (VName "Empty") [])) SharedPtr) (Just []) Nothing),ReturnFn 96 (Just (TypedVar (VName "a") (VPointer (VCopy (VClass (VName "Empty") [])) SharedPtr) Nothing Nothing))],Function 103 "Main" [] VInt [] [AssignFn 120 (TypedVar (VName "a") VAuto Nothing Nothing) (VPointer (VClass (VName "Empty") []) SharedPtr) (TypedVar (VName "fun") (VPointer (VCopy (VClass (VName "Empty") [])) SharedPtr) (Just []) Nothing)]])]
+  let expectedOUT = ["namespace returnPtrExample{\n","shared_ptr<Empty> fun();\n","int Main();\n","class Empty{\n","   public:\n","   Empty(){\n","   }\n","};\n","shared_ptr<Empty> fun(){\n","   Empty a = Empty();\n","   shared_ptr<Empty> b = new Empty();\n","   return new Empty{a};\n","}\n","int Main(){\n","   shared_ptr<Empty> a = fun();\n","}\n","}\n"]
+
+  ast `shouldBe` expectedAST
+  out `shouldBe` expectedOUT
 
 testApplyGenericFunction = do
   (ast, out) <- compile path "genericFunApplyExample"

@@ -3,7 +3,7 @@ module Core where
 import Core.Native.List
 
 link_path "Arduino.h"
-link_path "unique_ptr.h"
+//link_path "unique_ptr.h"
 link_path "ArrayList.h"
 link_path "MemoryInfo.h"
 link_path "Core.h"

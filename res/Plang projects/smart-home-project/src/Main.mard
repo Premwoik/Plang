@@ -9,12 +9,12 @@ import SmartHome.MsgStatus as STATUS
 import SmartHome.Timer as Timer
 import SmartHome.Initializers
 
-server = EthernetServer(1000)
+server = EthernetServer(4000)
 
 timeout: uint32 = 60000
 lastReadMessageTime: uint32 = 0
 
-initEthernet mac: list<int> -> void do
+initEthernet mac: list<uint8> -> void do
   EthernetVar.begin(mac)
   println(EthernetVar.localIP())
   server.begin()
@@ -23,18 +23,20 @@ initEthernet mac: list<int> -> void do
 setupPins -> void do
 //   lowInitList = [int|]
 //   initOutputs(lowInitList, LOW)
-   highInitList = [18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49]
-   initOutputs(highInitList, HIGH)
-   inputsList = [2]
-   initInputs(inputsList)
-
+//   highInitList = [18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49]
+//   initOutputs(highInitList, HIGH)
+//   inputsList = [2]
+//   initInputs(inputsList)
+  highInitList = [8]
+  initOutputs(highInitList, HIGH)
 Main -> int do
   Serial.begin(9600)
   setupPins()
   println("Hello")
 
-  mac = [uint8| 0, 1, 2, 3, 4, 5]
+  mac = [uint8| 0, 1, 2, 0, 4, 5]
   initEthernet(mac)
+
 
   while true do
     Timer|runTasks()
@@ -43,7 +45,6 @@ Main -> int do
 
 
 loop -> void do
-  print("123")
   client = server.available()
   while not client? do
       ret Void()
@@ -52,7 +53,7 @@ loop -> void do
   g|lastReadMessageTime = millis()
   while stillAlive() and client.connected() do
       Timer|runTasks()
-      msg = proc.readMessage()
+      msg: ptr auto = proc.readMessage()
       if msg? then
         response = processReadMsg(msg)
         proc.sendMessage(response)
@@ -77,15 +78,15 @@ processReadMsg msg: Message -> Message do
       ret setTimeDimmerCmd(msg)
     CODE|Test do
       println("Test message!")
-      ret okMessage(CODE|Test)
+      ret okMsg(CODE|Test)
     otherwise do
-      ret errorMessage(msg.getCode(), STATUS|WrongCode)
+      ret errorMsg(msg.getCode(), STATUS|WrongCode)
 
 digitalWriteCmd msg: Message -> Message do
   println("DigitalWrite message")
   for i in [0, 2..msg.getLength()] do
     digitalWrite(msg.getArg(i), msg.getArg(i+1))
-  ret okMessage(msg.getCode())
+  ret okMsg(msg.getCode())
 
 setTimeDimmerCmd msg: Message -> Message do
   println("SetTimeDimmer message")
@@ -110,5 +111,5 @@ setTimeDimmerCmd msg: Message -> Message do
 //          println("Postponed task dimmer")
         }
       Timer|addTask(fun, pin, timeout)
-  ret okMessage(msg.getCode())
+  ret okMsg(msg.getCode())
 

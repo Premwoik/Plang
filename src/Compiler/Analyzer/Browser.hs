@@ -106,6 +106,9 @@ isVarInLambda name = do
 compareTypes :: Offset -> VarType -> VarType -> Analyzer' Bool
 compareTypes o (VRef t) (VRef t2) = compareTypes o t t2
 compareTypes o (VPointer t _) (VPointer t2 _) = compareTypes o t t2
+-- | passing list object to native c array e.g. list<int> -> int*
+compareTypes o (VPointer t _) (VClass (VName "ArrayList") [t2]) = compareTypes o t t2
+-- | comparing classes
 compareTypes o c1@(VClass n g1) c2@(VClass n2 g2)
   | unwrapVarNameForce n == unwrapVarNameForce n2 && g1 == g2 = return True
   | otherwise = do
@@ -116,6 +119,7 @@ compareTypes o c1@(VClass n g1) c2@(VClass n2 g2)
           then return True
           else makeError o $ AssignTypesMismatch c1 rc
       Nothing -> return False
+-- | default type comparator defined in eq
 compareTypes _ a b = return $ a == b
 
 -- | 'getClassInheritance' -
@@ -187,10 +191,10 @@ prepareFunctionGens [] (SFunction _ n _ _ fargs) args = genMap
 prepareFunctionGens gens _ _ = gens
 
 argsMatch :: [VarType] -> [VarType] -> ScopeField -> Analyzer' Bool
-argsMatch t gen (SFunction _ _ _ _ args) = argsMatch' t (fixArgs gen args)
+argsMatch t gen (SFunction _ _ _ _ args) = argsMatch' t =<< fixArgs gen args
 argsMatch t gen (SClass _ n _ g _ (Scope _ s)) = or <$> mapM (match (mergeGen g)) s
   where
-    match gen (SFunction o n' _ _ args) = (\x -> return ((n' == n) && x))  =<< constructorArgsMatch t (fixArgs gen args)
+    match gen (SFunction o n' _ _ args) = (\x -> return ((n' == n) && x))  =<< constructorArgsMatch t =<< fixArgs gen args 
     match _ _ = return False
     mergeGen gns = zipWith VGenPair gns gen
 
@@ -219,25 +223,25 @@ filterConstructor o (Just args) gen (SClass _ n _ _ _ (Scope _ s)) = do
     Just c -> return c
     Nothing -> makeError o $ CustomError $ "Cant find constructor that takes such args - " ++ show args ++ "in class with name: " ++ n
   where
-    match argsT (SFunction o n' _ _ args) = (\x -> return ((n' == n) && x))  =<< constructorArgsMatch argsT (fixArgs gen args)
+    match argsT (SFunction o n' _ _ args) = (\x -> return ((n' == n) && x))  =<< constructorArgsMatch argsT =<< fixArgs gen args
     match _ _ = return False
 
 --
-fixArgs :: [VarType] -> [FunArg] -> [FunArg]
-fixArgs [] args  = args
-fixArgs gen args = map (\(FunArg t n) -> FunArg (fixType gen t) n) args
+fixArgs :: [VarType] -> [FunArg] -> Analyzer' [FunArg]
+fixArgs [] args  = return args
+fixArgs gen args = mapM (\(FunArg t n) -> flip FunArg n <$> fixType gen t) args
 
 -- | fixType - replace generic type with exact type
 --   e.g
 --   [VGenPair T VInt] -> VGen T -> VInt
-fixType :: [VarType] -> VarType -> VarType
+fixType :: [VarType] -> VarType -> Analyzer' VarType
 fixType gen (VGen tName) = makeOutput . filter fGen $ gen
   where
-    makeOutput (VGenPair _ t:_) = t
+    makeOutput (VGenPair _ t:_) = return t
     makeOutput _ = error $ "Cannont find type for template: " ++ tName ++ " | | " ++ show gen
     fGen (VGenPair tName' _) = tName' == tName
     fGen _                   = False
-fixType gen t = t
+fixType gen t = return t
 
 aExprExtractType :: FunArg -> AExpr -> Analyzer' VarType
 aExprExtractType x (ScopeMark _ _ more)         = aExprExtractType x more
@@ -249,6 +253,7 @@ aExprExtractType _ StringVal {}                 = return VString
 aExprExtractType _ (ABool BoolConst {})         = return VBool
 aExprExtractType _ (TypedABinary t _ _ _)       = return t
 aExprExtractType a f@LambdaFn {}                = fixFunArgs a f
+aExprExtractType _ Null {} = return VAuto
 aExprExtractType _ x                            = error (show x)
 
 fixFunArgs :: FunArg -> AExpr -> Analyzer' VarType

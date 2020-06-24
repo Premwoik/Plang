@@ -39,7 +39,9 @@ native class "EthernetServer" EthernetServer do
   def available -> EthernetClient
 
   def write val: char -> int
+  def write val: uint8 -> int
   def write buf: cptr char, len: int -> int
+  def write buf: cptr uint8, len: int -> int
 
   def print data: string -> int
   def print data: char -> int
@@ -66,7 +68,9 @@ native class "EthernetClient" EthernetClient do
   def setConnectionTimeout t: int -> void
 
   def write val: char -> int
+  def write val: uint8 -> int
   def write buf: cptr char, len: int -> int
+  def write buf: cptr uint8, len: int -> int
 
   def print data: string -> int
   def print data: char -> int
@@ -77,7 +81,7 @@ native class "EthernetClient" EthernetClient do
   def println data: int -> int
 
   def available -> int
-  def read -> char
+  def read -> uint8
   def flush -> void
   def stop -> void
 
