@@ -49,7 +49,9 @@ declareFunctions = return . map trans . filter cond
   where
     trans (Function _ n _ (VFn t cm) args _) = typeToString (VFnNamed (n ++ "(" ++ argumentsTranslator args ++ ")") t cm) ++  ";\n"
     trans (Function _ n _ t args _) = typeToString t ++ " " ++ n ++ "(" ++ argumentsTranslator args ++ ");\n"
+    trans (ClassExpr _ n _ _ _) = "class " ++ n ++ ";\n"
     cond Function {} = True
+    cond ClassExpr {} = True
     cond _           = False
 
 filterImports = filter cond

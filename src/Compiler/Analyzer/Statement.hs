@@ -276,7 +276,6 @@ checkClassAssign aa@(ClassAssign o (Var oV name [] Nothing Nothing) ret details 
   addVar o name Nothing nType "this"
   let name' = concat . scaleNameWithScope $ "this" : [name]
   let newLeft = ScopeMark oV "this" (TypedVar (VName name') VAuto Nothing Nothing)
-  trace (show name ++ " - NOOWY TYP " ++ show nType) $ return ()
   return $ ClassAssign o newLeft nType details res
   where
     check a b

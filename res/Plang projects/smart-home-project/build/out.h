@@ -18,6 +18,7 @@ namespace Core {
 using namespace CoreNativeList;
 void Void();
 void printMemStats();
+class range;
 void Void() {}
 int g___otherwise = 0;
 void printMemStats() {
@@ -60,6 +61,7 @@ namespace CoreNativeEthernet {}
 namespace SmartHomeMessage {
 using namespace CoreNativeList;
 using namespace Core;
+class Message;
 Message okMsg(uint8_t args___code);
 Message errorMsg(uint8_t args___code);
 class Message {
@@ -155,6 +157,7 @@ using namespace Core;
 using namespace CoreNativeList;
 using namespace CoreNativeEthernet;
 using namespace SmartHomeMessage;
+class MessageProcessor;
 class MessageProcessor {
 private:
   EthernetClient this___client;
@@ -210,6 +213,7 @@ int g___WrongCode = 50;
 namespace SmartHomeTimer {
 using namespace Core;
 using namespace CoreNativeList;
+class Task;
 void addTask(nonstd::function<void(int)> args___fun, int args___pin,
              int args___timeout);
 void runTasks();

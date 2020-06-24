@@ -175,7 +175,6 @@ checkVarMore (Var offset name _ args more) (VClass cName gen) args' retBuilder m
     Just (SVar _ n p t _) -> retBuilder t (TypedVar (defaultPath p (scaleNameWithScope' ["this", n])) t Nothing) more
     Just (SFunction _ n p t a) -> do
       let args'' = Just $ markNativePtr a (fromMaybe [] args')
-      traceShow ("fnc: " ++ show n) $ return ()
       nType <- fixType gen t
       retBuilder nType (TypedVar (defaultPath p n) nType args'') more
     x -> makeError offset $ ClassVariableMissing (unwrapVarName cName) name
