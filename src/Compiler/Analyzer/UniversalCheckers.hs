@@ -38,21 +38,21 @@ compareGens o (VGen n1) (VGen n2)
   | n1 == n2 = return (VGen n1)
   | otherwise = do
     gens <- getClassGens'
-    let t1 = getType n1 gens
-    t2 <- replaceAuto t1 n2 $ getType n2 gens
+    let t1 = getTypeCG n1 gens
+    t2 <- replaceAuto t1 n2 $ getTypeCG n2 gens
     t1' <- replaceAuto t2 n1 t1
     cmp o t1' t2
 compareGens o (VGen n1) t2 = do
   gens <- getClassGens'
-  t1 <- replaceAuto t2 n1 $ getType n1 gens
+  t1 <- replaceAuto t2 n1 $ getTypeCG n1 gens
   cmp o t1 t2
 compareGens o t1 (VGen n2) = do
   gens <- getClassGens'
-  t2 <- replaceAuto t1 n2 $ getType n2 gens
+  t2 <- replaceAuto t1 n2 $ getTypeCG n2 gens
   cmp o t1 t2
 compareGens o t1 t2 = cmp o t1 t2
 
-getType n = (\(SGen t _) -> t) . fromJust . find (\(SGen _ n') -> n == n')
+getTypeCG n = (\(SGen t _) -> t) . fromJust . find (\(SGen _ n') -> n == n')
 
 cmp o t1 t2 = do
   res <- compareTypes o t1 t2
@@ -84,24 +84,24 @@ check o wantedDecl wanted actual res = do
         VNum {} -> wanted
         _       -> res
 
-checkFunctionUniqueness o name t args = do
-  fns <- find' name
+checkFunctionUniqueness o fns = do
   noVarWithSameName fns
   allReturnTheSame fns
   notSameArguments fns
   where
+    t = getType . head $ fns
+    name = getName . head $ fns
     noVarWithSameName fns =
       if all isFunction fns
         then return ()
         else makeError o $ VariableWithSameName (show name)
     allReturnTheSame fns =
-      if all (\(SFunction o n p t' a) -> t == t') fns
+      if all (\f -> t == getType f) fns
         then return ()
         else makeError o $ FunctionDifferentReturnType (show name) fns t
     notSameArguments fns =
       if all (\g -> length g == 1) .
-         group .
-         map (\(SFunction _ _ _ _ a) -> map (\(FunArg t _) -> t) a) . filter (\(SFunction i _ _ _ _) -> fOffset i <= o) $
+         group . map (\f -> (parentNameMD (sFunctionDetails f), map (\(FunArg t _) -> t) (sFunctionArgs f))) . filter (\f -> fOffset (getInfo f) <= o) $
          fns
         then return ()
         else makeError o $ FunctionRepetition fns

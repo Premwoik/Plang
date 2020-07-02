@@ -72,9 +72,9 @@ filterArgsMatch a g f = error (show a ++ " | " ++ show g ++ " | " ++ show f)
 
 -- this function must have access to monad to check if lambdas is ok with given params
 maybeArgsMatchVar :: [AExpr] -> [VarType] -> ScopeField -> Analyzer' Bool
-maybeArgsMatchVar args gen (SVar o n p (VFn t _) _) =
+maybeArgsMatchVar args gen (SVar o n p (VFn t _) _ _) =
   let funArgs = map (`FunArg` "") $ init t
-   in maybeArgsMatch (Just args) gen (SFunction o n p (last t) funArgs)
+   in maybeArgsMatch (Just args) gen (SFunction o n p (last t) funArgs defaultMethodDetails)
 maybeArgsMatchVar _ _ _ = return False
 
 wrapAllocationMethod :: VarType -> Analyzer' (VarType, VarType)
@@ -104,7 +104,7 @@ checkVarFirst :: AExpr -> Maybe [AExpr] -> RetBuilderT -> Maybe ScopeField -> St
 checkVarFirst var@(Var offset name gen _ more) Nothing retBuilder obj scopeName =
   case obj of
     -- | casual variable that is not executed
-    Just tvar@(SVar _ n p t s) -> do
+    Just tvar@(SVar _ n p t s _) -> do
       scope <- getFileName scopeName
       t' <-
         if isNothing more
@@ -115,7 +115,7 @@ checkVarFirst var@(Var offset name gen _ more) Nothing retBuilder obj scopeName 
       let newName = wrapVarInsideScopeMark scope scopeName (scaleNameWithScope' [s, n])
       retBuilder (fst t') (TypedVar (defaultPath p newName) (snd t') Nothing) more
     -- | pointer to a function - not executed
-    Just (SFunction _ n p t a) -> do
+    Just (SFunction _ n p t a _) -> do
       scope <- getFileName scopeName
       let newType = VFn (map (\(FunArg t _) -> t) a ++ [t]) CMOff
       retBuilder newType (TypedVar (defaultPath p (wrapInsideScopeMark scope scopeName n)) newType Nothing) more
@@ -128,9 +128,9 @@ checkVarFirst var@(Var offset name gen _ more) Nothing retBuilder obj scopeName 
 checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName =
   case obj of
     -- | name is variable
-    Just (SVar i n p (VFn t _) s) -> do
+    Just (SVar i n p (VFn t _) s details) -> do
       let funArgs = map (`FunArg` "") $ init t
-      checkVarFirst var args' retBuilder (Just (SFunction i n p (last t) funArgs)) s
+      checkVarFirst var args' retBuilder (Just (SFunction i n p (last t) funArgs details)) s
     -- | name is class
     Just cl@(SClass _ n p g ps sc) -> do
       if length g == length gen
@@ -139,12 +139,12 @@ checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName =
       let gen' = zipWith VGenPair g gen
       checkTypesMatchGens offset sc gen'
       constructor <- filterConstructor offset args' gen' cl
-      let (SFunction o n _ _ cArgs) = constructor
+      let (SFunction o n _ _ cArgs _) = constructor
       let args'' = args' >>= (Just . markNativePtr cArgs)
       newType <- wrapAllocationMethod $ VClass (VName n) (markClassAsPointer gen')
       retBuilder (fst newType) (TypedVar (defaultPath p n) (snd newType) args'') more
     -- | name is function
-    Just f@(SFunction _ n p t a) -> do
+    Just f@(SFunction _ n p t a _) -> do
       gen <- prepareFunctionGens gen f <$> zipWithM aExprExtractType a (fromJust args')
       let t' = replaceGenWithType gen t
       let args'' = args' >>= (Just . markNativePtr a)
@@ -172,8 +172,8 @@ wrapVarInsideScopeMark scope scopeName n
 
 checkVarMore (Var offset name _ args more) (VClass cName gen) args' retBuilder method =
   case method of
-    Just (SVar _ n p t _) -> retBuilder t (TypedVar (defaultPath p (scaleNameWithScope' ["this", n])) t Nothing) more
-    Just (SFunction _ n p t a) -> do
+    Just (SVar _ n p t _ _) -> retBuilder t (TypedVar (defaultPath p (scaleNameWithScope' ["this", n])) t Nothing) more
+    Just (SFunction _ n p t a _) -> do
       let args'' = Just $ markNativePtr a (fromMaybe [] args')
       nType <- fixType gen t
       retBuilder nType (TypedVar (defaultPath p n) nType args'') more
@@ -184,7 +184,7 @@ checkVar v@(Var offset name gen args more) wantedType scopeName =
   case extractPtr wantedType of
     Just c@(VClass cName gen) -> do
       args' <- checkArgs gen args
-      candidate <- listToMaybe <$> (filterM (filterArgsMatch args' gen ) =<< findInClass cName name)
+      candidate <- listToMaybe . filter isPublic <$> (filterM (filterArgsMatch args' gen ) =<< findInClass cName name)
       readyArgs <- updatePostProcessedArgs args'
       checkVarMore v c readyArgs retBuilder candidate
     Nothing -> do
@@ -207,14 +207,13 @@ checkVar v@(Var offset name gen args more) wantedType scopeName =
     makeOutput t wrapper Nothing          = (t, [], wrapper Nothing)
 
 
-
 detectCaptureInLambda :: Maybe ScopeField -> Analyzer' (Maybe ScopeField)
-detectCaptureInLambda v@(Just (SVar _ n _ t s)) = do
+detectCaptureInLambda v@(Just f@SVar {}) = do
   sName <- getScopeName
-  if sName /= "lambda" || s == "g"
+  if sName /= "lambda" || sVarOwnerName f == "g"
     then return v
     else do
-      inLambda <- isVarInLambda n
+      inLambda <- isVarInLambda (sVarName f)
       if not inLambda
         then setCapture True >> return v
         else return v
@@ -238,8 +237,8 @@ defaultPath p n =
 checkFunPtr :: VarType -> [ScopeField] -> [ScopeField]
 checkFunPtr t@(VFn a _) = isOnlyOne . filter matchArgs
   where
-    matchArgs (SFunction _ _ _ t args) = last a == t && length a - 1 == length args && compareArgs args
-    matchArgs (SVar _ _ _ (VFn ts _) _) = a == ts
+    matchArgs f@SFunction {} = last a == getType f && length a - 1 == length (sFunctionArgs f) && compareArgs (sFunctionArgs f)
+    matchArgs (SVar _ _ _ (VFn ts _) _ _) = a == ts
     matchArgs _ = False
     compareArgs = all (\(t, FunArg t' _) -> t == t') . zip (init a)
     isOnlyOne l

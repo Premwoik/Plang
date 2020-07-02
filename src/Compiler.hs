@@ -35,7 +35,9 @@ compile dir main = do
       putStrLn "Error occured:"
       err <- createParserError e
       putStrLn $ Err.errorBundlePretty err
-      error ""
+      error $ unwrapError e
+
+unwrapError (CustomAException _ text) = text
 
 createParserError :: AnalyzerException -> IO (ParseErrorBundle T.Text Void)
 createParserError (CustomAException (FileInfo offset name path) text) = do

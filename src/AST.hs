@@ -116,7 +116,6 @@ data Stmt
   | Skip Int
   -- | Assign offset leftAExpr type rightAExpr
   | Assign Int AExpr VarType AExpr
-
   -- | NATIVE
   | NativeAssignDeclaration Int String String VarType
   | NativeFunction Int String String [String] VarType [FunArg]
@@ -158,12 +157,13 @@ data ClassStmt
   | NativeMethod Int String VarType [FunArg]
   deriving (Show, Eq)
 
-defaultMethodDetails = MethodDetails "public" False
+defaultMethodDetails = MethodDetails "public" False ""
 
 data MethodDetails =
   MethodDetails
     { visibilityMD :: String
     , isOverrideMD :: Bool
+    , parentNameMD :: String
     }
   deriving (Show, Eq)
 

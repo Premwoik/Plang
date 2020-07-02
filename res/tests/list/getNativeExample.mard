@@ -1,0 +1,9 @@
+module GetNativeExample where
+
+native class "" List<T> do
+  def List
+  def get index: int -> T
+
+Main -> int do
+  l = List<int>()
+  p = l[10]

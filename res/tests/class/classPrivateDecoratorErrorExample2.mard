@@ -1,0 +1,21 @@
+module ClassPrivateDecoratorErrorExample where
+
+class Base do
+  Base do
+    pass
+
+  @private
+  print arg: string -> void do
+    pass
+
+class Child : Base do
+
+  Child do
+    print("12")
+
+  test do
+    pass
+
+
+main -> int do
+  a = Child()

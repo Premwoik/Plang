@@ -32,7 +32,7 @@ checkFunction f@(Function o n g t a body) = do
   let nArgs = markGenInArgs g a
   (_, _, rg, rt, ra, rb) <- checkFunction' (o, n, g, nType, nArgs, body)
   addFunction o n Nothing rt ra
-  checkFunctionUniqueness o ["", n] rt ra
+  checkFunctionUniqueness o =<< find' [n]
   return $ Function o n g rt ra rb
 
 checkMethod :: ClassStmt -> Analyzer' ClassStmt
@@ -42,12 +42,13 @@ checkMethod m@(Method o n t a details body) = do
   let nArgs = markGenInArgs gens a
   (_, _, _, rt, ra, rb) <- checkFunction' (o, n, [], nType, nArgs, body)
   className <- gets cName
-  addFunction o n Nothing rt ra
-  checkFunctionUniqueness o ["this", n] rt ra
+  let nDetails = details {parentNameMD = className}
+  addMethod o n Nothing rt ra nDetails
+  checkFunctionUniqueness o =<< find' ["this", n]
   return $
     if className == n
       then Constructor o n ra rb
-      else Method o n rt ra details rb
+      else Method o n rt ra nDetails rb
 
 checkFunction' :: RawFunction -> Analyzer' RawFunction
 checkFunction' (o, name, gen, type', args, body) = do
@@ -91,7 +92,8 @@ checkMethodDeclaration ttt@(NativeMethod o n t args) = do
   ret <- fixNativeClassType t
   let nType = markGen ret gen
   let nArgs = markGenInArgs gen args
-  addFunction o n Nothing nType nArgs
+  cName <- gets cName
+  addMethod o n Nothing nType nArgs (defaultMethodDetails {parentNameMD = cName})
   return $ NativeMethod o n nType nArgs
 
 markGenInArgs gen = map checkType
@@ -122,7 +124,7 @@ checkAssignFn a@(AssignFn o var@(Var vo vname [] Nothing Nothing) ret aExpr) = d
   firstSig <- listToMaybe <$> find' ["", vname]
   nType <-
     case firstSig of
-      Just (SVar o' n _ t "") -> check o t ret type' VBlank
+      Just (SVar o' n _ t "" _) -> check o t ret type' VBlank
       Just {}                 -> add type'
       Nothing                 -> add type'
   return $ inject ++ [AssignFn o (TypedVar (VName vname) VAuto Nothing Nothing) (unwrapAllMethod nType) res]
@@ -160,7 +162,7 @@ checkAssign (Assign o (Var _ name _ _ Nothing) ret aExpr) = do
   firstSig <- listToMaybe <$> find' [name]
   nType <-
     case firstSig of
-      Just e@(SVar _ n _ t s) -> makeError o $ NotAllowedGlobalMod n
+      Just e@SVar {} -> makeError o $ NotAllowedGlobalMod (getName e)
       Nothing                 -> add type'
   let mergedNameWithScope = concat . scaleNameWithScope $ "g" : [name]
   return $ Assign o (TypedVar (VName mergedNameWithScope) VAuto Nothing Nothing) nType res
@@ -227,9 +229,10 @@ checkClass c@(ClassExpr o name gen parents body) = do
   addScope "this"
   mapM_ (addField . SGen VAuto) gen
   body' <- mapM (injectAnalyzer classStmtAnalyzerGetter) body
-  cScope <- removeScope
+  cScope <- changeScopeName "cthis" <$>  removeScope
+  clearClassName
   let parents' = map (`markGen` gen) parents
-  r <- checkParentsUniqueness o =<< addClass o name Nothing gen parents' cScope
+  checkParentsUniqueness o =<< addClass o name Nothing gen parents' cScope
   return $ ClassExpr o name gen parents' body'
 
 checkParentsUniqueness :: Offset -> ScopeField -> Analyzer' (S.Set String)
@@ -241,8 +244,8 @@ checkParentsUniqueness offset (SClass o n p g parents (Scope _ fields)) = do
     eachParentExist res =
       if all (not . null) res
         then return (concat res)
-        else makeError offset $ CustomError ""
-    namesSet = S.fromList $ map getFieldName fields
+        else makeError offset $ CustomError "Parent don't exist!"
+    namesSet = S.fromList $ map getName fields
     checkUniqueness acc current
       | length current == length (S.difference current acc) = return $ S.union acc current
       | otherwise =
@@ -258,8 +261,9 @@ checkNativeClass c@(NativeClass o p name cast body) = do
   addScope "this"
   mapM_ (addField . SGen VAuto) cast
   body' <- mapM (injectAnalyzer classStmtAnalyzerGetter) body
-  cScope <- removeScope
+  cScope <- changeScopeName "cthis" <$> removeScope
   addClass o name (Just p) cast [] cScope
+  clearClassName
   return $ NativeClass o p name cast body'
 
 checkClassAssign :: ClassStmt -> Analyzer' ClassStmt
@@ -271,9 +275,9 @@ checkClassAssign aa@(ClassAssign o (Var oV name [] Nothing Nothing) ret details 
   nType <-
     unwrapAllMethod . flip markGen gen <$>
     case firstSig of
-      Just (SVar _ n _ t s) -> makeError o $ NotAllowedGlobalMod n
+      Just f@SVar {} -> makeError o $ NotAllowedGlobalMod (getName f)
       Nothing               -> check ret type'
-  addVar o name Nothing nType "this"
+  addClassVar o name Nothing nType "this" details
   let name' = concat . scaleNameWithScope $ "this" : [name]
   let newLeft = ScopeMark oV "this" (TypedVar (VName name') VAuto Nothing Nothing)
   return $ ClassAssign o newLeft nType details res

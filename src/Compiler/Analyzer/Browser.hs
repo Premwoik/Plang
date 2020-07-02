@@ -6,7 +6,7 @@ import           AST
 import           Compiler.Analyzer.Error
 import           Compiler.Analyzer.Type
 import           Compiler.Analyzer.Universal
-import           Control.Monad               (mapM, zipWithM, filterM)
+import           Control.Monad               (filterM, mapM, zipWithM)
 import           Control.Monad.Except        (throwError)
 import           Control.Monad.State         (get, gets)
 import           Data.List                   (group)
@@ -23,12 +23,13 @@ find' name = do
   let globalScopes = filterGlobal scopes'
   globalScope <- getGlobalScope
   case name of
-    [n]             -> return $ searchNameInScopes n globalScopes
-    ["", n]         -> return $ searchNameInScopes n globalScopes
+    [n]             -> searchNameInScopes n globalScopes
+    ["", n]         -> searchNameInScopes n globalScopes
     ["this", n]     -> searchInThisScope n scopes'
-    ["g", n]        -> return $ searchInScope n globalScope
-    ["global", n]   -> return $ searchInScope n globalScope
+    ["g", n]        -> searchInScope n globalScope
+    ["global", n]   -> searchInScope n globalScope
     ["", "this", n] -> searchInThisScope n scopes'
+    ["nthis", n]    -> searchWithoutThis n globalScopes
     [sName, n]      -> searchInScopeWithName n sName scopes'
     _               -> return []
 
@@ -51,14 +52,14 @@ fixArgsNativeClassType = mapM fixer
 -- | 'findInClass' function searching only in class scope
 findInClass :: VarName -> String -> Analyzer' [ScopeField]
 findInClass cName name = do
-  c <- listToMaybe <$> find' [unwrapVarNameForce cName]
+  c <- listToMaybe . filter isClass <$> find' ["nthis", unwrapVarNameForce cName]
   case c of
-    Just (SClass o _ _ gen parents s) -> searchDeeper (searchInScope name s) parents
-    Nothing -> return []
+    Just (SClass o _ _ gen parents s) -> searchDeeper parents =<< searchInScope name s
+    _ -> return []
   where
-    searchDeeper :: [ScopeField] -> [VarType] -> Analyzer' [ScopeField]
-    searchDeeper res [] = return res
-    searchDeeper res p = L.nub . concat . (:) res <$> mapM ((`findInClass` name) . unwrapClassName) p
+    searchDeeper :: [VarType] -> [ScopeField] -> Analyzer' [ScopeField]
+    searchDeeper [] res = return res
+    searchDeeper p res = L.nub . concat . (:) res <$> mapM (\x -> filter isPublic <$> findInClass (unwrapClassName x) name) p
 
 getFileName :: String -> Analyzer' String
 getFileName alias = do
@@ -74,10 +75,18 @@ getFileName alias = do
 searchInThisScope :: String -> Scopes -> Analyzer' [ScopeField]
 searchInThisScope name = searchInScopeWithName name "this"
 
+searchWithoutThis :: String -> Scopes -> Analyzer' [ScopeField]
+searchWithoutThis name scopes = do
+  let sc = filter notThis scopes
+  searchNameInScopes name sc
+  where
+    notThis (Scope "this" _ ) = False
+    notThis _ = True
+
 searchInScopeWithName :: String -> String -> Scopes -> Analyzer' [ScopeField]
 searchInScopeWithName name scopeName scopes =
   case getScope scopeName scopes of
-    (Just s) -> return $ searchInScope name s
+    (Just s) -> searchInScope name s
     Nothing -> do
       o <- getOffset
       makeError o $ ScopeNoExist scopeName (getScopesNames scopes)
@@ -94,7 +103,7 @@ isVarInLambda :: String -> Analyzer' Bool
 isVarInLambda name = do
   sc <- gets scopes
   let s = take (fromJust (L.findIndex isLambdaScope sc) + 2) sc
-  return . not . null $ searchNameInScopes name s
+  not . null <$> searchNameInScopes name s
   where
     isLambdaScope (Scope n _) = n == "lambda"
     isLambdaScope _           = False
@@ -134,16 +143,19 @@ getClassInheritance (VClass n g) = do
       return $ VClass (VName n) typedGen : res
     Nothing -> makeError 0 $ CustomError $ "Can't find class with name - " ++ show n
 
-searchNameInScopes :: String -> Scopes -> [ScopeField]
-searchNameInScopes name = concatMap (searchInScope name)
+searchNameInScopes :: String -> Scopes -> Analyzer' [ScopeField]
+searchNameInScopes name scopes = concat <$> mapM (searchInScope name) scopes
 
-searchInScope :: String -> Scope -> [ScopeField]
-searchInScope name scope = filter cond (unwrapFields scope)
+searchInScope :: String -> Scope -> Analyzer' [ScopeField]
+searchInScope name (Scope "this" s) = do
+  className <- gets cName
+  parentsResult <- findInClass (VName className) name
+  thisResult <- searchInScope name (Scope "" s)
+  return $ thisResult ++ parentsResult
+searchInScope name scope = return $ filter cond (unwrapFields scope)
   where
-    cond (SFunction o n _ t a_) = n == name
-    cond (SVar o n _ t _)       = n == name
-    cond (SClass o n _ g _ s)   = n == name
-    cond _                      = False
+    cond f = getName f == name
+
 
 unwrapFields (Scope _ s)    = s
 unwrapFields (FScope _ _ s) = s
@@ -170,14 +182,15 @@ maybeArgsMatch (Just args) gen s = do
   where
     prepareArgs =
       case s of
-        (SFunction _ _ _ _ fargs) -> zipWithM aExprExtractType fargs args
-        _ -> mapM (aExprExtractType (FunArg VAuto "")) args
+        SFunction {} -> zipWithM aExprExtractType (sFunctionArgs s) args
+        _            -> mapM (aExprExtractType (FunArg VAuto "")) args
 maybeArgsMatch Nothing _ _ = return True
 
 -- | 'preparedFunctionGens' is used for deducting generics from SFunction
 prepareFunctionGens :: [VarType] -> ScopeField -> [VarType] -> [VarType]
-prepareFunctionGens [] (SFunction _ n _ _ fargs) args = genMap
+prepareFunctionGens [] f@SFunction {} args = genMap
   where
+    fargs = sFunctionArgs f
     genMap = map (uncurry VGenPair) . Map.toList $ foldl check initAcc (zip fargs args)
     initAcc = Map.empty
     check acc (FunArg (VGen x) _, arg) =
@@ -191,10 +204,11 @@ prepareFunctionGens [] (SFunction _ n _ _ fargs) args = genMap
 prepareFunctionGens gens _ _ = gens
 
 argsMatch :: [VarType] -> [VarType] -> ScopeField -> Analyzer' Bool
-argsMatch t gen (SFunction _ _ _ _ args) = argsMatch' t =<< fixArgs gen args
+argsMatch t gen f@SFunction {} = argsMatch' t =<< fixArgs gen (sFunctionArgs f)
 argsMatch t gen (SClass _ n _ g _ (Scope _ s)) = or <$> mapM (match (mergeGen g)) s
   where
-    match gen (SFunction o n' _ _ args) = (\x -> return ((n' == n) && x))  =<< constructorArgsMatch t =<< fixArgs gen args 
+    match gen (SFunction o n' _ _ args _) =
+      (\x -> return ((n' == n) && x)) =<< constructorArgsMatch t =<< fixArgs gen args
     match _ _ = return False
     mergeGen gns = zipWith VGenPair gns gen
 
@@ -221,14 +235,17 @@ filterConstructor o (Just args) gen (SClass _ n _ _ _ (Scope _ s)) = do
   res <- listToMaybe <$> filterM (match argsT) s
   case res of
     Just c -> return c
-    Nothing -> makeError o $ CustomError $ "Cant find constructor that takes such args - " ++ show args ++ "in class with name: " ++ n
+    Nothing ->
+      makeError o $
+      CustomError $ "Cant find constructor that takes such args - " ++ show args ++ "in class with name: " ++ n
   where
-    match argsT (SFunction o n' _ _ args) = (\x -> return ((n' == n) && x))  =<< constructorArgsMatch argsT =<< fixArgs gen args
+    match argsT (SFunction o n' _ _ args _) =
+      (\x -> return ((n' == n) && x)) =<< constructorArgsMatch argsT =<< fixArgs gen args
     match _ _ = return False
 
 --
 fixArgs :: [VarType] -> [FunArg] -> Analyzer' [FunArg]
-fixArgs [] args  = return args
+fixArgs [] args = return args
 fixArgs gen args = mapM (\(FunArg t n) -> flip FunArg n <$> fixType gen t) args
 
 -- | fixType - replace generic type with exact type
@@ -253,7 +270,7 @@ aExprExtractType _ StringVal {}                 = return VString
 aExprExtractType _ (ABool BoolConst {})         = return VBool
 aExprExtractType _ (TypedABinary t _ _ _)       = return t
 aExprExtractType a f@LambdaFn {}                = fixFunArgs a f
-aExprExtractType _ Null {} = return VAuto
+aExprExtractType _ Null {}                      = return VAuto
 aExprExtractType _ x                            = error (show x)
 
 fixFunArgs :: FunArg -> AExpr -> Analyzer' VarType
