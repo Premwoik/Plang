@@ -26,17 +26,34 @@ import           Compiler.Analyzer.UniversalCheckers (checkFnArgs, compareGens, 
 import           Control.Monad.Except                (throwError)
 import           Control.Monad.State                 (get, gets, modify, put)
 import           Control.Monad.Writer                (tell)
+import Control.Monad(when)
 import           Data.List                           (find)
 import           Data.Maybe                          (fromMaybe)
 import           Debug.Trace
+import Data.Functor
 
 checkOptional :: AExpr -> Analyzer' AExprRes
+checkOptional (Optional o (Optional o2 aExpr _) _) = do
+  (t, _, a) <- injectAnalyzer aExprAnalyzerGetter aExpr
+  case t of
+    VPointer c@VClass {} _ ->
+      checkBoolInterface o c *> return (VBool, [], Optional o a BoolPtrOT)
+    t           -> makeError o $ NotAllowedOptionalUse t
 checkOptional (Optional o aExpr _) = do
   (t, _, a) <- injectAnalyzer aExprAnalyzerGetter aExpr
   case t of
     VPointer {} -> return (VBool, [], Optional o a NullOT)
-    VClass {}   -> return (VBool, [], Optional o a BoolOT)
+    c@VClass {}   -> checkBoolInterface o c *> return (VBool, [], Optional o a BoolOT)
     t           -> makeError o $ NotAllowedOptionalUse t
+
+
+checkBoolInterface o t = checkInterface o "boolOp" t
+
+checkInterface :: Offset -> String -> VarType -> Analyzer' ()
+checkInterface o name t@(VClass n _) = do
+  ops <- findInClass n name
+  when (null ops) $ makeError o $ NotAllowedOptionalUse t
+
 
 -- TODO add checking if class has implemented bool interface
 checkScopeMark :: AExpr -> Analyzer' AExprRes

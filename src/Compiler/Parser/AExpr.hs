@@ -8,6 +8,7 @@ import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
 import           AST
+import Compiler.Parser.Type
 import           Compiler.Parser.Lexer
 import           Compiler.Parser.Universal
 import           Control.Monad
@@ -105,8 +106,9 @@ varExtendedParser aExpr = do
   args <- optional (parens (functionExecutionArgParser aExpr))
   accessor <- hidden $ optional accParser
   maybe <- hidden $ optional $ symbol "?"
+  maybe2 <- hidden $ optional $ symbol "?"
   m <- hidden $ optional more'
-  return $ wrapOptional maybe $ case accessor of
+  return $ wrapOptional maybe maybe2 $ case accessor of
     Just a ->
       Var o fun gen args (Just (Var o "get" [] (Just a) m))
     Nothing -> 
@@ -117,8 +119,9 @@ varExtendedParser aExpr = do
     more' = do
       void (symbol ".")
       varParser aExpr
-    wrapOptional Just {} var = Optional 0 var UnknownOT
-    wrapOptional Nothing var = var
+    wrapOptional Just {} Just {} var = Optional 0 (Optional 0 var UnknownOT) UnknownOT 
+    wrapOptional Just {} Nothing var = Optional 0 var UnknownOT
+    wrapOptional Nothing Nothing var = var
 
 ifStmtParser :: Parser BExpr -> Parser FunctionStmt -> Parser Cond
 ifStmtParser bExpr functionStmt = lexeme $ L.indentBlock scn p

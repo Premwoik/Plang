@@ -9,6 +9,7 @@ import qualified CompilerTest.FunctionSpec as Function
 import qualified CompilerTest.ScopeSpec as Scope 
 import qualified CompilerTest.ClassSpec as Class 
 import qualified CompilerTest.ListSpec as List
+import qualified CompilerTest.OptionalSpec as Optional 
 
 
 main = do
@@ -17,5 +18,6 @@ main = do
   Scope.main
   Class.main
   List.main
+  Optional.main
   
 

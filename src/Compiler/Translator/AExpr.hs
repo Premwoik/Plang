@@ -85,6 +85,9 @@ optionalTranslator (Optional _ aExpr NullOT) = do
 optionalTranslator (Optional _ aExpr BoolOT) = do
   a <- concat <$> injectTranslator aExprTranslatorGetter aExpr
   return [a]
+optionalTranslator (Optional _ aExpr BoolPtrOT) = do
+  a <- concat <$> injectTranslator aExprTranslatorGetter aExpr
+  return [a ++ ".isNotNull() && " ++ a ++ "*"]
 optionalTranslator _ = return []
 
 lambdaTranslator :: AExpr -> Translator

@@ -57,6 +57,7 @@ native class "EthernetClient" EthernetClient do
   def EthernetClient
 
   def connected -> bool
+  def boolOp -> bool
 
   def connect -> int
   def connect ip: cptr char, port: int -> int

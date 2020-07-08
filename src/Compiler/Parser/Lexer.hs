@@ -3,7 +3,7 @@
 
 module Compiler.Parser.Lexer where
 
-import           AST
+import Compiler.Parser.Type
 import           Control.Applicative        hiding (some)
 import           Control.Monad
 import           Control.Monad.State.Lazy   as S

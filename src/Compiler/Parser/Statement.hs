@@ -10,6 +10,7 @@ import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
 import           AST
+import Compiler.Parser.Type
 import           Compiler.Parser.AExpr      hiding (elifStmtParser,
                                              elseStmtParser, ifStmtParser)
 import           Compiler.Parser.Lexer

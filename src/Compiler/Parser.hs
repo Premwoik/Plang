@@ -2,9 +2,11 @@
 
 module Compiler.Parser
   ( langParser
+  , getParsers
   ) where
 
 import           AST
+import Compiler.Parser.Type
 import           Compiler.Parser.Lexer
 import           Control.Applicative            hiding (some)
 import           Control.Monad
@@ -23,6 +25,14 @@ import           Compiler.Parser.AExpr
 import           Compiler.Parser.BExpr
 import           Compiler.Parser.Statement
 import           Compiler.Parser.Universal
+
+getParsers = Dependencies 
+  { aExprParserGetter = aExprExtended
+  , bExprParserGetter = bExpr
+  , stmtParserGetter = stmt'
+  , classStmtParserGetter = classStmt
+  , functionStmtParserGetter = functionStmt
+}
 
 langParser :: Parser AST
 langParser = AST <$> (some stmt' <* eof)

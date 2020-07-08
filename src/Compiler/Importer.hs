@@ -7,9 +7,7 @@ import qualified Text.Megaparsec.Error    as Err
 import           AST
 import           Compiler.Parser
 import           Compiler.Translator
-import           Control.Monad.State      (evalState, runState, runStateT)
-import           Control.Monad.Writer     (runWriterT)
-
+import Control.Monad.Reader(runReaderT)
 import           Compiler.Analyzer.Type   (emptyStorage)
 import qualified Compiler.Translator.Type as TT
 import Control.Exception(tryJust, try)
@@ -93,7 +91,7 @@ tryReadAndParseFile :: String -> IO AST
 tryReadAndParseFile path = do
   putStrLn $ "Parsing file under path: " ++ path
   input <- tryReadFile path
-  case parse langParser path input of
+  case parse (runReaderT langParser getParsers) path input of
     Right res -> return res
     Left e -> do
       putStrLn $ Err.errorBundlePretty e

@@ -3,6 +3,7 @@
 module Compiler.Parser.Universal where
 
 import AST
+import Compiler.Parser.Type
 import Compiler.Parser.Lexer
 import Control.Monad (void)
 import Data.Maybe (fromMaybe)
