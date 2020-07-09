@@ -119,16 +119,17 @@ linkPathParser =
     name <- lexemeEnd stringLiteral
     return $ LinkPath o name
 
-assignParser :: (Parser AExpr -> Parser AExpr) -> Parser AExpr -> (Int -> AExpr -> VarType -> AExpr -> a) -> Parser a
-assignParser lAExpr aExpr wrapper = lexeme $ do
+assignGlobalParser :: (Parser AExpr -> Parser AExpr) -> Parser AExpr -> Parser Stmt
+assignGlobalParser lAExpr aExpr = lexeme $ do
     o <- getOffset
     var <- lAExpr aExpr
     type' <- optional $ do
         void (symbol ":")
         typeParser
     void (symbol "=")
-    wrapper o var (fromMaybe VAuto type') <$> aExpr
-    
+    Assign o var (fromMaybe VAuto type') <$> aExpr
+
+
 classAssignParser :: (Parser AExpr -> Parser AExpr) -> Parser AExpr -> Parser ClassStmt
 classAssignParser lAExpr aExpr = lexeme $ do
    o <- getOffset
@@ -147,14 +148,22 @@ assignOrOtherParser lAExpr aExpr = do
     type' <- optional $ do
         void (symbol ":")
         typeParser
-    rightSide <- optional $ do 
-        void (symbol "=")
-        aExpr
+    rightSide <- optional $ do
+        assignType <- symbol "+=" <|> symbol "-=" <|> symbol "*=" <|> symbol "/=" <|> symbol "="
+        wrapRightWithType var assignType
     case rightSide of
       Just expr -> 
         return $ AssignFn o var (fromMaybe VAuto type') expr
       Nothing ->
         return $ OtherFn o var
+  where
+    wrapRightWithType lVar t =
+      case t of
+        "+=" -> ABinary Add lVar <$> aExpr
+        "-=" -> ABinary Subtract lVar <$> aExpr
+        "*=" -> ABinary Multiply lVar <$> aExpr
+        "/=" -> ABinary Divide lVar <$> aExpr
+        _ -> aExpr
 
 
 defaultAssignParser :: Parser ClassStmt

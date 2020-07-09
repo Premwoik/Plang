@@ -26,7 +26,7 @@ import           Compiler.Parser.BExpr
 import           Compiler.Parser.Statement
 import           Compiler.Parser.Universal
 
-getParsers = Dependencies 
+getParsers = Dependencies
   { aExprParserGetter = aExprExtended
   , bExprParserGetter = bExpr
   , stmtParserGetter = stmt'
@@ -40,7 +40,7 @@ langParser = AST <$> (some stmt' <* eof)
 stmt' :: Parser Stmt
 stmt' =
   moduleParser <|> importParser <|> linkPathParser <|> skipStmt <|>
-  try (assignParser varLeftAssignParser aExprExtended Assign) <|>
+  try (assignGlobalParser varLeftAssignParser aExprExtended) <|>
   nativeClassParser classStmt <|>
   nativeAssignDeclParser <|>
   try nativeFunctionParser <|>

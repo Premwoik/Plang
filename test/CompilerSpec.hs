@@ -10,6 +10,7 @@ import qualified CompilerTest.ScopeSpec as Scope
 import qualified CompilerTest.ClassSpec as Class 
 import qualified CompilerTest.ListSpec as List
 import qualified CompilerTest.OptionalSpec as Optional 
+import qualified CompilerTest.BasicSpec as Basic 
 
 
 main = do
@@ -19,5 +20,6 @@ main = do
   Class.main
   List.main
   Optional.main
+  Basic.main
   
 
