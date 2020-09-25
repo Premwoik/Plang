@@ -1,3 +1,4 @@
+module BitwiseExample where
 import Core.Native.Bitwise
 
 native var "" PORTB: cptr uint8

@@ -14,7 +14,7 @@ server = EthernetServer(4000)
 timeout: uint32 = 60000
 lastReadMessageTime: uint32 = 0
 
-initEthernet mac: list<uint8> -> void do
+initEthernet mac: list<string> -> void do
   EthernetVar.begin(mac)
   println(EthernetVar.localIP())
   server.begin()

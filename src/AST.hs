@@ -3,16 +3,14 @@
 module AST where
 import           Data.Text            (Text, unpack)
 
-
-
-newtype AST =
-  AST [Stmt]
-  deriving (Show, Eq)
-
 data Imported
   -- | IFile name path ast
       =
   IFile String String AST
+  deriving (Show, Eq)
+
+newtype AST =
+  AST [Stmt]
   deriving (Show, Eq)
 
 data Stmt

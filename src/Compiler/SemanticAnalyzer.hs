@@ -41,7 +41,6 @@ analyze modName path (AST stmts) = do
   let globalScope = Scope "global" $ catalogueDecl modName path (AST stmts)
   let importScope = Scope "import" globalFields
   modify (\storage -> storage {scopes = globalScope : importScope : fileScopes})
-  s <- gets scopes
   stmts' <- mapM statementAnalyzer stmts
   return (AST stmts')
 

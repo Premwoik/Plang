@@ -11,22 +11,8 @@ import           Control.Monad.Writer   (WriterT)
 import qualified Data.Map               as Map
 import Data.List(intercalate)
 
-type Translator = ReaderT Dependencies Translator' [String]
+type Translator = ReaderT Dependencies (WriterT [String] (State Storage)) [String]
 
---type RTranslator t = RTranslator' t [String]
---
---type RTranslator' t a = ReaderT t Translator' a
-type Translator' = WriterT [String] (State Storage)
-
---type DPair = (VarType, ExecutableType)
---
----- vars, funcDec, classDec
---data ExecutableType
---  = ClassDecl
---  | FunctionDecl
---  | Instance
---  deriving (Show)
-  
 injectTranslator getter arg = asks getter >>= (\x -> x arg)
 
 data Dependencies =

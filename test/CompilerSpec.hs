@@ -11,6 +11,7 @@ import qualified CompilerTest.ClassSpec as Class
 import qualified CompilerTest.ListSpec as List
 import qualified CompilerTest.OptionalSpec as Optional 
 import qualified CompilerTest.BasicSpec as Basic 
+import qualified CompilerTest.BitwiseSpec as Bitwise 
 
 
 main = do
@@ -21,5 +22,6 @@ main = do
   List.main
   Optional.main
   Basic.main
+  Bitwise.main
   
 
