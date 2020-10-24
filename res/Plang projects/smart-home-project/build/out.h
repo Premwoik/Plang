@@ -1,10 +1,13 @@
 #include "Arduino.h"
 #include "ArrayList.h"
 #include "Core.h"
+#include "DallasTemperature.h"
 #include "Ethernet.h"
 #include "Maybe.h"
 #include "MemoryInfo.h"
+#include "OneWire.h"
 #include "SPI.h"
+#include "Wire.h"
 namespace CoreNativeMaybe {}
 namespace CoreMyFile {
 using namespace CoreNativeMaybe;
@@ -57,6 +60,7 @@ public:
   }
 };
 } // namespace Core
+namespace SmartHomeNativeOneWire {}
 namespace CoreNativeEthernet {}
 namespace SmartHomeMessage {
 using namespace CoreNativeList;
@@ -82,7 +86,6 @@ public:
           ArrayList<uint8_t> &args___args) {
     this___code = args___code;
     this___status = args___status;
-    this___args = args___args;
   }
 
 public:
@@ -136,6 +139,9 @@ public:
 Message okMsg(uint8_t args___code) { return Message(args___code, 200); }
 Message errorMsg(uint8_t args___code) { return Message(args___code, 40); }
 } // namespace SmartHomeMessage
+namespace SmartHomeNativeDallasTemperature {
+using namespace SmartHomeNativeOneWire;
+}
 namespace SmartHomeInitializers {
 using namespace Core;
 void initOutputs(ArrayList<int> &args___out, uint8_t args___initState);
@@ -152,6 +158,101 @@ void initInputs(ArrayList<int> &args___ins) {
   }
 }
 } // namespace SmartHomeInitializers
+namespace SmartHomeInterrupts {
+using namespace Core;
+using namespace CoreNativeList;
+class EnergyMeter;
+void initMeters(ArrayList<int> &args___pins);
+void listenerDef(EnergyMeter &args___meter);
+void listener0();
+void listener1();
+void listener2();
+void listener3();
+void listener4();
+void listener5();
+void listener6();
+ArrayList<EnergyMeter> g___energyMeters = ArrayList<EnergyMeter>();
+class EnergyMeter {
+public:
+  int this___counter = 0;
+
+public:
+  int this___pin = 0;
+
+public:
+  int this___lastRead = 0;
+
+public:
+  EnergyMeter() {}
+
+public:
+  EnergyMeter(int args___pin) {
+    this___pin = args___pin;
+    pinMode(args___pin, INPUT_PULLUP);
+  }
+
+public:
+  void clear() { int counter = 0; }
+};
+void initMeters(ArrayList<int> &args___pins) {
+  for (int i = 0; i < args___pins.size(); i += 1) {
+    int pin = digitalPinToInterrupt(args___pins.get(i));
+    if (i == 0) {
+      attachInterrupt(pin, listener0, RISING);
+    } else if (i == 1) {
+      attachInterrupt(pin, listener1, RISING);
+    } else if (i == 2) {
+      attachInterrupt(pin, listener2, RISING);
+    } else if (i == 3) {
+      attachInterrupt(pin, listener3, RISING);
+    } else if (i == 4) {
+      attachInterrupt(pin, listener4, RISING);
+    } else if (i == 5) {
+      attachInterrupt(pin, listener5, RISING);
+    } else {
+      attachInterrupt(pin, listener6, RISING);
+    }
+    g___energyMeters.add(EnergyMeter(args___pins.get(i)));
+  }
+}
+void listenerDef(EnergyMeter &args___meter) {
+  uint32_t currentRead = millis();
+  if (currentRead - args___meter.this___lastRead > 10) {
+    Serial.print("Impuls: ");
+    Serial.println(args___meter.this___pin);
+    args___meter;
+    args___meter;
+  }
+}
+void listener0() {
+  EnergyMeter meter = g___energyMeters.get(0);
+  listenerDef(meter);
+}
+void listener1() {
+  EnergyMeter meter = g___energyMeters.get(1);
+  listenerDef(meter);
+}
+void listener2() {
+  EnergyMeter meter = g___energyMeters.get(2);
+  listenerDef(meter);
+}
+void listener3() {
+  EnergyMeter meter = g___energyMeters.get(3);
+  listenerDef(meter);
+}
+void listener4() {
+  EnergyMeter meter = g___energyMeters.get(4);
+  listenerDef(meter);
+}
+void listener5() {
+  EnergyMeter meter = g___energyMeters.get(5);
+  listenerDef(meter);
+}
+void listener6() {
+  EnergyMeter meter = g___energyMeters.get(6);
+  listenerDef(meter);
+}
+} // namespace SmartHomeInterrupts
 namespace SmartHomeMessageProcessor {
 using namespace Core;
 using namespace CoreNativeList;
@@ -204,12 +305,67 @@ int g___Test = 200;
 int g___SetLow = 100;
 int g___SetHigh = 101;
 int g___SetPwm = 105;
-int g___SetTerm = 110;
 int g___SetTimeDimmer = 102;
+int g___ReadTemp = 110;
+int g___ReadEnergy = 111;
 } // namespace SmartHomeMsgCode
 namespace SmartHomeMsgStatus {
 int g___WrongCode = 50;
-}
+int g___Ok = 200;
+} // namespace SmartHomeMsgStatus
+namespace SmartHomeThermometers {
+using namespace Core;
+using namespace CoreNativeList;
+using namespace SmartHomeNativeDallasTemperature;
+using namespace SmartHomeNativeOneWire;
+class DallasThermometers;
+class DallasThermometers {
+public:
+  DallasTemperature this___dt;
+
+public:
+  DallasThermometers() {}
+
+public:
+  void setLinePrecision(int args___precision) {
+    int num = this___dt.getDeviceCount();
+    ArrayList<uint8_t> deviceAddr =
+        ArrayList<uint8_t>(new uint8_t[8]{0, 0, 0, 0, 0, 0, 0, 0}, 8, 8);
+    for (int id = 0; id < num; id += 1) {
+      this___dt.getAddress(deviceAddr.getNativePtr(), id);
+      this___dt.setResolution(deviceAddr.getNativePtr(), args___precision);
+    }
+  }
+
+public:
+  DallasThermometers(OneWire &args___line) {
+    this___dt = DallasTemperature(&args___line);
+    this___dt.begin();
+    setLinePrecision(9);
+  }
+
+public:
+  ArrayList<uint8_t> readTemps() {
+    int num = this___dt.getDeviceCount();
+    ArrayList<uint8_t> result = ArrayList<uint8_t>();
+    if (num > 0) {
+      this___dt.requestTemperatures();
+      for (int i = 0; i < num; i += 1) {
+        ArrayList<uint8_t> addr =
+            ArrayList<uint8_t>(new uint8_t[8]{0, 0, 0, 0, 0, 0, 0, 0}, 8, 8);
+        this___dt.getAddress(addr.getNativePtr(), i);
+        int raw = this___dt.getTemp(addr.getNativePtr());
+        for (uint8_t j : addr) {
+          result.add(j);
+        }
+        result.add(highByte(raw));
+        result.add(lowByte(raw));
+      }
+    }
+    return result;
+  }
+};
+} // namespace SmartHomeThermometers
 namespace SmartHomeTimer {
 using namespace Core;
 using namespace CoreNativeList;
@@ -275,6 +431,9 @@ using namespace CoreNativeEthernet;
 using namespace SmartHomeMessage;
 using namespace SmartHomeMessageProcessor;
 using namespace SmartHomeInitializers;
+using namespace SmartHomeInterrupts;
+using namespace SmartHomeThermometers;
+using namespace SmartHomeNativeOneWire;
 void initEthernet(ArrayList<uint8_t> &args___mac);
 void setupPins();
 int Main();
@@ -283,24 +442,40 @@ bool stillAlive();
 Message processReadMsg(Message &args___msg);
 Message digitalWriteCmd(Message &args___msg);
 Message setTimeDimmerCmd(Message &args___msg);
-EthernetServer g___server = EthernetServer(4000);
+Message readEnergyCmd(Message &args___msg);
+Message readTempCmd(Message &args___msg);
+EthernetServer g___server = EthernetServer(1000);
 uint32_t g___timeout = 60000;
 uint32_t g___lastReadMessageTime = 0;
+OneWire g___line2 = OneWire(5);
+DallasThermometers g___tempLine = DallasThermometers(g___line2);
 void initEthernet(ArrayList<uint8_t> &args___mac) {
-  Ethernet.begin(args___mac.getNativePtr());
+  Serial.println(F("Initializing connection with dns server:"));
+  while (Ethernet.begin(args___mac.getNativePtr()) == 0) {
+    Serial.println(F("Failure! Reconnectiong..."));
+    delay(1000);
+  }
+  Serial.print(F("Success! Connected with ip: "));
   Serial.println(Ethernet.localIP());
   g___server.begin();
 }
 void setupPins() {
-  ArrayList<int> highInitList = ArrayList<int>(new int[1]{8}, 1, 1);
+  ArrayList<int> lowInitList = ArrayList<int>();
+  ArrayList<int> highInitList =
+      ArrayList<int>(new int[32]{18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
+                                 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+                                 40, 41, 42, 43, 44, 45, 46, 47, 48, 49},
+                     32, 32);
   initOutputs(highInitList, HIGH);
+  ArrayList<int> energyPins = ArrayList<int>(new int[1]{2}, 1, 1);
+  initMeters(energyPins);
 }
 int Main() {
   Serial.begin(9600);
   setupPins();
-  Serial.println("Hello");
+  Serial.println(F("Hello"));
   ArrayList<uint8_t> mac =
-      ArrayList<uint8_t>(new uint8_t[6]{0, 1, 2, 0, 4, 5}, 6, 6);
+      ArrayList<uint8_t>(new uint8_t[6]{0, 1, 2, 3, 4, 5}, 6, 6);
   initEthernet(mac);
   while (true) {
     SmartHomeTimer::runTasks();
@@ -313,7 +488,7 @@ void loop() {
   while (!client) {
     return Void();
   }
-  Serial.println("Client has connected!");
+  Serial.println(F("Client has connected!"));
   MessageProcessor proc = MessageProcessor(client);
   g___lastReadMessageTime = millis();
   while ((stillAlive()) && (client.connected())) {
@@ -323,11 +498,11 @@ void loop() {
       Message response = processReadMsg(*msg);
       proc.sendMessage(response);
       g___lastReadMessageTime = millis();
-      Serial.println("--------");
+      Serial.println(F("--------"));
       printMemStats();
     }
   }
-  Serial.println("Client has disconnected.");
+  Serial.println(F("Client has disconnected."));
   client.stop();
 }
 bool stillAlive() {
@@ -342,39 +517,58 @@ Message processReadMsg(Message &args___msg) {
   } else if (args___msg.getCode() == SmartHomeMsgCode::g___SetTimeDimmer) {
     return setTimeDimmerCmd(args___msg);
   } else if (args___msg.getCode() == SmartHomeMsgCode::g___Test) {
-    Serial.println("Test message!");
+    Serial.println(F("Test message!"));
     return okMsg(SmartHomeMsgCode::g___Test);
+  } else if (args___msg.getCode() == SmartHomeMsgCode::g___ReadEnergy) {
+    Serial.println(F("Read energy message!"));
+    return readEnergyCmd(args___msg);
+  } else if (args___msg.getCode() == SmartHomeMsgCode::g___ReadTemp) {
+    Serial.println(F("Read temp message!"));
+    return readTempCmd(args___msg);
   } else {
     return errorMsg(args___msg.getCode());
   }
 }
 Message digitalWriteCmd(Message &args___msg) {
-  Serial.println("DigitalWrite message");
+  Serial.println(F("DigitalWrite message"));
   for (int i = 0; i < args___msg.getLength(); i += 2) {
     digitalWrite(args___msg.getArg(i), args___msg.getArg(i + 1));
   }
   return okMsg(args___msg.getCode());
 }
 Message setTimeDimmerCmd(Message &args___msg) {
-  Serial.println("SetTimeDimmer message");
+  Serial.println(F("SetTimeDimmer message"));
   for (int i = 0; i < args___msg.getLength(); i += 3) {
     uint8_t pin = args___msg.getArg(i);
     uint8_t isInverted = args___msg.getArg(i + 1);
     uint32_t timeout = millis() + args___msg.getArg(i + 2) * 100;
     if (isInverted) {
       digitalWrite(pin, HIGH);
-      auto fun = [=](int args___x) {
+      auto fun = [&](int args___x) {
         digitalWrite(args___x, LOW);
-        Serial.println("Postponed task dimmer");
+        Serial.println(F("Postponed task dimmer"));
         Serial.print(pin);
       };
       SmartHomeTimer::addTask(fun, pin, timeout);
     } else {
       digitalWrite(pin, LOW);
-      auto fun = [=](int args___x) { return digitalWrite(args___x, HIGH); };
+      auto fun = [&](int args___x) { return digitalWrite(args___x, HIGH); };
       SmartHomeTimer::addTask(fun, pin, timeout);
     }
   }
   return okMsg(args___msg.getCode());
+}
+Message readEnergyCmd(Message &args___msg) {
+  ArrayList<uint8_t> args = ArrayList<uint8_t>();
+  for (EnergyMeter meter : g___energyMeters) {
+    args.add(meter.this___pin);
+    args.add(meter.this___counter);
+    meter.clear();
+  }
+  return Message(args___msg.getCode(), 200, args);
+}
+Message readTempCmd(Message &args___msg) {
+  ArrayList<uint8_t> res = g___tempLine.readTemps();
+  return Message(args___msg.getCode(), 200, res);
 }
 } // namespace Main

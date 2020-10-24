@@ -8,35 +8,47 @@ import SmartHome.MsgCode as CODE
 import SmartHome.MsgStatus as STATUS
 import SmartHome.Timer as Timer
 import SmartHome.Initializers
+import SmartHome.Interrupts
+import SmartHome.Thermometers
+import SmartHome.Native.OneWire
 
-server = EthernetServer(4000)
+server = EthernetServer(1000)
 
 timeout: uint32 = 60000
 lastReadMessageTime: uint32 = 0
 
-initEthernet mac: list<string> -> void do
-  EthernetVar.begin(mac)
+line2 = OneWire(5)
+tempLine = DallasThermometers(line2)
+
+
+initEthernet mac: list<uint8> -> void do
+  println(F("Initializing connection with dns server:"))
+  while EthernetVar.begin(mac) == 0 do
+     println(F("Failure! Reconnectiong..."))
+     sleep(1000)
+  print(F("Success! Connected with ip: "))
   println(EthernetVar.localIP())
   server.begin()
 
 
 setupPins -> void do
-//   lowInitList = [int|]
-//   initOutputs(lowInitList, LOW)
-//   highInitList = [18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49]
-//   initOutputs(highInitList, HIGH)
-//   inputsList = [2]
-//   initInputs(inputsList)
-  highInitList = [8]
+  lowInitList = [int|]
+//  initOutputs(lowInitList, LOW)
+  highInitList = [18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49]
   initOutputs(highInitList, HIGH)
+//  inputsList = [2]
+//  initInputs(inputsList)
+  energyPins = [2]
+  initMeters(energyPins)
+//  highInitList = [8]
+//  initOutputs(highInitList, HIGH)
 Main -> int do
   Serial.begin(9600)
   setupPins()
-  println("Hello")
+  println(F("Hello"))
 
-  mac = [uint8| 0, 1, 2, 0, 4, 5]
+  mac = [uint8| 0, 1, 2, 3, 4, 5]
   initEthernet(mac)
-
 
   while true do
     Timer|runTasks()
@@ -48,7 +60,7 @@ loop -> void do
   client = server.available()
   while not client? do
       ret Void()
-  println("Client has connected!")
+  println(F("Client has connected!"))
   proc = MessageProcessor(client)
   g|lastReadMessageTime = millis()
   while stillAlive() and client.connected() do
@@ -59,9 +71,9 @@ loop -> void do
         proc.sendMessage(response)
         g|lastReadMessageTime = millis()
 //        LOGS
-        println("--------")
+        println(F("--------"))
         printMemStats()
-  println("Client has disconnected.")
+  println(F("Client has disconnected."))
   client.stop()
 
 stillAlive -> bool do
@@ -77,19 +89,25 @@ processReadMsg msg: Message -> Message do
     CODE|SetTimeDimmer do
       ret setTimeDimmerCmd(msg)
     CODE|Test do
-      println("Test message!")
+      println(F("Test message!"))
       ret okMsg(CODE|Test)
+    CODE|ReadEnergy do
+      println(F("Read energy message!"))
+      ret readEnergyCmd(msg)
+    CODE|ReadTemp do
+      println(F("Read temp message!"))
+      ret readTempCmd(msg)
     otherwise do
       ret errorMsg(msg.getCode(), STATUS|WrongCode)
 
 digitalWriteCmd msg: Message -> Message do
-  println("DigitalWrite message")
+  println(F("DigitalWrite message"))
   for i in [0, 2..msg.getLength()] do
     digitalWrite(msg.getArg(i), msg.getArg(i+1))
   ret okMsg(msg.getCode())
 
 setTimeDimmerCmd msg: Message -> Message do
-  println("SetTimeDimmer message")
+  println(F("SetTimeDimmer message"))
   for i in [0, 3..msg.getLength()] do
     pin = msg.getArg(i)
     isInverted = msg.getArg(i+1)
@@ -99,7 +117,7 @@ setTimeDimmerCmd msg: Message -> Message do
       fun: fn<int, void> =
         {\x ->
           digitalWrite(x, LOW)
-          println("Postponed task dimmer")
+          println(F("Postponed task dimmer"))
           print(pin)
         }
       Timer|addTask(fun, pin, timeout)
@@ -112,4 +130,16 @@ setTimeDimmerCmd msg: Message -> Message do
         }
       Timer|addTask(fun, pin, timeout)
   ret okMsg(msg.getCode())
+
+readEnergyCmd msg: Message -> Message do
+  args = [uint8|]
+  for meter in energyMeters do
+     args.add(meter.pin)
+     args.add(meter.counter)
+     meter.clear()
+  ret Message(msg.getCode(), 200, args)
+
+readTempCmd msg: Message -> Message do
+  res = tempLine.readTemps()
+  ret Message(msg.getCode, 200, res)
 

@@ -1,0 +1,15 @@
+module SimpleLambdaExample where
+
+native "" attachInterrupt id: int, fun: fn<void>, mode: int -> void
+native "" detachInterrupt id: int -> void
+native "" digitalPinToInterrupt id: int -> int
+
+native var "INPUT_PULLUP" PULLUP: int
+
+testFunc -> void do
+  varToCapture = 12
+  lambda: fn<void> =
+    {\ ->
+    }
+  attachInterrupt(digitalPinToInterrupt(2), lambda, PULLUP)
+

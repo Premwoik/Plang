@@ -1,0 +1,1 @@
+"namespace simpleCaptureLambdaPassExample{\n","void consumeFn(nonstd::function<int(int)> args___fn);\n","void testFunc();\n","void consumeFn(nonstd::function<int(int)> args___fn){\n","}\n","void testFunc(){\n","   int varToCapture = 12;\n","   auto lambda = [=](int args___x){return varToCapture + args___x + 10;\n};\n","   consumeFn(lambda)","   ;\n","}\n","}\n"

@@ -1,0 +1,12 @@
+module SmartHome.Native.OneWire where
+
+link_path "OneWire.h"
+link_path "Wire.h"
+link_path "SPI.h"
+
+
+native class "" OneWire do
+  def OneWire
+  def OneWire pin: int
+
+  def begin pin: int -> void

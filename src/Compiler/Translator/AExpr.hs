@@ -95,7 +95,8 @@ lambdaTranslator (LambdaFn offset capture t args stmts) = do
   stmts' <- concat <$> tStmts
   return ["["++ mode capture ++"](" ++ tArgs ++ "){" ++ stmts' ++ "}"]
   where
-    mode CMOn = "="
+--    mode CMOn = "="
+    mode CMOn = "&"
     mode _ = ""
     tArgs = intercalate "," $ map (\(FunArg t n) -> unwrapType t n) args
     tStmts =

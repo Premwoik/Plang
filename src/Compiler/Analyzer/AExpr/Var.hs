@@ -121,9 +121,8 @@ checkVarFirst var@(Var offset name gen _ more) Nothing retBuilder obj scopeName 
       retBuilder newType (TypedVar (defaultPath p (wrapInsideScopeMark scope scopeName n)) newType Nothing) more
     p -> do
       storage <- gets scopes
+      makeError offset $ VariableMissing ("chuj" ++ name)
 --      traceShow storage $ return ()
-      makeError offset $ VariableMissing name
-
 -- | variable that have given args - is executed
 checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName =
   case obj of
@@ -153,9 +152,9 @@ checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName =
 
     p -> do
       storage <- gets scopes
---      traceShow storage $ return ()
       makeError offset $ VariableMissing name
 
+--      traceShow storage $ return ()
 wrapInsideScopeMark scope scopeName n =
   case scopeName of
     ""       -> n
@@ -237,7 +236,8 @@ defaultPath p n =
 checkFunPtr :: VarType -> [ScopeField] -> [ScopeField]
 checkFunPtr t@(VFn a _) = isOnlyOne . filter matchArgs
   where
-    matchArgs f@SFunction {} = last a == getType f && length a - 1 == length (sFunctionArgs f) && compareArgs (sFunctionArgs f)
+    matchArgs f@SFunction {} =
+      last a == getType f && length a - 1 == length (sFunctionArgs f) && compareArgs (sFunctionArgs f)
     matchArgs (SVar _ _ _ (VFn ts _) _ _) = a == ts
     matchArgs _ = False
     compareArgs = all (\(t, FunArg t' _) -> t == t') . zip (init a)

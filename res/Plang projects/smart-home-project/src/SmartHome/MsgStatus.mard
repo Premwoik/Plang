@@ -2,6 +2,7 @@ module SmartHome.MsgStatus where
 //link_path "Message.h"
 
 WrongCode: int = 50
+Ok: int = 200
 
 
 //enum STATUS {Ok = 200, Error = 40, WrongCode = 50, NotValid = 60, ArgsMissing = 70};

@@ -66,9 +66,11 @@ checkScopeMark (ScopeMark o scopeName aExpr) = do
 checkListVar :: AExpr -> Analyzer' AExprRes
 checkListVar (ListVar _ [] (Just t)) =
   return
-    ( VClass (VName "ArrayList") [VGenPair "T" t]
+    ( type'
     , []
-    , TypedVar (VName "ArrayList") (VClass (VName "ArrayList") [VGenPair "T" t]) (Just []) Nothing)
+    , TypedVar (VName "ArrayList") type' (Just []) Nothing)
+    where
+      type' = VClass (VName "ArrayList") [VGenPair "T" t]
 checkListVar (ListVar o [] Nothing) = makeError o NotProvidedListType
 checkListVar a@(ListVar o elems wantedType) = do
   let len = show $ length elems

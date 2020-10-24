@@ -58,6 +58,8 @@ functionArgsParser = sepBy1 p sep
 functionParser :: Parser FunctionStmt -> Parser Stmt
 functionParser functionStmt = L.indentBlock scn p
   where
+    toVoid VAuto = VVoid
+    toVoid x = x
     p = addLocation "function declaration" $ do
       o <- getOffset
       header <- pItem
@@ -66,7 +68,7 @@ functionParser functionStmt = L.indentBlock scn p
       type' <-
         optional $ do
           void (symbol "->")
-          addContext "You have to specify type after \'->\' eg: int, float, string, MyClass" typeParser
+          addContext "You have to specify type after \'->\' eg: int, float, string, MyClass" (toVoid <$> typeParser)
       void (symbolEnd "do")
       return (L.IndentSome Nothing (return . Function o header gen (fromMaybe VAuto type') args) (addLocation ("function " ++ header) functionStmt))
 

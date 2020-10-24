@@ -1,0 +1,75 @@
+module SmartHome.Interrupts where
+import Core
+import Core.Native.List
+
+energyMeters = [EnergyMeter|]
+
+class EnergyMeter do
+  counter = 0
+  pin = 0
+  lastRead = 0
+
+  EnergyMeter do
+    pass
+
+  EnergyMeter pin: int do
+    this|pin = pin
+    pinMode(pin, PULLUP)
+
+  clear -> void do
+    counter = 0
+
+
+initMeters pins: list<int> -> void do
+  for i in [0..pins.size()] do
+    pin = digitalPinToInterrupt(pins[i])
+
+    case i of
+      0 do
+        attachInterrupt(pin, listener0, RISING)
+      1 do
+        attachInterrupt(pin, listener1, RISING)
+      2 do
+        attachInterrupt(pin, listener2, RISING)
+      3 do
+        attachInterrupt(pin, listener3, RISING)
+      4 do
+        attachInterrupt(pin, listener4, RISING)
+      5 do
+        attachInterrupt(pin, listener5, RISING)
+      6 do
+        attachInterrupt(pin, listener6, RISING)
+    energyMeters.add(EnergyMeter(pins[i]))
+
+listenerDef meter: EnergyMeter -> void do
+  currentRead = millis()
+  if currentRead - meter.lastRead > 10 then
+    print("Impuls: ")
+    println(meter.pin)
+    meter.counter += 1
+    meter.lastRead = currentRead
+
+listener0 -> void do
+  meter = energyMeters[0]
+  listenerDef(meter)
+listener1 -> void do
+  meter = energyMeters[1]
+  listenerDef(meter)
+listener2 -> void do
+  meter = energyMeters[2]
+  listenerDef(meter)
+listener3 -> void do
+  meter = energyMeters[3]
+  listenerDef(meter)
+listener4 -> void do
+  meter = energyMeters[4]
+  listenerDef(meter)
+listener5 -> void do
+  meter = energyMeters[5]
+  listenerDef(meter)
+listener6 -> void do
+  meter = energyMeters[6]
+  listenerDef(meter)
+
+
+

@@ -6,8 +6,9 @@ Test: int = 200
 SetLow: int = 100
 SetHigh: int = 101
 SetPwm: int = 105
-SetTerm: int = 110
 SetTimeDimmer: int = 102
+ReadTemp: int = 110
+ReadEnergy: int = 111
 
 //SetTimeDimmer = 102
 

@@ -34,7 +34,7 @@ class Message do
   Message code: uint8, status: uint8, args: list<uint8> do
     this|code = code
     this|status = status
-    this|args = args
+//    this|args = args
 
   Message code: uint8, status: uint8 do
     this|code = code

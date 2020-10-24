@@ -30,8 +30,9 @@ native "" pulseInLong pin: int, state: int, timeout: int -> int
 native "" shiftOut dataPin: int, clockPin: int, bitOrder: int, val: int -> void
 native "" shiftIn dataPin: int, clockPin: int, bitOrder: int -> int
 
-native "" attachInterrupt id: int, fn: void, mode: int -> void
+native "" attachInterrupt id: int, fun: fn<void>, mode: int -> void
 native "" detachInterrupt id: int -> void
+native "" digitalPinToInterrupt id: int -> int
 
 // DEFINE
 
@@ -39,7 +40,7 @@ native var "" HIGH: int
 native var "" LOW: int
 native var "" INPUT: int
 native var "" OUTPUT: int
-//native var "" INPUT_PULLUP -> int
+native var "INPUT_PULLUP" PULLUP: int
 
 native "" PI
 native "" HALF_PI
@@ -54,9 +55,9 @@ native "" DISPLAY
 native "" LSBFIRST
 native "" MSBFIRST
 
-native "" CHANGE
-native "" FALLING
-native "" RISING
+native var "" CHANGE: int
+native var "" FALLING: int
+native var "" RISING: int
 
 // MACROS
 
@@ -76,8 +77,8 @@ native "" clockCyclesPerMicrosecond -> int
 native "" clockCyclesToMicroseconds x: int -> int
 native "" microsecondsToClockCycles x: int -> int
 
-native "" lowByte w -> int
-native "" highByte w -> int
+native "" lowByte w: int -> int
+native "" highByte w: int -> int
 
 native "" bitRead value, bit -> int
 native "" bitSet value, bit -> int

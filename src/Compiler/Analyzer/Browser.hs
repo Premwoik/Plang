@@ -212,22 +212,22 @@ argsMatch t gen (SClass _ n _ g _ (Scope _ s)) = or <$> mapM (match (mergeGen g)
     match _ _ = return False
     mergeGen gns = zipWith VGenPair gns gen
 
-argsMatch' :: [VarType] -> [FunArg] -> Analyzer' Bool
+argsMatch' :: [VarType] -> [VarType] -> Analyzer' Bool
 argsMatch' t args = do
   let lenCheck = length t == length args
   argsCheck <- and <$> mapM match (zip t args)
   return $ lenCheck && argsCheck
   where
-    match (VClass (VName "ArrayList") [t], FunArg (VPointer t2 NativePtr) _) = compareTypes 0 t t2
-    match (w, FunArg ot _) = compareTypes 0 ot w
+    match (VClass (VName "ArrayList") [t], VPointer t2 NativePtr) = compareTypes 0 t t2
+    match (w, ot) = compareTypes 0 ot w
 
-constructorArgsMatch :: [VarType] -> [FunArg] -> Analyzer' Bool
+constructorArgsMatch :: [VarType] -> [VarType] -> Analyzer' Bool
 constructorArgsMatch t args = do
   let lenCheck = length t == length args
   argsCheck <- and <$> mapM match (zip t args)
   return $ lenCheck && argsCheck
   where
-    match (w, FunArg ot _) = compareTypes 0 ot w
+    match (w, ot) = compareTypes 0 ot w
 
 filterConstructor :: Offset -> Maybe [AExpr] -> [VarType] -> ScopeField -> Analyzer' ScopeField
 filterConstructor o (Just args) gen (SClass _ n _ _ _ (Scope _ s)) = do
@@ -244,9 +244,9 @@ filterConstructor o (Just args) gen (SClass _ n _ _ _ (Scope _ s)) = do
     match _ _ = return False
 
 --
-fixArgs :: [VarType] -> [FunArg] -> Analyzer' [FunArg]
-fixArgs [] args = return args
-fixArgs gen args = mapM (\(FunArg t n) -> flip FunArg n <$> fixType gen t) args
+fixArgs :: [VarType] -> [FunArg] -> Analyzer' [VarType]
+fixArgs [] args = return . map (\(FunArg t _) -> t) $ args
+fixArgs gen args = mapM (\(FunArg t n) -> fixType gen t) args
 
 -- | fixType - replace generic type with exact type
 --   e.g

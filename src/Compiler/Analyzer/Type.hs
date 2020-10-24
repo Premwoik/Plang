@@ -212,6 +212,12 @@ getScopeName = unwrap . listToMaybe <$> gets scopes
     unwrap (Just (Scope n _)) = n
     unwrap Nothing            = ""
 
+containsScopeName :: String -> Analyzer' Bool
+containsScopeName name = not. null . filter cond <$> gets scopes
+  where
+    cond (Scope n _) = n == name
+    cond (FScope n _ _) = n == name
+
 addField :: ScopeField -> Analyzer' ScopeField
 addField field = do
   s <- gets scopes

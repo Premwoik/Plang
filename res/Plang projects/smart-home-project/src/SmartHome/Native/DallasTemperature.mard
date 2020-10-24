@@ -1,0 +1,22 @@
+module SmartHome.Native.DallasTemperature where
+
+import SmartHome.Native.OneWire
+
+link_path "OneWire.h"
+link_path "DallasTemperature.h"
+
+native class "" DeviceAddress do
+  def DeviceAddress
+
+native class "" DallasTemperature do
+  def DallasTemperature
+  def DallasTemperature wire: cptr OneWire
+
+  def begin -> void
+
+  def getDeviceCount -> int
+  def getAddress addrBuff: cptr uint8, thermId: int -> void
+  def setResolution addr: cptr uint8, resolution: int -> void
+  def requestTemperatures -> void
+  def getTemp addr: cptr uint8 -> int
+
