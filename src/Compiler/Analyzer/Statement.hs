@@ -116,7 +116,6 @@ markNativePtr x = x
 
 checkAssignFn :: FunctionStmt -> Analyzer' [FunctionStmt]
 checkAssignFn a@(AssignFn o var@(Var vo vname [] Nothing Nothing) ret aExpr) = do
-  s <- get
   retTmp <- gets rType
   setType ret
   (type', inject, res) <- markNativePtr <$> injectAnalyzer aExprAnalyzerGetter aExpr
@@ -125,30 +124,33 @@ checkAssignFn a@(AssignFn o var@(Var vo vname [] Nothing Nothing) ret aExpr) = d
   nType <-
     case firstSig of
       Just (SVar o' n _ t "" _) -> check o t ret type' VBlank
-      Just {}                 -> add type'
-      Nothing                 -> add type'
+      Just {}                   -> add type'
+      Nothing                   -> add type'
   return $ inject ++ [AssignFn o (TypedVar (VName vname) VAuto Nothing Nothing) (unwrapAllMethod nType) res]
   where
     add type' = addVar o vname Nothing (unwrapAllMethod type') "" >> check o type' ret type' type'
-checkAssignFn a@(AssignFn o nameExpr ret aExpr) =
+checkAssignFn a@(AssignFn o nameExpr ret aExpr) = do
+  trace ("checkAssignFn :: a: " ++ show a) $ return ()
   case hasSet nameExpr aExpr of
-    Just resExpr -> do
+    (True, resExpr) -> do
+      trace ("checkAssignFn :: resExpr : " ++ show resExpr) $ return ()
       (nType, nInject, nRes) <- injectAnalyzer aExprAnalyzerGetter resExpr
       return $ nInject ++ [OtherFn o nRes]
-    Nothing -> do
+    (False, _) -> do
       (type', inject, res) <- markNativePtr <$> injectAnalyzer aExprAnalyzerGetter aExpr
       (nType, nInject, nRes) <- injectAnalyzer aExprAnalyzerGetter nameExpr
       nType <- check o nType ret type' VBlank
       let assign = AssignFn o nRes nType res
+      trace ("checkAssignFn :: res : " ++ show assign) $ return ()
       return $ nInject ++ inject ++ [assign]
   where
-    hasSet :: AExpr -> AExpr -> Maybe AExpr
-    hasSet t@(Var o "set" g (Just args) Nothing) rSide = return $ Var o "set" g (Just (rSide : args)) Nothing
-    hasSet t@(Var _ _ _ _ Nothing) _ = Nothing
-    hasSet (Var a b c d (Just more)) rSide = return $ Var a b c d $ hasSet more rSide
-    hasSet (ScopeMark o n a) rSide = do
-      res <- hasSet a rSide
-      return $ ScopeMark o n res
+    hasSet :: AExpr -> AExpr -> (Bool, AExpr)
+    hasSet t@(Var o "set" g (Just args) Nothing) rSide = (True, Var o "set" g (Just (rSide : args)) Nothing)
+    hasSet t@(Var _ _ _ _ Nothing) _ = (False, t)
+    hasSet (Var a b c d (Just more)) rSide =  (\(status, expr) -> (status, Var a b c d (Just expr))) $ hasSet more rSide
+    hasSet (ScopeMark o n a) rSide = (\(status, expr) -> (status, ScopeMark o n expr)) $ hasSet a rSide
+      
+      
 
 checkNativeAssign :: Stmt -> Analyzer' Stmt
 checkNativeAssign s@(NativeAssignDeclaration o p n t) = do
@@ -163,7 +165,7 @@ checkAssign (Assign o (Var _ name _ _ Nothing) ret aExpr) = do
   nType <-
     case firstSig of
       Just e@SVar {} -> makeError o $ NotAllowedGlobalMod (getName e)
-      Nothing                 -> add type'
+      Nothing        -> add type'
   let mergedNameWithScope = concat . scaleNameWithScope $ "g" : [name]
   return $ Assign o (TypedVar (VName mergedNameWithScope) VAuto Nothing Nothing) nType res
   where
@@ -192,16 +194,28 @@ checkIfFunction t@(IfFn o ifs) = do
 checkFor :: FunctionStmt -> Analyzer' [FunctionStmt]
 -- TODO
 checkFor (ForFn o (Var vo n _ _ _) range body) = do
+  tmp <- gets rType
+  setType VAuto
   (t, _, range') <- injectAnalyzer aExprAnalyzerGetter range
-  addVar vo n Nothing (itemType t) ""
+  setType tmp
   addScope "for"
+  addVar vo n Nothing (itemType t) ""
   body' <- concat <$> mapM (injectAnalyzer functionStmtAnalyzerGetter) body
   removeScope
-  return [ForFn o (TypedVar (VName n) (itemType t) Nothing Nothing) range' body']
+  trace ("checkFor :: range': " ++ show range' ++ " | t: " ++ show t) $ return ()
+  return [ForFn o (TypedVar (VName n) (itemType t) Nothing Nothing) (getValueIfPtr range') body']
   where
-    itemType (VClass (VName "ArrayList") [VGenPair "T" t]) = t
-    itemType (VClass (VName "ArrayList") [t])              = t
-    itemType t                                             = t
+--    mark type as a copy to add * in the translation to unwrap the array ptr from shared_ptr
+    getValueIfPtr (TypedVar n (p@VPointer {}) a m) = TypedVar n (VCopy p) a m
+    getValueIfPtr v = v
+    
+    itemType (VClass (VName "ArrayList") [VGenPair "T" t])              = t
+    itemType (VClass (VName "ArrayList") [t])                           = t
+    itemType (VPointer (VClass (VName "ArrayList") [VGenPair "T" t]) _) = t
+    itemType (VPointer (VClass (VName "ArrayList") [t]) _)              = t
+    itemType t                                                          = t
+    
+
 
 -- | CLASS
 checkDecorator :: ClassStmt -> Analyzer' ClassStmt
@@ -229,7 +243,7 @@ checkClass c@(ClassExpr o name gen parents body) = do
   addScope "this"
   mapM_ (addField . SGen VAuto) gen
   body' <- mapM (injectAnalyzer classStmtAnalyzerGetter) body
-  cScope <- changeScopeName "cthis" <$>  removeScope
+  cScope <- changeScopeName "cthis" <$> removeScope
   clearClassName
   let parents' = map (`markGen` gen) parents
   checkParentsUniqueness o =<< addClass o name Nothing gen parents' cScope
@@ -276,7 +290,7 @@ checkClassAssign aa@(ClassAssign o (Var oV name [] Nothing Nothing) ret details 
     unwrapAllMethod . flip markGen gen <$>
     case firstSig of
       Just f@SVar {} -> makeError o $ NotAllowedGlobalMod (getName f)
-      Nothing               -> check ret type'
+      Nothing        -> check ret type'
   addClassVar o name Nothing nType "this" details
   let name' = concat . scaleNameWithScope $ "this" : [name]
   let newLeft = ScopeMark oV "this" (TypedVar (VName name') VAuto Nothing Nothing)

@@ -1,23 +1,25 @@
 module Main where
-
+//import Core
+import Core.Native.List
 
 class TestClass do
-  a = 12
+  arr: ptr list<int> = null
+
   TestClass do
     pass
-
-print txt: string -> void do
-  pass
-
-lambda -> fn<int> do
-  l1: fn<int> = \-> 12
-  t2 = 123
-  ret l1
-
+  TestClass arr: ptr list<int> do
+    this|arr = arr
 
 Main -> int do
-  print("String literal \n")
-  TestClass().a
+  arr1: ptr auto = [int|]
+  arr2: ptr auto = [int|]
+  tArr = TestClass(arr1)
+  tArr.arr = arr2
+//  arr = TestClass().arr
+//  if arr? then
+//    a = arr[0]
+//    for i in arr do
+//      println(i)
   ret 0
 
 

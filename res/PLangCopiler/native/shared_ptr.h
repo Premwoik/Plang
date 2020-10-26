@@ -35,9 +35,11 @@ private:
     RC *ref;
 
     void freeIfNeeded() {
-        if (ref->release() == 0) {
-            delete pData;
-            delete ref;
+        if(ref != nullptr) {
+            if (ref->release() == 0) {
+                delete pData;
+                delete ref;
+            }
         }
     }
 
@@ -52,13 +54,17 @@ public:
     }
 
     shared_ptr(const shared_ptr<T> &sp) : pData(sp.pData), ref(sp.ref) {
-        ref->addRef();
+        if(ref != nullptr) {
+            ref->addRef();
+        }
     }
 
     ~shared_ptr() {
         freeIfNeeded();
     }
-
+    T &operator&() {
+        return &pData;
+    }
     T &operator*() {
         return *pData;
     }

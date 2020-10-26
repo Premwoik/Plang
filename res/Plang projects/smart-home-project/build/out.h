@@ -76,16 +76,17 @@ private:
   int this___status = 0;
 
 private:
-  ArrayList<uint8_t> this___args = ArrayList<uint8_t>();
+  shared_ptr<ArrayList<uint8_t>> this___args = nullptr;
 
 public:
   bool this___valid = false;
 
 public:
   Message(uint8_t args___code, uint8_t args___status,
-          ArrayList<uint8_t> &args___args) {
+          shared_ptr<ArrayList<uint8_t>> args___args) {
     this___code = args___code;
     this___status = args___status;
+    this___args = args___args;
   }
 
 public:
@@ -95,9 +96,9 @@ public:
   }
 
 public:
-  Message(ArrayList<uint8_t> &args___data, int args___s) {
-    this___code = args___data.get(0);
-    args___data.remove(0);
+  Message(shared_ptr<ArrayList<uint8_t>> args___data) {
+    this___code = args___data->get(0);
+    args___data->remove(0);
     this___args = args___data;
   }
 
@@ -108,33 +109,42 @@ public:
     if (this___status > 0) {
       bytes.add(this___status);
     }
-    for (uint8_t a : this___args) {
-      bytes.add(a);
+    if (this___args.isNotNull()) {
+      for (uint8_t a : *this___args) {
+        bytes.add(a);
+      }
     }
     bytes.add(250);
     return bytes;
   }
 
 public:
-  int bytesLength() {
-    if (this___status > 0) {
-      return this___args.size() + 4;
+  void print() {
+    Serial.print(F("Printing msg :: "));
+    Serial.print("CODE: ");
+    Serial.print(this___code);
+    Serial.print(F(", STATUS: "));
+    Serial.print(this___status);
+    if (this___args.isNotNull()) {
+      Serial.print(F(", ARGS: ["));
+      for (uint8_t a : *this___args) {
+        Serial.print(a);
+        Serial.print(", ");
+      }
+      Serial.println("]");
     } else {
-      return this___args.size() + 3;
+      Serial.println("");
     }
   }
-
-public:
-  void print() {}
 
 public:
   int getCode() { return this___code; }
 
 public:
-  int getLength() { return this___args.size(); }
+  int getLength() { return this___args->size(); }
 
 public:
-  uint8_t getArg(int args___i) { return this___args.get(args___i); }
+  uint8_t getArg(int args___i) { return this___args->get(args___i); }
 };
 Message okMsg(uint8_t args___code) { return Message(args___code, 200); }
 Message errorMsg(uint8_t args___code) { return Message(args___code, 40); }
@@ -218,14 +228,16 @@ void initMeters(ArrayList<int> &args___pins) {
 void listenerDef(EnergyMeter &args___meter) {
   uint32_t currentRead = millis();
   if (currentRead - args___meter.this___lastRead > 10) {
-    Serial.print("Impuls: ");
-    Serial.println(args___meter.this___pin);
-    args___meter;
-    args___meter;
+    Serial.print(F("Impuls: "));
+    Serial.print(args___meter.this___pin);
+    Serial.print(F(" SCORE: "));
+    args___meter.this___counter = args___meter.this___counter + 1;
+    args___meter.this___lastRead = currentRead;
+    Serial.println(args___meter.this___counter);
   }
 }
 void listener0() {
-  EnergyMeter meter = g___energyMeters.get(0);
+  EnergyMeter &meter = g___energyMeters.getNativePtr()[0];
   listenerDef(meter);
 }
 void listener1() {
@@ -271,16 +283,16 @@ public:
 public:
   shared_ptr<Message> readMessage() {
     if (this___client.available() > 0) {
-      Serial.println("Start recaiving message...");
-      ArrayList<uint8_t> tmp = ArrayList<uint8_t>();
+      Serial.println(F("Start receiving message..."));
+      shared_ptr<ArrayList<uint8_t>> tmp = new ArrayList<uint8_t>();
       bool isMessage = false;
       while (this___client.available() > 0) {
         uint8_t readByte = this___client.read();
         if (isMessage) {
           if (readByte == 250) {
-            return new Message(tmp, tmp.size());
+            return new Message(tmp);
           }
-          tmp.add(readByte);
+          tmp->add(readByte);
         } else {
           if (readByte == 255) {
             isMessage = true;
@@ -293,10 +305,10 @@ public:
 
 public:
   void sendMessage(Message &args___message) {
-    Serial.println("Sending response...");
+    Serial.println(F("Sending response..."));
     args___message.print();
     ArrayList<uint8_t> bytes = args___message.toBytes();
-    this___client.write(bytes.getNativePtr(), args___message.bytesLength());
+    this___client.write(bytes.getNativePtr(), bytes.size());
   }
 };
 } // namespace SmartHomeMessageProcessor
@@ -345,21 +357,22 @@ public:
   }
 
 public:
-  ArrayList<uint8_t> readTemps() {
+  shared_ptr<ArrayList<uint8_t>> readTemps() {
     int num = this___dt.getDeviceCount();
-    ArrayList<uint8_t> result = ArrayList<uint8_t>();
+    shared_ptr<ArrayList<uint8_t>> result =
+        new ArrayList<uint8_t>(new uint8_t[num * 10]{0}, 0, num * 10 + 1);
     if (num > 0) {
       this___dt.requestTemperatures();
+      ArrayList<uint8_t> addr =
+          ArrayList<uint8_t>(new uint8_t[8]{0, 0, 0, 0, 0, 0, 0, 0}, 8, 8);
       for (int i = 0; i < num; i += 1) {
-        ArrayList<uint8_t> addr =
-            ArrayList<uint8_t>(new uint8_t[8]{0, 0, 0, 0, 0, 0, 0, 0}, 8, 8);
         this___dt.getAddress(addr.getNativePtr(), i);
         int raw = this___dt.getTemp(addr.getNativePtr());
         for (uint8_t j : addr) {
-          result.add(j);
+          result->add(j);
         }
-        result.add(highByte(raw));
-        result.add(lowByte(raw));
+        result->add(highByte(raw));
+        result->add(lowByte(raw));
       }
     }
     return result;
@@ -371,7 +384,7 @@ using namespace Core;
 using namespace CoreNativeList;
 class Task;
 void addTask(nonstd::function<void(int)> args___fun, int args___pin,
-             int args___timeout);
+             uint32_t args___timeout);
 void runTasks();
 class Task {
 public:
@@ -402,7 +415,7 @@ public:
 };
 ArrayList<Task> g___tasks = ArrayList<Task>();
 void addTask(nonstd::function<void(int)> args___fun, int args___pin,
-             int args___timeout) {
+             uint32_t args___timeout) {
   g___tasks.add(Task(args___fun, args___pin, args___timeout));
 }
 void runTasks() {
@@ -460,7 +473,6 @@ void initEthernet(ArrayList<uint8_t> &args___mac) {
   g___server.begin();
 }
 void setupPins() {
-  ArrayList<int> lowInitList = ArrayList<int>();
   ArrayList<int> highInitList =
       ArrayList<int>(new int[32]{18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
                                  29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
@@ -559,16 +571,16 @@ Message setTimeDimmerCmd(Message &args___msg) {
   return okMsg(args___msg.getCode());
 }
 Message readEnergyCmd(Message &args___msg) {
-  ArrayList<uint8_t> args = ArrayList<uint8_t>();
+  shared_ptr<ArrayList<uint8_t>> args = new ArrayList<uint8_t>();
   for (EnergyMeter meter : g___energyMeters) {
-    args.add(meter.this___pin);
-    args.add(meter.this___counter);
+    args->add(meter.this___pin);
+    args->add(meter.this___counter);
     meter.clear();
   }
   return Message(args___msg.getCode(), 200, args);
 }
 Message readTempCmd(Message &args___msg) {
-  ArrayList<uint8_t> res = g___tempLine.readTemps();
+  shared_ptr<ArrayList<uint8_t>> res = g___tempLine.readTemps();
   return Message(args___msg.getCode(), 200, res);
 }
 } // namespace Main

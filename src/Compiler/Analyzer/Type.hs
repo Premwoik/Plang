@@ -241,6 +241,7 @@ addMethod offset name path type' args details = do
 addVar :: Int -> String -> Maybe String -> VarType -> String -> Analyzer' ScopeField
 addVar offset name path type' scopeName = do
   mod <- getModInfo offset
+  trace ("addVar :: " ++ show (SVar mod name path type' scopeName defaultMethodDetails)) $ return()
   addField $ SVar mod name path type' scopeName defaultMethodDetails
 
 addClassVar :: Int -> String -> Maybe String -> VarType -> String -> MethodDetails -> Analyzer' ScopeField

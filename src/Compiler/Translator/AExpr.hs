@@ -38,7 +38,9 @@ binaryOperatorToString a =
 
 varTranslator :: AExpr -> Translator
 varTranslator a@(TypedVar name type' Nothing more') = do
+--  trace ("varTranslator :: no args :: var : " ++ show a) $ return ()
   readyMore <- moreVarTranslator type' more'
+--  trace ("varTranslator :: readyMore : " ++ show readyMore) $ return ()
   let n = unwrapVarName name
   let n' =
         case type' of
@@ -47,8 +49,11 @@ varTranslator a@(TypedVar name type' Nothing more') = do
           VPointer (VCopy t) _ -> "new " ++ typeToString t ++ "{" ++ unwrapVarName name ++ "}"
           _ -> n
   return . return . concat $ n' : readyMore
+
 varTranslator a@(TypedVar name type' (Just args) more') = do
+--  trace ("varTranslator :: with args :: var : " ++ show a) $ return ()
   readyMore <- moreVarTranslator type' more'
+--  trace ("varTranslator :: readyMore : " ++ show readyMore) $ return ()
   args' <- intercalate ", " . concat <$> mapM (injectTranslator aExprTranslatorGetter) args
   return . return . concat $ unwrapType type' ("(" ++ args' ++ ")") : readyMore
   where

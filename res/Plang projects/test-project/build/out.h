@@ -1,21 +1,33 @@
+#include "ArrayList.h"
+#include "Maybe.h"
+namespace CoreNativeMaybe {}
+namespace CoreMyFile {
+using namespace CoreNativeMaybe;
+String myFileFn();
+String myFileFn() { return "ala"; }
+} // namespace CoreMyFile
+namespace CoreNativeList {
+using namespace CoreMyFile;
+}
 namespace Main {
-void print(String args___txt);
-int (*lambda())();
+using namespace CoreNativeList;
+class TestClass;
 int Main();
 class TestClass {
 public:
-  int this___a = 12;
+  shared_ptr<ArrayList<int>> this___arr = nullptr;
+
+public:
   TestClass() {}
+
+public:
+  TestClass(shared_ptr<ArrayList<int>> args___arr) { this___arr = args___arr; }
 };
-void print(String args___txt) {}
-int (*lambda())() {
-  int (*l1)() = []() { return 12; };
-  int t2 = 123;
-  return l1;
-}
 int Main() {
-  print("String literal \\");
-  TestClass().this___a;
+  shared_ptr<ArrayList<int>> arr1 = new ArrayList<int>();
+  shared_ptr<ArrayList<int>> arr2 = new ArrayList<int>();
+  TestClass tArr = TestClass(arr1);
+  tArr.this___arr = arr2;
   return 0;
 }
 } // namespace Main

@@ -23,7 +23,7 @@ class Task do
 
 tasks = [Task|]
 
-addTask fun: fn<int, void>, pin: int, timeout: int -> void do
+addTask fun: fn<int, void>, pin: int, timeout: uint32 -> void do
   tasks.add(Task(fun, pin, timeout))
 
 runTasks -> void do

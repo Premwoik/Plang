@@ -64,13 +64,13 @@ checkScopeMark (ScopeMark o scopeName aExpr) = do
   return res
 
 checkListVar :: AExpr -> Analyzer' AExprRes
-checkListVar (ListVar _ [] (Just t)) =
+checkListVar (ListVar _ [] (Just t)) = do
+  type' <- wrapAllocationMethod $ VClass (VName "ArrayList") [VGenPair "T" t]
   return
-    ( type'
+    ( fst type'
     , []
-    , TypedVar (VName "ArrayList") type' (Just []) Nothing)
+    , TypedVar (VName "ArrayList") (snd type') (Just []) Nothing)
     where
-      type' = VClass (VName "ArrayList") [VGenPair "T" t]
 checkListVar (ListVar o [] Nothing) = makeError o NotProvidedListType
 checkListVar a@(ListVar o elems wantedType) = do
   let len = show $ length elems
@@ -87,8 +87,8 @@ checkListVar a@(ListVar o elems wantedType) = do
           , TypedVar (VName len) VInt Nothing Nothing
           , TypedVar (VName len) VInt Nothing Nothing
           ]
-  let t = VClass (VName "ArrayList") [VGenPair "T" itemType]
-  return (t, concat injs, TypedVar (VName "ArrayList") t args Nothing)
+  t <- wrapAllocationMethod (VClass (VName "ArrayList") [VGenPair "T" itemType])
+  return (fst t, concat injs, TypedVar (VName "ArrayList") (snd t) args Nothing)
   where
     checkType (t:ts) = all (\x -> t == x) ts && t == fromMaybe t wantedType
     classToPointer (t, i, e) = (markClassAsPointer t, i, markVarClassAsPointer e)

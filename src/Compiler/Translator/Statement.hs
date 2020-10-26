@@ -68,6 +68,7 @@ forTranslator (TypedVar name type' Nothing Nothing) (Range _ s a b) block trans 
 forTranslator (TypedVar name type' Nothing Nothing) list@TypedVar {} block trans = do
   let uName = unwrapVarName name
   list' <- injectTranslator aExprTranslatorGetter list
+  trace ("forTranslator :: l :" ++ show list') $ return ()
   block' <- blockTranslator' trans block
   return . concat $
     [ ["for(" ++ typeToString type' ++ " " ++ uName ++ " : "]

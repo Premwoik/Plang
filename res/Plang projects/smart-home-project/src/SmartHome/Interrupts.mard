@@ -44,10 +44,12 @@ initMeters pins: list<int> -> void do
 listenerDef meter: EnergyMeter -> void do
   currentRead = millis()
   if currentRead - meter.lastRead > 10 then
-    print("Impuls: ")
-    println(meter.pin)
+    print(F("Impuls: "))
+    print(meter.pin)
+    print(F(" SCORE: "))
     meter.counter += 1
     meter.lastRead = currentRead
+    println(meter.counter)
 
 listener0 -> void do
   meter = energyMeters[0]

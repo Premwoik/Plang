@@ -115,6 +115,7 @@ isVarInLambda name = do
 compareTypes :: Offset -> VarType -> VarType -> Analyzer' Bool
 compareTypes o (VRef t) (VRef t2) = compareTypes o t t2
 compareTypes o (VPointer t _) (VPointer t2 _) = compareTypes o t t2
+compareTypes o (VPointer (VClass (VName "ArrayList") [t]) _) (VClass (VName "ArrayList") [t2]) = compareTypes o t t2 -- this line is controvential TODO check if pointer list should be really compared with arrays
 -- | passing list object to native c array e.g. list<int> -> int*
 compareTypes o (VPointer t _) (VClass (VName "ArrayList") [t2]) = compareTypes o t t2
 -- | comparing classes
@@ -178,6 +179,7 @@ maybeArgsMatch :: Maybe [AExpr] -> [VarType] -> ScopeField -> Analyzer' Bool
 maybeArgsMatch (Just args) gen s = do
   args' <- prepareArgs
   let gen' = prepareFunctionGens gen s args'
+  trace ("maybeArgsMatch :: args: " ++ show args' ++ " | gen': " ++ show gen') $ return ()
   argsMatch args' gen' s
   where
     prepareArgs =
@@ -223,6 +225,7 @@ argsMatch' t args = do
 
 constructorArgsMatch :: [VarType] -> [VarType] -> Analyzer' Bool
 constructorArgsMatch t args = do
+  trace ("contructorArgsMatch :: args: " ++ show args ++ " t: " ++ show t) $ return ()
   let lenCheck = length t == length args
   argsCheck <- and <$> mapM match (zip t args)
   return $ lenCheck && argsCheck
@@ -255,7 +258,7 @@ fixType :: [VarType] -> VarType -> Analyzer' VarType
 fixType gen (VGen tName) = makeOutput . filter fGen $ gen
   where
     makeOutput (VGenPair _ t:_) = return t
-    makeOutput _ = error $ "Cannont find type for template: " ++ tName ++ " | | " ++ show gen
+    makeOutput _ = error $ "Cannot find type for template: " ++ tName ++ " | | " ++ show gen
     fGen (VGenPair tName' _) = tName' == tName
     fGen _                   = False
 fixType gen t = return t

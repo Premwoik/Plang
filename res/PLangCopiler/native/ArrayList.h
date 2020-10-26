@@ -7,6 +7,7 @@
 
 #include "List.h"
 #include "Maybe.h"
+#include "Arduino.h"
 //using namespace std;
 
 
@@ -15,52 +16,80 @@ class ArrayListBase : public List<T> {
 #define INIT_ARRAY_SIZE 10
 #define ARRAY_GROW 5
 private:
-    T *arr{};
+    T *arr = nullptr;
 
 protected:
     int accSize{};
     int maxSize{};
 
     ArrayListBase() : List<T>() {
+                  Serial.print("Empty constructor: ");
+                  Serial.println(uint16_t(this), HEX);
         initialize();
     }
 
-    ArrayListBase(T *arr, int size, int maxSize) : arr(arr), accSize(size), maxSize(maxSize), List<T>() {}
+    ArrayListBase(T *arr, int size, int maxSize) : arr(arr), accSize(size), maxSize(maxSize), List<T>() {
+              Serial.print("Constructor: ");
+              Serial.println(uint16_t(this), HEX);
+    }
 
     ~ArrayListBase() {
-        delete[] arr;
+          Serial.print("Deallocate memory: ");
+          Serial.println(uint16_t(this), HEX);
+          delete[] arr;
     }
+
 
     void initialize() {
         this->arr = new T[INIT_ARRAY_SIZE]{};
         this->accSize = 0;
         this->maxSize = INIT_ARRAY_SIZE;
     }
-    typedef T* iterator;
-    typedef const T* const_iterator;
+
+    typedef T *iterator;
+    typedef const T *const_iterator;
 
 public:
 
-    // A simplistic implementation of operator= (see better implementation below)
-    ArrayListBase<T>& operator= (const ArrayListBase<T> &rhs)
-    {
-        if(this->arr != nullptr) {
-            this->clear();
+    // Copy constructor
+    ArrayListBase(const ArrayListBase<T> &copy) {
+        Serial.print("Copy constructor: ");
+        Serial.println(uint16_t(this), HEX);
+
+        accSize = copy.accSize;
+        maxSize = copy.maxSize;
+        if (copy.arr != nullptr) {
+            this->arr = new T[maxSize]{};
+            copyArray(copy.arr, 0, arr, 0, accSize);
         }
-        if(rhs.arr != nullptr){
-            for(auto e : rhs){
-                this->add(e);
+    }
+
+    // A simplistic implementation of operator= (see better implementation below)
+    ArrayListBase<T> &operator=(const ArrayListBase<T> &rhs) {
+        Serial.print("Assign operator: ");
+        Serial.println(uint16_t(this), HEX);
+
+        if(this->arr != &rhs){
+            this->~ArrayListBase();
+            maxSize = rhs.maxSize;
+            accSize = rhs.accSize;
+            if(rhs.arr != nullptr){
+                this->arr = new T[maxSize]{};
+                copyArray(rhs.arr, 0, arr, 0, accSize);
             }
         }
         return *this;
     }
 
     iterator begin() { return &arr[0]; }
+
     const_iterator begin() const { return &arr[0]; }
+
     iterator end() { return &arr[accSize]; }
+
     const_iterator end() const { return &arr[accSize]; }
 
-    T* getNativePtr(){
+    T *getNativePtr() {
         return arr;
     }
 
@@ -68,7 +97,7 @@ public:
         return arr[index];
     }
 
-    void set(T elem, int index){
+    void set(T elem, int index) {
         replace(index, elem);
     }
 
@@ -126,7 +155,7 @@ public:
         return Maybe<T>();
     }
 
-    virtual List<T>* newList(T *arr, int size, int maxSize){
+    virtual List<T> *newList(T *arr, int size, int maxSize) {
         return nullptr;
     }
 
@@ -178,8 +207,7 @@ public:
         return this->get(index);
     }
 
-
-    List<T> *newList(T *arr, int size, int maxSize){
+    List<T> *newList(T *arr, int size, int maxSize) {
         return new ArrayList(arr, size, maxSize);
     }
 
@@ -208,7 +236,7 @@ public:
         }
     }
 
-    List<T> *newList(T *arr, int size, int maxSize)  {
+    List<T> *newList(T *arr, int size, int maxSize) {
         return new ArrayList(arr, size, maxSize);
     }
 

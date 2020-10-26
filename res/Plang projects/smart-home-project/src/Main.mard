@@ -32,7 +32,7 @@ initEthernet mac: list<uint8> -> void do
 
 
 setupPins -> void do
-  lowInitList = [int|]
+//  lowInitList = [int|]
 //  initOutputs(lowInitList, LOW)
   highInitList = [18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49]
   initOutputs(highInitList, HIGH)
@@ -40,8 +40,6 @@ setupPins -> void do
 //  initInputs(inputsList)
   energyPins = [2]
   initMeters(energyPins)
-//  highInitList = [8]
-//  initOutputs(highInitList, HIGH)
 Main -> int do
   Serial.begin(9600)
   setupPins()
@@ -64,15 +62,15 @@ loop -> void do
   proc = MessageProcessor(client)
   g|lastReadMessageTime = millis()
   while stillAlive() and client.connected() do
-      Timer|runTasks()
-      msg: ptr auto = proc.readMessage()
-      if msg? then
-        response = processReadMsg(msg)
-        proc.sendMessage(response)
-        g|lastReadMessageTime = millis()
+    Timer|runTasks()
+    msg: ptr auto = proc.readMessage()
+    if msg? then
+      response = processReadMsg(msg)
+      proc.sendMessage(response)
+      g|lastReadMessageTime = millis()
 //        LOGS
-        println(F("--------"))
-        printMemStats()
+      println(F("--------"))
+      printMemStats()
   println(F("Client has disconnected."))
   client.stop()
 
@@ -132,7 +130,7 @@ setTimeDimmerCmd msg: Message -> Message do
   ret okMsg(msg.getCode())
 
 readEnergyCmd msg: Message -> Message do
-  args = [uint8|]
+  args: ptr auto = [uint8|]
   for meter in energyMeters do
      args.add(meter.pin)
      args.add(meter.counter)

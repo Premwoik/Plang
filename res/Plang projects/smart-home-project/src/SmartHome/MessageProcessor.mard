@@ -21,14 +21,14 @@ class MessageProcessor do
 
   readMessage -> ptr Message do
     if client.available() > 0 then
-      println("Start recaiving message...")
-      tmp = [uint8|]
+      println(F("Start receiving message..."))
+      tmp: ptr auto = [uint8|]
       isMessage = false
       while client.available() > 0 do
         readByte: uint8 = client.read()
         if isMessage then
           if readByte == 250 then
-            ret Message(tmp, tmp.size())
+            ret Message(tmp)
           tmp.add(readByte)
         else
           if readByte == 255 then
@@ -36,8 +36,8 @@ class MessageProcessor do
     ret null
 
   sendMessage message: Message -> void do
-    println("Sending response...")
+    println(F("Sending response..."))
     message.print()
-    bytes: cptr auto = message.toBytes()
-    client.write(bytes, message.bytesLength())
+    bytes = message.toBytes()
+    client.write(bytes, bytes.size())
 

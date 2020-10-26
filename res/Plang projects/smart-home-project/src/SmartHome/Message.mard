@@ -27,22 +27,22 @@ class Message do
   @private
   status: uint8 = 0
   @private
-  args = [uint8|]
+  args: ptr list<uint8> = null
 
   valid: bool = false
 
-  Message code: uint8, status: uint8, args: list<uint8> do
+  Message code: uint8, status: uint8, args: ptr list<uint8> do
     this|code = code
     this|status = status
-//    this|args = args
+    this|args = args
 
   Message code: uint8, status: uint8 do
     this|code = code
     this|status = status
 
 
-  Message data: list<uint8>, s: int do
-    this|code = data[0] // makes error
+  Message data: ptr list<uint8> do
+    this|code = data[0]
     data.remove(0)
     this|args = data
 
@@ -50,19 +50,26 @@ class Message do
     bytes = [uint8| 255, code]
     if status > 0 then
       bytes.add(status)
-    for a in args do
-      bytes.add(a)
+    if args? then
+      for a in args do
+        bytes.add(a)
     bytes.add(250)
     ret bytes
 
-  bytesLength -> uint8 do
-    if status > 0 then
-      ret args.size() + 4
-    else
-      ret args.size() + 3
-
   print -> void do
-    pass
+    print(F("Printing msg :: "))
+    print("CODE: ")
+    print(code)
+    print(F(", STATUS: "))
+    print(status)
+    if args? then
+      print(F(", ARGS: ["))
+      for a in args do
+        print(a)
+        print(", ")
+      println("]")
+    else
+      println("")
 
   getCode -> uint8 do
     ret code
