@@ -1,10 +1,10 @@
-name:                l1
-version:             0.1.0.0
-github:              "githubuser/l1"
+name:                Plang
+version:             1.0.0.0
+github:              "Premwoik/Plang"
 license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2019 Author name here"
+author:              "Przemysław Wojtasik"
+maintainer:          "razussx@gmail.com"
+copyright:           "2019 Przemysław Wojtasik"
 
 extra-source-files:
 - README.md
@@ -17,7 +17,7 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/l1#readme>
+description:         Please see the README on GitHub at <https://github.com/Premwoik/Plang#readme>
 
 dependencies:
 - base >= 4.7 && < 5
@@ -36,7 +36,7 @@ library:
   source-dirs: src
 
 executables:
-  l1-exe:
+  plang-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -44,10 +44,10 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - l1
+    - Plang
 
 tests:
-  l1-test:
+  plang-test:
     main:                Main.hs
     source-dirs:         test
     ghc-options:
@@ -55,4 +55,4 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - l1
+    - Plang

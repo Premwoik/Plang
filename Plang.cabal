@@ -4,11 +4,11 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c6bb91b653ce29e1e6a66d8b845a6d0e5db34927a7c37d9b12e24d445953474f
+-- hash: c6e8a9fbb418d4b64699acdb8a052ca8458245a1fa16af2834792baad5ef5c9a
 
 name:           Plang
 version:        1.0.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/l1#readme>
+description:    Please see the README on GitHub at <https://github.com/Premwoik/Plang#readme>
 homepage:       https://github.com/Premwoik/Plang#readme
 bug-reports:    https://github.com/Premwoik/Plang/issues
 author:         Przemysław Wojtasik
@@ -83,7 +83,8 @@ executable plang-exe
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      Plang
+    , base >=4.7 && <5
     , cli
     , containers
     , directory
@@ -92,7 +93,6 @@ executable plang-exe
     , megaparsec
     , mtl
     , parser-combinators
-    , plang
     , process
     , text
   default-language: Haskell2010
@@ -119,7 +119,8 @@ test-suite plang-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      Plang
+    , base >=4.7 && <5
     , cli
     , containers
     , directory
@@ -128,7 +129,6 @@ test-suite plang-test
     , megaparsec
     , mtl
     , parser-combinators
-    , plang
     , process
     , text
   default-language: Haskell2010

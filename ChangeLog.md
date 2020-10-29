@@ -1,3 +1,3 @@
-# Changelog for l1
+# Changelog for Plang
 
 ## Unreleased changes
