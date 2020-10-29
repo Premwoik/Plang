@@ -12,7 +12,7 @@ import           Control.Monad.State         (get, gets)
 import           Data.List                   (group)
 import qualified Data.List                   as L
 import qualified Data.Map                    as Map
-import           Data.Maybe                  (fromJust, isJust, listToMaybe,
+import           Data.Maybe                  (fromJust, isJust, listToMaybe, fromMaybe,
                                               maybeToList)
 
 find' :: [String] -> Analyzer' [ScopeField]
@@ -102,7 +102,7 @@ isInsideLoop = do
 isVarInLambda :: String -> Analyzer' Bool
 isVarInLambda name = do
   sc <- gets scopes
-  let s = take (fromJust (L.findIndex isLambdaScope sc) + 2) sc
+  let s = take (fromMaybe (-2) (L.findIndex isLambdaScope sc) + 2) sc
   not . null <$> searchNameInScopes name s
   where
     isLambdaScope (Scope n _) = n == "lambda"

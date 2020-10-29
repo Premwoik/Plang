@@ -219,8 +219,7 @@ checkVar v@(Var offset name gen args more) wantedType scopeName = do
 
 detectCaptureInLambda :: Maybe ScopeField -> Analyzer' (Maybe ScopeField)
 detectCaptureInLambda v@(Just f@SVar {}) = do
-  sName <- getScopeName
-  if sName /= "lambda" || sVarOwnerName f == "g"
+  if sVarOwnerName f == "g"
     then return v
     else do
       inLambda <- isVarInLambda (sVarName f)

@@ -92,7 +92,7 @@ testGenericFunction = do
 testReturningCaptureFunPtr = do
   (ast, out) <- compile path "returnFunPtrExample4"
   let expectedAST = [IFile "returnFunPtrExample4" "res/tests/function/returnFunPtrExample4.mard" (AST [Function 0 "fun" [] (VFn [VInt,VInt] CMOn) [FunArg VInt "args___i"] [AssignFn 31 (TypedVar (VName "a") VAuto Nothing Nothing) VInt (IntConst 35 13),ReturnFn 40 (Just (LambdaFn 44 CMOn VInt [FunArg VInt "args___i"] [OtherFn 50 (TypedABinary VInt Add (TypedABinary VInt Add (TypedVar (VName "a") VInt Nothing Nothing) (TypedVar (VName "args___i") VInt Nothing Nothing)) (IntConst 58 12))]))]])]
-  let expectedOUT = ["namespace returnFunPtrExample4{\n","auto fun(int args___i);\n","auto fun(int args___i){\n","   int a = 13;\n","   return [=](int args___i){return a + args___i + 12;\n};\n","}\n","}\n"]
+  let expectedOUT = ["namespace returnFunPtrExample4{\n","auto fun(int args___i);\n","auto fun(int args___i){\n","   int a = 13;\n","   return [&](int args___i){return a + args___i + 12;\n};\n","}\n","}\n"]
 
   ast `shouldBe` expectedAST
   out `shouldBe` expectedOUT
