@@ -1,0 +1,134 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: c6bb91b653ce29e1e6a66d8b845a6d0e5db34927a7c37d9b12e24d445953474f
+
+name:           Plang
+version:        1.0.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/l1#readme>
+homepage:       https://github.com/Premwoik/Plang#readme
+bug-reports:    https://github.com/Premwoik/Plang/issues
+author:         Przemysław Wojtasik
+maintainer:     razussx@gmail.com
+copyright:      2019 Przemysław Wojtasik
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/Premwoik/Plang
+
+library
+  exposed-modules:
+      AST
+      CLI
+      Compiler
+      Compiler.Analyzer.AExpr
+      Compiler.Analyzer.AExpr.Var
+      Compiler.Analyzer.BExpr
+      Compiler.Analyzer.Browser
+      Compiler.Analyzer.Error
+      Compiler.Analyzer.Error.En
+      Compiler.Analyzer.Error.Pl
+      Compiler.Analyzer.Statement
+      Compiler.Analyzer.Type
+      Compiler.Analyzer.Universal
+      Compiler.Analyzer.UniversalCheckers
+      Compiler.Importer
+      Compiler.Parser
+      Compiler.Parser.AExpr
+      Compiler.Parser.BExpr
+      Compiler.Parser.Lexer
+      Compiler.Parser.Statement
+      Compiler.Parser.Type
+      Compiler.Parser.Universal
+      Compiler.SemanticAnalyzer
+      Compiler.Translator
+      Compiler.Translator.AExpr
+      Compiler.Translator.BExpr
+      Compiler.Translator.Statement
+      Compiler.Translator.Statement.ClassTranslator
+      Compiler.Translator.Type
+      DirUtil
+  other-modules:
+      Paths_Plang
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , cli
+    , containers
+    , directory
+    , hspec
+    , hspec-megaparsec
+    , megaparsec
+    , mtl
+    , parser-combinators
+    , process
+    , text
+  default-language: Haskell2010
+
+executable plang-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_Plang
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , cli
+    , containers
+    , directory
+    , hspec
+    , hspec-megaparsec
+    , megaparsec
+    , mtl
+    , parser-combinators
+    , plang
+    , process
+    , text
+  default-language: Haskell2010
+
+test-suite plang-test
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      AnalyzerSpec
+      CompilerSpec
+      CompilerTest.BasicSpec
+      CompilerTest.BitwiseSpec
+      CompilerTest.ClassSpec
+      CompilerTest.FunctionSpec
+      CompilerTest.LambdaFnSpec
+      CompilerTest.ListSpec
+      CompilerTest.OptionalSpec
+      CompilerTest.ScopeSpec
+      ParserSpec
+      Spec
+      TranslatorSpec
+      Paths_Plang
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , cli
+    , containers
+    , directory
+    , hspec
+    , hspec-megaparsec
+    , megaparsec
+    , mtl
+    , parser-combinators
+    , plang
+    , process
+    , text
+  default-language: Haskell2010
