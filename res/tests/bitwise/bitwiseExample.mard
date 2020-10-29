@@ -1,0 +1,11 @@
+module BitwiseExample where
+import Core.Native.Bitwise
+
+native var "" PORTB: cptr uint8
+
+test -> void do
+  setBitHigh(PORTB, 1)
+  setBitLow(PORTB, 1)
+  setAllLow(PORTB)
+  toggleBit(PORTB, 2)
+

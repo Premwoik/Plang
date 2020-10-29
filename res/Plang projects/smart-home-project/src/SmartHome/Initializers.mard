@@ -1,0 +1,12 @@
+module SmartHome.Initializers where
+import Core
+initOutputs out: list<int>, initState: uint8 -> void do
+  for i in out do
+    pinMode(i, OUTPUT)
+    digitalWrite(i, initState)
+
+initInputs ins: list<int> -> void do
+  for i in ins do
+    pinMode(i, INPUT)
+
+

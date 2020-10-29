@@ -1,0 +1,13 @@
+class Obj<T> do
+  i: T
+  Obj i: T do
+    this|i = i
+
+  getConst -> T do
+    ret i
+
+testFunc a: Obj -> void do
+  o = Obj<int>(1)
+  o.getConst()
+  pass
+

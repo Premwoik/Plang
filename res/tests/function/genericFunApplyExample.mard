@@ -1,0 +1,6 @@
+nfun<T> arg: T -> T do
+  ret arg + 1
+
+fun -> int do
+  a = nfun(10.0)
+  ret nfun(10)

@@ -1,0 +1,14 @@
+module PtrOperatorExample where
+
+class ThisTest do
+   ThisTest do
+      pass
+
+   boolOp -> bool do
+    ret false
+
+Main -> int do
+  a: ptr auto = ThisTest()
+  if a? then
+    pass
+  ret 0

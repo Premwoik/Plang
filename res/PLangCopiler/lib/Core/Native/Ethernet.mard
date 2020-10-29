@@ -1,0 +1,90 @@
+module Core.Native.Ethernet where
+link_path "SPI.h"
+link_path "Ethernet.h"
+
+native var "Ethernet" EthernetVar: EthernetStatic
+
+native class "Ethernet" EthernetStatic do
+  def begin mac: cptr int -> int
+  def localIP -> string
+
+native class "Ethernet" Ethernet do
+
+  def begin -> void
+  def dnsServerIp -> void
+  def dnsServerIP -> void
+  def gatewayIP -> void
+  def hardwareStatus -> void
+  def init -> void
+  def linkStatus -> void
+  def localIP -> void
+  def MACAddress -> void
+  def maintain -> void
+  def setDnsServerIP -> void
+  def setGatewayIP -> void
+  def setLocalIP -> void
+  def setMACAddress -> void
+  def setRetransmissionCount -> void
+  def setRetransmissionTimeout -> void
+  def setSubnetMask -> void
+  def subnetMask -> void
+
+
+native class "EthernetServer" EthernetServer do
+
+  def EthernetServer port: int
+
+  def begin -> void
+  def accept -> EthernetClient
+  def available -> EthernetClient
+
+  def write val: char -> int
+  def write val: uint8 -> int
+  def write buf: cptr char, len: int -> int
+  def write buf: cptr uint8, len: int -> int
+
+  def print data: string -> int
+  def print data: char -> int
+  def print data: int -> int
+
+  def println data: string -> int
+  def println data: char -> int
+  def println data: int -> int
+
+
+native class "EthernetClient" EthernetClient do
+
+  def EthernetClient
+
+  def connected -> bool
+  def boolOp -> bool
+
+  def connect -> int
+  def connect ip: cptr char, port: int -> int
+  def connect url: string, port: int -> int
+
+  def localPort -> int
+  def remoteIP -> IPAddress
+  def remotePort -> int
+  def setConnectionTimeout t: int -> void
+
+  def write val: char -> int
+  def write val: uint8 -> int
+  def write buf: cptr char, len: int -> int
+  def write buf: cptr uint8, len: int -> int
+
+  def print data: string -> int
+  def print data: char -> int
+  def print data: int -> int
+
+  def println data: string -> int
+  def println data: char -> int
+  def println data: int -> int
+
+  def available -> int
+  def read -> uint8
+  def flush -> void
+  def stop -> void
+
+native class "IPAddress" IPAddress do
+  def IPAddress a: char, d: char, d: char, r: char

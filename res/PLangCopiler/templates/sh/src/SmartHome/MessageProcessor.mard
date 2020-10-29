@@ -1,0 +1,8 @@
+module SmartHome.MessageProcessor where
+link_path "MessageProcessor.h"
+
+native class "" MessageProcessor do
+  def MessageProcessor client: cptr EthernetClient
+  def readMessage -> cptr Message
+  def sendMessage msg: Message -> void
+

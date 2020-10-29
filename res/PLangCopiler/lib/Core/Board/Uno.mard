@@ -1,0 +1,43 @@
+module Core.Board.Uno where
+
+//////////
+// PORTS
+//////////
+native var "" PORTB: cptr uint8
+native var "" PORTC: cptr uint8
+native var "" PORTD: cptr uint8
+//////////
+// TIMER 0
+//////////
+native var "" OCR0B: cptr uint8 // Timer/Counter0 Output Compare Register B
+native var "" OCR0A: cptr uint8 // Timer/Counter0 Output Compare Register A
+native var "" TCNT0: cptr uint8 // Timer/Counter0 (8-bit)
+
+native var "" TCCR0B: cptr uint8
+native var "" TCCR0A: cptr uint8
+//////////
+// TIMER 1
+//////////
+native var "" OCR1BH: cptr uint8 // Timer/Counter1 - Output Compare Register B High Byte
+native var "" OCR1BL: cptr uint8 // Timer/Counter1 - Output Compare Register B Low Byte
+native var "" OCR1AH: cptr uint8 // Timer/Counter1 - Output Compare Register A High Byte
+native var "" OCR1AL: cptr uint8 // Timer/Counter1 - Output Compare Register A Low Byte
+native var "" ICR1H: cptr uint8 // Timer/Counter1 - Input Capture Register High Byte
+native var "" ICR1L: cptr uint8 // Timer/Counter1 - Input Capture Register Low Byte
+native var "" TCNT1H: cptr uint8 // Timer/Counter1 - Counter Register High Byte
+native var "" TCNT1L: cptr uint8 // Timer/Counter1 - Counter Register Low Byte
+
+native var "" TCCR1C: cptr uint8
+native var "" TCCR1B: cptr uint8
+native var "" TCCR1A: cptr uint8
+//////////
+// TIMER 2
+//////////
+native var "" OCR2B: cptr uint8 // Timer/Counter2 Output Compare Register B
+native var "" OCR2A: cptr uint8 // Timer/Counter2 Output Compare Register A
+native var "" TCNT2: cptr uint8 // Timer/Counter2 (8-bit)
+
+native var "" TCCR2B: cptr uint8
+native var "" TCCR2A: cptr uint8
+
+

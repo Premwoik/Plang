@@ -1,0 +1,156 @@
+module Core where
+
+import Core.Native.List
+
+link_path "Arduino.h"
+//link_path "unique_ptr.h"
+link_path "ArrayList.h"
+link_path "MemoryInfo.h"
+link_path "Core.h"
+
+//FUNCTIONS
+
+native "" pinMode pin: int, mode: int -> void
+native "" digitalWrite pin: int, state: int -> void
+native "delay" sleep time: int -> void
+
+native "" digitalRead port: int -> int
+native "" analogRead port: int -> int
+native "" analogReference mode: int -> void
+native "" analogWrite port: int, value: int -> void
+
+native "" millis -> uint32
+native "" micros -> int
+native "" delay ms: int -> void
+native "" delayMicroseconds us: int -> void
+
+native "" pulseIn pin: int, state: int, timeout: int -> int
+native "" pulseInLong pin: int, state: int, timeout: int -> int
+
+native "" shiftOut dataPin: int, clockPin: int, bitOrder: int, val: int -> void
+native "" shiftIn dataPin: int, clockPin: int, bitOrder: int -> int
+
+native "" attachInterrupt id: int, fun: fn<void>, mode: int -> void
+native "" detachInterrupt id: int -> void
+native "" digitalPinToInterrupt id: int -> int
+
+// DEFINE
+
+native var "" HIGH: int
+native var "" LOW: int
+native var "" INPUT: int
+native var "" OUTPUT: int
+native var "INPUT_PULLUP" PULLUP: int
+
+native "" PI
+native "" HALF_PI
+native "" TWO_PI
+native "" DEG_TO_RAD
+native "" RAD_TO_DEG
+native "" EULER
+
+native "" SERIAL
+native "" DISPLAY
+
+native "" LSBFIRST
+native "" MSBFIRST
+
+native var "" CHANGE: int
+native var "" FALLING: int
+native var "" RISING: int
+
+// MACROS
+
+native "" min a, b
+native "" max a, b
+native "" abs x
+native "" constrain atm, low, high
+native "" round x
+native "" radians deg
+native "" degrees rad
+native "" sq x
+
+native "" interrupts -> void
+native "" noInterrupts -> void
+
+native "" clockCyclesPerMicrosecond -> int
+native "" clockCyclesToMicroseconds x: int -> int
+native "" microsecondsToClockCycles x: int -> int
+
+native "" lowByte w: int -> int
+native "" highByte w: int -> int
+
+native "" bitRead value, bit -> int
+native "" bitSet value, bit -> int
+native "" bitClear value, bit -> int
+native "" bitWrite value, bit, bitValue -> int
+
+//SERIAL
+
+native "F" F s: string -> string
+
+native class "HardwareSerial" HardwareSerial do
+    def begin baud: int -> void
+    def begin baud: int, x: int -> void
+    def end -> void
+    def available -> int
+    def peek -> int
+    def read -> int
+    def availableForWrite -> int
+    def flush -> void
+    def write val: int -> int // as size
+    def write val: string -> int // as size
+    def println val: string -> int
+    def println val: float -> int
+    def println val: int -> int
+    def print val: string -> int
+    def print val: float -> int
+    def print val: int -> int
+    def print val: bool -> int
+
+//it is not a pointer
+native var "Serial" Serial: HardwareSerial
+
+native "Serial.println" println t: string -> void
+native "Serial.println" println t: int -> void
+native "Serial.println" println t: float -> void
+native "Serial.println" println t: bool -> void
+
+native "Serial.print" print t: string -> void
+native "Serial.print" print t: int -> void
+native "Serial.print" print t: float -> void
+
+native "getFragmentation" getFragmentation -> float
+
+native "getPointer" getPointer -> cptr int
+native "needPointer" needPointer p: cptr int -> void
+
+Void -> void do
+  pass
+
+otherwise = 0
+
+printMemStats -> void do
+   fragmentation: float = getFragmentation()
+   Serial.print(F("Fragmentation level: "))
+   Serial.print(fragmentation)
+   Serial.println("%")
+
+class range do
+  start = 0
+  end = 0
+  step = 1
+
+  range start: int, end: int do
+    this|start = start
+    this|end = end
+
+  range start: int, end: int, step: int do
+     this|start = start
+     this|end = end
+     this|step = step
+
+  toList -> ArrayList<int> do
+    len = (this|end - this|start)
+    ret [int|]
+

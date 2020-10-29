@@ -1,0 +1,6 @@
+native class "" MessageProcessor do
+  def MessageProcessor client: cptr int
+
+main -> int do
+  l = [int|]
+  proc = MessageProcessor(l)

@@ -1,0 +1,14 @@
+module SmartHome.MsgCode where
+//link_path "Message.h"
+
+//enum CODE {TEST = 200, SET_LOW = 100, SET_HIGH = 101, SET_PWM = 105, READ_TERM = 110, READ_POWER = 111, READ_INPUTS = 112, INPUTS_RAPORT = 150, ACTIVE_INPUTS = 151, UNKNOWN = 0};
+Test: int = 200
+SetLow: int = 100
+SetHigh: int = 101
+SetPwm: int = 105
+SetTimeDimmer: int = 102
+ReadTemp: int = 110
+ReadEnergy: int = 111
+
+//SetTimeDimmer = 102
+

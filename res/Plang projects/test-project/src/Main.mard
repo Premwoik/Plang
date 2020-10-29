@@ -1,0 +1,25 @@
+module Main where
+//import Core
+import Core.Native.List
+
+class TestClass do
+  arr: ptr list<int> = null
+
+  TestClass do
+    pass
+  TestClass arr: ptr list<int> do
+    this|arr = arr
+
+Main -> int do
+  arr1: ptr auto = [int|]
+  arr2: ptr auto = [int|]
+  tArr = TestClass(arr1)
+  tArr.arr = arr2
+//  arr = TestClass().arr
+//  if arr? then
+//    a = arr[0]
+//    for i in arr do
+//      println(i)
+  ret 0
+
+

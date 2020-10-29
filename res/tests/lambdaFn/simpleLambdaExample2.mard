@@ -1,0 +1,8 @@
+module SimpleLambdaExample where
+consumeFn fn: fn<int, int> -> void do
+  pass
+
+testFunc -> void do
+  lambda: fn<int,int> = \x -> x + 10
+  consumeFn(lambda)
+

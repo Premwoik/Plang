@@ -1,0 +1,43 @@
+module SmartHome.Thermometers where
+
+
+import Core
+import Core.Native.List
+import SmartHome.Native.DallasTemperature
+import SmartHome.Native.OneWire
+
+class DallasThermometers do
+
+  dt: DallasTemperature
+
+  DallasThermometers do
+    pass
+
+  setLinePrecision precision:int -> void do
+    num = dt.getDeviceCount()
+    deviceAddr = [uint8| 0, 0, 0, 0, 0, 0, 0, 0]
+    for id in [0..num] do
+      dt.getAddress(deviceAddr, id)
+      dt.setResolution(deviceAddr, precision)
+
+  DallasThermometers line: OneWire do
+    this|dt = DallasTemperature(line)
+    this|dt.begin()
+    setLinePrecision(9)
+
+  readTemps -> ptr list<uint8> do
+    num = dt.getDeviceCount()
+    result: ptr auto = [uint8|]
+    if num > 0 then
+      dt.requestTemperatures()
+      addr = [uint8| 0, 0, 0, 0, 0, 0, 0, 0]
+      for i in [0..num] do
+        dt.getAddress(addr, i)
+        raw = dt.getTemp(addr)
+        for j in addr do
+          result.add(j)
+        result.add(highByte(raw))
+        result.add(lowByte(raw))
+    ret result
+
+

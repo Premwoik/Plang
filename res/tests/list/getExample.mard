@@ -1,0 +1,12 @@
+module GetExample where
+
+class List do
+  List do
+    pass
+
+  get index: int -> int do
+    ret index
+
+Main -> int do
+  l = List()
+  p = l[10]

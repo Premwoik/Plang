@@ -1,0 +1,6 @@
+module SimpleLambdaGlobalVarExample where
+k = 3
+testFunc -> void do
+  lambda: fn<int,int> = \x -> x + 10 * k
+  pass
+

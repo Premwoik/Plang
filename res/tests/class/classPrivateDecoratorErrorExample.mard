@@ -1,0 +1,11 @@
+class Base do
+  Base do
+    pass
+
+  @private
+  print arg: string -> void do
+    pass
+
+main -> int do
+  a = Base()
+  a.print("12")

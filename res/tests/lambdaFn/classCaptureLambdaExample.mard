@@ -1,0 +1,29 @@
+module ClassCaptureLambdaExample where
+
+millis -> int do
+  ret 11
+
+class EnergyMeter do
+  counter = 0
+  pin = 0
+  @private
+  lastRead = 0
+
+  EnergyMeter do
+    pass
+
+  EnergyMeter pin: int do
+    this|pin = pin
+
+    listener: fn<void> =
+      {\ ->
+        currentRead = millis()
+        if currentRead - this|lastRead > 10 then
+          this|counter += 1
+          this|lastRead = currentRead
+      }
+//    pinMode(pin, PULLUP)
+//    attachInterrupt(digitalPinToInterrupt(pin), listener, RISING)
+
+  clear -> void do
+    pass

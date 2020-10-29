@@ -1,0 +1,15 @@
+class Base do
+  Base do
+    pass
+
+  print arg: string -> void do
+    pass
+
+class Ala : Base do
+
+  print arg: string -> int do
+    pass
+
+main -> int do
+  a = Base()
+  a.print("12")

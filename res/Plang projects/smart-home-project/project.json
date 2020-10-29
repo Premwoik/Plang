@@ -1,0 +1,9 @@
+{
+  "name": "SmartHome Arduino",
+  "version": "0.1",
+  "authors": ["Przemysław Wojtasik"],
+  "paths": {
+    "main": "main.mard",
+    "src": "src/"
+  }
+}

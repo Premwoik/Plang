@@ -1,0 +1,13 @@
+i: int = 20
+g = 10
+
+testFunc b: int, g : int -> int do
+  i = i + 10
+  g = g + g|g + 10
+//  TODO handle scope error raising
+  g|i = args|g
+  ret i + g
+
+
+
+
