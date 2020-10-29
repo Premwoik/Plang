@@ -13,7 +13,6 @@ import           Control.Monad               (forM)
 import           Control.Monad.State         (State, get, gets, modify, put)
 import           Control.Monad.Writer        (WriterT, tell)
 import           Data.Maybe                  (fromMaybe)
-import           Debug.Trace
 
 import qualified Compiler.Importer           as Im
 

@@ -2,15 +2,14 @@
 
 module Compiler.Parser.Universal where
 
-import AST
-import Compiler.Parser.Type
-import Compiler.Parser.Lexer
-import Control.Monad (void)
-import Data.Maybe (fromMaybe)
-import Data.Text (Text)
-import Debug.Trace
-import Text.Megaparsec hiding (State)
-import Text.Megaparsec.Char
+import           AST
+import           Compiler.Parser.Lexer
+import           Compiler.Parser.Type
+import           Control.Monad              (void)
+import           Data.Maybe                 (fromMaybe)
+import           Data.Text                  (Text)
+import           Text.Megaparsec            hiding (State)
+import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
 sep :: Parser Text
@@ -24,10 +23,11 @@ blockMark = between (symbol "{") (symbol "}")
 
 functionExecutionArgParser :: Parser AExpr -> Parser [AExpr]
 functionExecutionArgParser aExpr = do
-    v <- addContext "Items need to be separated by comma eg: a, b, c." 
-      . addContext "Comma cannot be left alone at the end. ;]" 
-      . optional $ sepBy1 aExpr sep
-    return $ fromMaybe [] v
+  v <-
+    addContext "Items need to be separated by comma eg: a, b, c." .
+    addContext "Comma cannot be left alone at the end. ;]" . optional $
+    sepBy1 aExpr sep
+  return $ fromMaybe [] v
 
 generics :: Parser [String]
 generics = between (symbol "<") (symbol ">") (sepBy identifier sep)
@@ -38,11 +38,11 @@ generics' = between (symbol "<") (symbol ">") (sepBy typeParser sep)
 array = between (symbol "[") (symbol "]")
 
 matchTypeWithAccess :: [VarType] -> String -> String -> VarType
-matchTypeWithAccess g t "ref" = VRef $ matchType' g t
+matchTypeWithAccess g t "ref"  = VRef $ matchType' g t
 matchTypeWithAccess g t "copy" = VCopy $ matchType' g t
-matchTypeWithAccess g t "ptr" = VPointer (matchType' g t) SharedPtr
+matchTypeWithAccess g t "ptr"  = VPointer (matchType' g t) SharedPtr
 matchTypeWithAccess g t "cptr" = VPointer (matchType' g t) NativePtr
-matchTypeWithAccess g t "" = matchType' g t
+matchTypeWithAccess g t ""     = matchType' g t
 
 matchType :: String -> VarType
 matchType = matchType' []
@@ -50,29 +50,30 @@ matchType = matchType' []
 matchType' :: [VarType] -> String -> VarType
 matchType' g t =
   case t of
-    "int" -> VInt
-    "uint8" -> VNum NUInt8
+    "int"    -> VInt
+    "uint8"  -> VNum NUInt8
     "uint16" -> VNum NUInt16
     "uint32" -> VNum NUInt32
-    "int8" -> VNum NInt8
-    "int16" -> VNum NInt16
-    "int32" -> VNum NInt32
-    "void" -> VVoid
-    "auto" -> VAuto
-    "bool" -> VBool
-    "float" -> VFloat
+    "int8"   -> VNum NInt8
+    "int16"  -> VNum NInt16
+    "int32"  -> VNum NInt32
+    "void"   -> VVoid
+    "auto"   -> VAuto
+    "bool"   -> VBool
+    "float"  -> VFloat
     "string" -> VString
-    "char" -> VChar
-    "list" -> VClass (VName "ArrayList") g
-    "fn" -> VFn g CMAuto
-    x -> VClass (VName x) g
+    "char"   -> VChar
+    "list"   -> VClass (VName "ArrayList") g
+    "fn"     -> VFn g CMAuto
+    x        -> VClass (VName x) g
 
 typeParser :: Parser VarType
-typeParser = addContext "Generics fail" $ do
-  access <- fromMaybe [] <$> optional (refParser <|> copyParser <|> pointerParser <|> cPointerParser)
-  t <- identifier
-  gen <- fromMaybe [] <$> optional generics'
-  return $ matchTypeWithAccess gen t access
+typeParser =
+  addContext "Generics fail" $ do
+    access <- fromMaybe [] <$> optional (refParser <|> copyParser <|> pointerParser <|> cPointerParser)
+    t <- identifier
+    gen <- fromMaybe [] <$> optional generics'
+    return $ matchTypeWithAccess gen t access
   where
     refParser = do
       void (symbol "ref")
@@ -86,4 +87,3 @@ typeParser = addContext "Generics fail" $ do
     cPointerParser = do
       void (symbol "cptr")
       return "cptr"
-

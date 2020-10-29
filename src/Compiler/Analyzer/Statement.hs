@@ -16,7 +16,6 @@ import           Control.Monad.Writer                (tell)
 import           Data.Maybe                          (fromJust, fromMaybe,
                                                       listToMaybe)
 import qualified Data.Set                            as S
-import           Debug.Trace
 
 checkImport :: Stmt -> Analyzer' Stmt
 -- TODO check if import path exist
@@ -130,10 +129,8 @@ checkAssignFn a@(AssignFn o var@(Var vo vname [] Nothing Nothing) ret aExpr) = d
   where
     add type' = addVar o vname Nothing (unwrapAllMethod type') "" >> check o type' ret type' type'
 checkAssignFn a@(AssignFn o nameExpr ret aExpr) = do
-  trace ("checkAssignFn :: a: " ++ show a) $ return ()
   case hasSet nameExpr aExpr of
     (True, resExpr) -> do
-      trace ("checkAssignFn :: resExpr : " ++ show resExpr) $ return ()
       (nType, nInject, nRes) <- injectAnalyzer aExprAnalyzerGetter resExpr
       return $ nInject ++ [OtherFn o nRes]
     (False, _) -> do
@@ -141,16 +138,13 @@ checkAssignFn a@(AssignFn o nameExpr ret aExpr) = do
       (nType, nInject, nRes) <- injectAnalyzer aExprAnalyzerGetter nameExpr
       nType <- check o nType ret type' VBlank
       let assign = AssignFn o nRes nType res
-      trace ("checkAssignFn :: res : " ++ show assign) $ return ()
       return $ nInject ++ inject ++ [assign]
   where
     hasSet :: AExpr -> AExpr -> (Bool, AExpr)
     hasSet t@(Var o "set" g (Just args) Nothing) rSide = (True, Var o "set" g (Just (rSide : args)) Nothing)
     hasSet t@(Var _ _ _ _ Nothing) _ = (False, t)
-    hasSet (Var a b c d (Just more)) rSide =  (\(status, expr) -> (status, Var a b c d (Just expr))) $ hasSet more rSide
+    hasSet (Var a b c d (Just more)) rSide = (\(status, expr) -> (status, Var a b c d (Just expr))) $ hasSet more rSide
     hasSet (ScopeMark o n a) rSide = (\(status, expr) -> (status, ScopeMark o n expr)) $ hasSet a rSide
-      
-      
 
 checkNativeAssign :: Stmt -> Analyzer' Stmt
 checkNativeAssign s@(NativeAssignDeclaration o p n t) = do
@@ -202,21 +196,17 @@ checkFor (ForFn o (Var vo n _ _ _) range body) = do
   addVar vo n Nothing (itemType t) ""
   body' <- concat <$> mapM (injectAnalyzer functionStmtAnalyzerGetter) body
   removeScope
-  trace ("checkFor :: range': " ++ show range' ++ " | t: " ++ show t) $ return ()
   return [ForFn o (TypedVar (VName n) (itemType t) Nothing Nothing) (getValueIfPtr range') body']
   where
---    mark type as a copy to add * in the translation to unwrap the array ptr from shared_ptr
     getValueIfPtr (TypedVar n (p@VPointer {}) a m) = TypedVar n (VCopy p) a m
-    getValueIfPtr v = v
-    
+    getValueIfPtr v                                = v
     itemType (VClass (VName "ArrayList") [VGenPair "T" t])              = t
     itemType (VClass (VName "ArrayList") [t])                           = t
     itemType (VPointer (VClass (VName "ArrayList") [VGenPair "T" t]) _) = t
     itemType (VPointer (VClass (VName "ArrayList") [t]) _)              = t
     itemType t                                                          = t
-    
 
-
+--    mark type as a copy to add * in the translation to unwrap the array ptr from shared_ptr
 -- | CLASS
 checkDecorator :: ClassStmt -> Analyzer' ClassStmt
 checkDecorator dec@(ClassDecorator offset name classStmt) =

@@ -1,11 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Compiler.Translator(translate', getDependencies) where
+module Compiler.Translator
+  ( translate'
+  , getDependencies
+  ) where
 
 import           AST
 import           Compiler.Translator.Type
 import           Control.Exception
-import           Control.Monad                                 (join, filterM)
+import           Control.Monad                                 (filterM, join)
 import           Control.Monad.Identity                        (Identity)
 import           Control.Monad.Reader                          (asks)
 import           Control.Monad.State                           (get, gets, put)
@@ -15,7 +18,6 @@ import           Control.Monad.Writer                          (WriterT,
 import           Data.List                                     (intercalate)
 import qualified Data.Map                                      as Map
 import           Data.Maybe                                    as M
-import           Debug.Trace
 
 import           Compiler.Translator.AExpr
 import           Compiler.Translator.BExpr
@@ -47,17 +49,18 @@ translateFile (IFile fName _ (AST stmts)) = do
 declareFunctions :: [Stmt] -> Translator
 declareFunctions = return . map trans . filter cond
   where
-    trans (Function _ n _ (VFn t cm) args _) = typeToString (VFnNamed (n ++ "(" ++ argumentsTranslator args ++ ")") t cm) ++  ";\n"
+    trans (Function _ n _ (VFn t cm) args _) =
+      typeToString (VFnNamed (n ++ "(" ++ argumentsTranslator args ++ ")") t cm) ++ ";\n"
     trans (Function _ n _ t args _) = typeToString t ++ " " ++ n ++ "(" ++ argumentsTranslator args ++ ");\n"
     trans (ClassExpr _ n _ _ _) = "class " ++ n ++ ";\n"
-    cond Function {} = True
+    cond Function {}  = True
     cond ClassExpr {} = True
-    cond _           = False
+    cond _            = False
 
 filterImports = filter cond
   where
     cond Import {} = True
-    cond _ = False
+    cond _         = False
 
 wrapInsideNamespace "main" res = res
 wrapInsideNamespace n res      = ("namespace " ++ n ++ "{\n") : res ++ ["}\n"]
@@ -92,7 +95,7 @@ classStmtTranslator :: ClassStmt -> Translator
 classStmtTranslator c =
   case c of
     t@ClassAssign {}  -> classAssignTranslator t
-    t@Method {}  -> methodTranslator t
+    t@Method {}       -> methodTranslator t
     t@Constructor {}  -> constTranslator t
     t@NativeMethod {} -> abstractFunctionTranslator t
 
@@ -100,28 +103,28 @@ classStmtTranslator c =
 aExprTranslator :: AExpr -> Translator
 aExprTranslator expr =
   case expr of
-    e@TypedVar {} -> varTranslator e
-    e@ScopeMark {} -> scopeMarkTranslator e 
-    Var _ a _ b c   -> varTranslator (TypedVar (VName a) VAuto b c)
-    e@Optional {} -> optionalTranslator e
-    e@ABracket {} -> bracketTranslator e
-    e@ABracketApply {} -> bracketApplyTranslator e
-    IntConst _ i    -> return . return $ show i
-    FloatConst _ f  -> return . return $ show f
-    StringVal _ s   -> return . return $ show s
-    e@NativePtrInput {} -> nativePtrInputWrapper e
-    e@NativePtrRes {} -> nativePtrResWrapper e
-    e@TypedListVar {}  -> listVarTranslator e
-    e@Range {}    -> return ["\"TODO\""]
-    e@LambdaFn {}       -> lambdaTranslator e
-    e@Neg {}      -> aExprNegTranslator e
-    e@ABinary {}  -> binaryTranslator e
-    TypedABinary _ a  b c -> binaryTranslator $ ABinary a b c 
-    ABool bExpr -> bExprTranslator bExpr
---    Nop           -> return ["nullptr"]
-    e@Null {} -> return ["nullptr"]
-    a             -> throw $ UnsupportedTypeException (show a)
+    e@TypedVar {}        -> varTranslator e
+    e@ScopeMark {}       -> scopeMarkTranslator e
+    Var _ a _ b c        -> varTranslator (TypedVar (VName a) VAuto b c)
+    e@Optional {}        -> optionalTranslator e
+    e@ABracket {}        -> bracketTranslator e
+    e@ABracketApply {}   -> bracketApplyTranslator e
+    IntConst _ i         -> return . return $ show i
+    FloatConst _ f       -> return . return $ show f
+    StringVal _ s        -> return . return $ show s
+    e@NativePtrInput {}  -> nativePtrInputWrapper e
+    e@NativePtrRes {}    -> nativePtrResWrapper e
+    e@TypedListVar {}    -> listVarTranslator e
+    e@Range {}           -> return ["\"TODO\""]
+    e@LambdaFn {}        -> lambdaTranslator e
+    e@Neg {}             -> aExprNegTranslator e
+    e@ABinary {}         -> binaryTranslator e
+    TypedABinary _ a b c -> binaryTranslator $ ABinary a b c
+    ABool bExpr          -> bExprTranslator bExpr
+    e@Null {}            -> return ["nullptr"]
+    a                    -> throw $ UnsupportedTypeException (show a)
 
+--    Nop           -> return ["nullptr"]
 bExprTranslator :: BExpr -> Translator
 bExprTranslator expr =
   case expr of

@@ -6,7 +6,7 @@ module Compiler.Analyzer.Error
 import           AST
 import           Compiler.Analyzer.Type
 import           Control.Monad.Except
-import Data.List(intercalate)
+import           Data.List              (intercalate)
 
 data SemanticError
   = AssignTypesMismatch VarType VarType
@@ -58,7 +58,8 @@ errorToText err =
     VariableWithSameName name -> "There exists a variable with same name - " ++ name
     FunctionDifferentReturnType name fns t ->
       "Not each function with name - " ++
-      name ++ " - return the same type.\n" ++ unwrapFunctionNames fns ++ "\nAll above declarations should return: " ++ show t
+      name ++
+      " - return the same type.\n" ++ unwrapFunctionNames fns ++ "\nAll above declarations should return: " ++ show t
     FunctionRepetition fns -> "The same function just exists!\n" ++ show fns
     WrongGenericType -> "There is something wrong with generic type that you passed"
     VariableMissing name -> "Can't find given name - " ++ name ++ "!"
@@ -68,6 +69,6 @@ errorToText err =
     NotAClass name -> "Variable - " ++ name ++ " is not of Class type."
     ApplyNotAFunction -> "Only functions can be applied!"
     CustomError s -> s
---    e -> error $ "Unsupported error code - " ++ show e
 
+--    e -> error $ "Unsupported error code - " ++ show e
 unwrapFunctionNames f = "[" ++ intercalate ", " (map sFunctionName f) ++ "]"

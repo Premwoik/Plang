@@ -1,11 +1,9 @@
 module Compiler.Translator.AExpr where
 
-import Compiler.Translator.Type
-import Control.Monad.Reader(asks)
-import Data.List(intercalate)
-import Debug.Trace
-import AST
-
+import           AST
+import           Compiler.Translator.Type
+import           Control.Monad.Reader     (asks)
+import           Data.List                (intercalate)
 
 aExprNegTranslator (Neg a) = do
   a' <- injectTranslator aExprTranslatorGetter a
@@ -38,9 +36,7 @@ binaryOperatorToString a =
 
 varTranslator :: AExpr -> Translator
 varTranslator a@(TypedVar name type' Nothing more') = do
---  trace ("varTranslator :: no args :: var : " ++ show a) $ return ()
   readyMore <- moreVarTranslator type' more'
---  trace ("varTranslator :: readyMore : " ++ show readyMore) $ return ()
   let n = unwrapVarName name
   let n' =
         case type' of
@@ -49,26 +45,23 @@ varTranslator a@(TypedVar name type' Nothing more') = do
           VPointer (VCopy t) _ -> "new " ++ typeToString t ++ "{" ++ unwrapVarName name ++ "}"
           _ -> n
   return . return . concat $ n' : readyMore
-
 varTranslator a@(TypedVar name type' (Just args) more') = do
---  trace ("varTranslator :: with args :: var : " ++ show a) $ return ()
   readyMore <- moreVarTranslator type' more'
---  trace ("varTranslator :: readyMore : " ++ show readyMore) $ return ()
   args' <- intercalate ", " . concat <$> mapM (injectTranslator aExprTranslatorGetter) args
   return . return . concat $ unwrapType type' ("(" ++ args' ++ ")") : readyMore
   where
     uName = unwrapVarName name
     uNameForce = unwrapVarNameForce name
     unwrapType (VPointer c@(VClass n g) SharedPtr) a
---    invoke class constructor
       | unwrapVarNameForce n == uNameForce = "shared_ptr<" ++ unwrapType c "" ++ ">(new " ++ unwrapType c a ++ ")"
       | otherwise = unwrapType c a
     unwrapType (VPointer (VCopy t) SharedPtr) a = "new " ++ unwrapType t a
     unwrapType c@(VClass n g) args
---    invoke class constructor
       | unwrapVarNameForce n == uNameForce = typeToString c ++ args
       | otherwise = uName ++ args
     unwrapType _ args = uName ++ args
+--    invoke class constructor
+--    invoke class constructor
 varTranslator a = error (show a)
 
 moreVarTranslator :: VarType -> Maybe AExpr -> Translator
@@ -79,8 +72,7 @@ moreVarTranslator a (Just e) = return . (\[x] -> '.' : x) <$> varTranslator e
 moreVarTranslator _ Nothing = return []
 
 scopeMarkTranslator :: AExpr -> Translator
-scopeMarkTranslator (ScopeMark _ sName (TypedVar n t a m)) = 
-  injectTranslator aExprTranslatorGetter $ TypedVar n t a m
+scopeMarkTranslator (ScopeMark _ sName (TypedVar n t a m)) = injectTranslator aExprTranslatorGetter $ TypedVar n t a m
 scopeMarkTranslator x = error $ show x
 
 optionalTranslator :: AExpr -> Translator
@@ -98,22 +90,21 @@ optionalTranslator _ = return []
 lambdaTranslator :: AExpr -> Translator
 lambdaTranslator (LambdaFn offset capture t args stmts) = do
   stmts' <- concat <$> tStmts
-  return ["["++ mode capture ++"](" ++ tArgs ++ "){" ++ stmts' ++ "}"]
+  return ["[" ++ mode capture ++ "](" ++ tArgs ++ "){" ++ stmts' ++ "}"]
   where
---    mode CMOn = "="
     mode CMOn = "&"
-    mode _ = ""
+    mode _    = ""
     tArgs = intercalate "," $ map (\(FunArg t n) -> unwrapType t n) args
     tStmts =
       case stmts of
         [OtherFn o expr] -> do
           res <- head <$> injectTranslator aExprTranslatorGetter expr
           return ["return " ++ res ++ ";\n"]
-        _  -> blockTranslator' (injectTranslator fnStmtTranslatorGetter) stmts
-        
+        _ -> blockTranslator' (injectTranslator fnStmtTranslatorGetter) stmts
     unwrapType (VFn t cm) n = typeToString (VFnNamed n t cm)
-    unwrapType x n = typeToString x ++ " " ++ n
+    unwrapType x n          = typeToString x ++ " " ++ n
 
+--    mode CMOn = "="
 listVarTranslator :: AExpr -> Translator
 listVarTranslator (TypedListVar expr t) = do
   let size = length expr
@@ -124,7 +115,6 @@ listVarTranslator (TypedListVar expr t) = do
 nativePtrInputWrapper (NativePtrInput aExpr) = do
   res <- head <$> injectTranslator aExprTranslatorGetter aExpr
   return [res ++ ".getNativePtr()"]
-  
 
 nativePtrResWrapper (NativePtrRes aExpr) = do
   res <- head <$> injectTranslator aExprTranslatorGetter aExpr
@@ -132,5 +122,5 @@ nativePtrResWrapper (NativePtrRes aExpr) = do
   return ["shared_ptr<" ++ typeToString t ++ ">(" ++ res ++ ")"]
   where
     getType (TypedVar _ (VPointer t _) _ Nothing) = t
-    getType (TypedVar _ _ _ (Just more)) = getType more
-    getType t = error $ "HAHA" ++ show t
+    getType (TypedVar _ _ _ (Just more))          = getType more
+    getType t                                     = error $ "HAHA" ++ show t

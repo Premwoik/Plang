@@ -3,7 +3,6 @@ module Compiler.Translator.Statement where
 import           AST
 import           Compiler.Translator.Type
 import           Data.List                (intercalate)
-import           Debug.Trace
 
 importTranslator :: Stmt -> Translator
 importTranslator (Import _ [] name) = return ["using namespace " ++ intercalate "" name ++ ";\n"]
@@ -16,20 +15,27 @@ functionTranslator :: Stmt -> Translator
 functionTranslator (Function _ name gen (VFn t cm) args block) = do
   let readyArgs = argumentsTranslator args
   readyBlock <- blockTranslator' (injectTranslator fnStmtTranslatorGetter) block
-  return . concat $ [[translateGenerics gen], [typeToString (VFnNamed (name ++ "(" ++ readyArgs ++ ")") t cm) ++ "{\n"], readyBlock, ["}\n"]]
+  return . concat $
+    [ [translateGenerics gen]
+    , [typeToString (VFnNamed (name ++ "(" ++ readyArgs ++ ")") t cm) ++ "{\n"]
+    , readyBlock
+    , ["}\n"]
+    ]
 functionTranslator (Function _ name gen ret args block) = do
   let readyArgs = argumentsTranslator args
   readyBlock <- blockTranslator' (injectTranslator fnStmtTranslatorGetter) block
-  return . concat $ [[translateGenerics gen],[typeToString ret ++ " " ++ name ++ "(" ++ readyArgs ++ "){\n"], readyBlock, ["}\n"]]
+  return . concat $
+    [[translateGenerics gen], [typeToString ret ++ " " ++ name ++ "(" ++ readyArgs ++ "){\n"], readyBlock, ["}\n"]]
 
 argumentsTranslator :: [FunArg] -> String
 argumentsTranslator = intercalate ", " . map (\(FunArg t name) -> unwrapType t name)
   where
-    markRef t = case t of
-      VClass {} -> "&"
-      _ -> ""
+    markRef t =
+      case t of
+        VClass {} -> "&"
+        _         -> ""
     unwrapType (VFn t cm) n = typeToString (VFnNamed n t cm)
-    unwrapType t name = typeToString t ++ markRef t ++ " " ++ name
+    unwrapType t name       = typeToString t ++ markRef t ++ " " ++ name
 
 nativeTranslator :: Stmt -> Translator
 nativeTranslator NativeFunction {} = return []
@@ -56,27 +62,20 @@ forTranslator (TypedVar name type' Nothing Nothing) (Range _ s a b) block trans 
     , block'
     , ["}\n"]
     ]
-  where 
---    direction (Just (IntConst _ 1)) (IntConst _ a) (IntConst _ b)
---      | a > b = "--"
---      | otherwise = "++"
+  where
     direction (Just (IntConst _ x)) (IntConst _ a) (IntConst _ b)
       | a > b = " -= " ++ show x
       | otherwise = " += " ++ show x
     direction (Just (IntConst _ x)) _ _ = " += " ++ show x
     direction _ a b = error (show a ++ " | " ++ show b)
+--    direction (Just (IntConst _ 1)) (IntConst _ a) (IntConst _ b)
+--      | a > b = "--"
+--      | otherwise = "++"
 forTranslator (TypedVar name type' Nothing Nothing) list@TypedVar {} block trans = do
   let uName = unwrapVarName name
   list' <- injectTranslator aExprTranslatorGetter list
-  trace ("forTranslator :: l :" ++ show list') $ return ()
   block' <- blockTranslator' trans block
-  return . concat $
-    [ ["for(" ++ typeToString type' ++ " " ++ uName ++ " : "]
-    , list'
-    , ["){\n"]
-    , block'
-    , ["}\n"]
-    ]
+  return . concat $ [["for(" ++ typeToString type' ++ " " ++ uName ++ " : "], list', ["){\n"], block', ["}\n"]]
 
 ifTranslator :: FunctionStmt -> Translator
 ifTranslator (IfFn _ l) = mapM build $ zip [1 ..] l
@@ -92,7 +91,6 @@ ifTranslator (IfFn _ l) = mapM build $ zip [1 ..] l
       | x == 1 = translateIf "if(" p
       | x == length l = translateElse p
       | otherwise = translateIf "else if(" p
-
 
 assignTranslator :: Stmt -> Translator
 -- Only declaration without assigning value
@@ -118,8 +116,7 @@ returnExprTranslator :: FunctionStmt -> Translator
 returnExprTranslator (ReturnFn _ (Just aExpr)) = do
   aExpr' <- injectTranslator aExprTranslatorGetter aExpr
   return . return $ "return " ++ head aExpr' ++ ";\n"
-returnExprTranslator (ReturnFn _ Nothing) = 
-  return . return $ "return;\n"
+returnExprTranslator (ReturnFn _ Nothing) = return . return $ "return;\n"
 
 breakTranslator :: FunctionStmt -> Translator
 breakTranslator (Break o) = return . return $ "break;\n"

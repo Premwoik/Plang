@@ -1,22 +1,21 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeFamilies      #-}
 
 module Compiler.Parser.Lexer where
 
-import Compiler.Parser.Type
+import           Compiler.Parser.Type
 import           Control.Applicative        hiding (some)
 import           Control.Monad
 import           Control.Monad.State.Lazy   as S
+import qualified Data.Char                  as Char
+import           Data.List.NonEmpty         (NonEmpty (..))
+import           Data.Maybe                 (fromMaybe, listToMaybe)
 import           Data.Text                  (Text)
-import qualified Data.Char            as Char
 import qualified Data.Text                  as T
 import           Data.Void
 import           Text.Megaparsec            hiding (State)
 import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
-import Data.Maybe(fromMaybe, listToMaybe)
-import Debug.Trace
-import Data.List.NonEmpty (NonEmpty (..))
 
 lineCmnt = L.skipLineComment "//"
 
@@ -34,7 +33,6 @@ rws = ["if", "then", "else", "while", "do", "skip", "true", "false", "not", "and
 rword :: String -> Parser ()
 rword w = (lexeme . try) (string (T.pack w) *> notFollowedBy alphaNumChar)
 
-  
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
   where
@@ -56,7 +54,6 @@ symbol = L.symbol scn
 symbolEnd :: Text -> Parser Text
 symbolEnd = L.symbol sc
 
-
 integer :: Parser Integer
 integer = lexemeEnd L.decimal
 
@@ -67,13 +64,15 @@ pItem :: Parser String
 pItem = lexemeEnd (some (hidden (alphaNumChar <|> char '-' <|> char '_')) <?> "type")
 
 charLiteral :: (MonadParsec e s m, Token s ~ Char) => m String
-charLiteral = label "literal character" $ do
+charLiteral =
+  label "literal character" $
   -- The @~@ is needed to avoid requiring a MonadFail constraint,
   -- and we do know that r will be non-empty if count' succeeds.
-  r <- lookAhead (count' 1 10 anySingle)
-  case listToMaybe (Char.lexLitChar r) of
-    Just (c, r') -> c <$ skipCount (length r - length r') anySingle
-    Nothing      -> unexpected (Tokens (head r:|[]))
+   do
+    r <- lookAhead (count' 1 10 anySingle)
+    case listToMaybe (Char.lexLitChar r) of
+      Just (c, r') -> c <$ skipCount (length r - length r') anySingle
+      Nothing      -> unexpected (Tokens (head r :| []))
 
 stringLiteral :: Parser String
 stringLiteral = char '\"' *> manyTill charLiteral' (char '\"')
@@ -81,4 +80,6 @@ stringLiteral = char '\"' *> manyTill charLiteral' (char '\"')
     charLiteral' :: Parser Char
     charLiteral' = do
       p <- charLiteral
-      if p == "\n" then fail "unexpectd \"\\n\"\nString literal must be in one line!" else return $ head p
+      if p == "\n"
+        then fail "unexpectd \"\\n\"\nString literal must be in one line!"
+        else return $ head p

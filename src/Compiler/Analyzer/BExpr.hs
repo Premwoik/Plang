@@ -1,13 +1,12 @@
 module Compiler.Analyzer.BExpr where
 
-import Compiler.Analyzer.Type
-import AST
-import Control.Monad.Writer(tell)
-import Control.Monad.State(gets)
+import           AST
+import           Compiler.Analyzer.Type
+import           Control.Monad.State    (gets)
+import           Control.Monad.Writer   (tell)
 
 notAnalyzer :: BExpr -> Analyzer' BExpr
-notAnalyzer (Not bExpr) = 
-  Not <$> injectAnalyzer bExprAnalyzerGetter bExpr
+notAnalyzer (Not bExpr) = Not <$> injectAnalyzer bExprAnalyzerGetter bExpr
 
 boolVarAnalyzer :: BExpr -> Analyzer' BExpr
 boolVarAnalyzer (BoolVar aExpr) = do
@@ -25,6 +24,6 @@ rBinaryAnalyzer t@(RBinary op a b) = do
 
 bBinaryAnalyzer :: BExpr -> Analyzer' BExpr
 bBinaryAnalyzer (BBinary op a b) = do
-  a' <- injectAnalyzer bExprAnalyzerGetter a 
+  a' <- injectAnalyzer bExprAnalyzerGetter a
   b' <- injectAnalyzer bExprAnalyzerGetter b
   return $ BBinary op a' b'

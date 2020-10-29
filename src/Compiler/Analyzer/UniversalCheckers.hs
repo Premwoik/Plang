@@ -12,10 +12,6 @@ import           Compiler.Analyzer.Error
 import           Compiler.Analyzer.Type
 import           Data.List                 (all, find, group)
 import           Data.Maybe                (fromJust, fromMaybe)
-import           Debug.Trace
-
-
-
 
 checkFnArgs :: [FunArg] -> Analyzer' [FunArg]
 checkFnArgs = return . map (\(FunArg t n) -> FunArg t (concat (scaleNameWithScope ["args", n])))
@@ -76,8 +72,8 @@ check o wantedDecl wanted actual res = do
     recheck a b
       | a && (b || wanted == VAuto) = return extendedPolyCheck
       | otherwise = makeError o $ AssignTypesMismatch actual wanted
-    extendedPolyCheck 
-      | wanted /= actual && wanted /= VAuto = wanted 
+    extendedPolyCheck
+      | wanted /= actual && wanted /= VAuto = wanted
       | otherwise = extendedIntCheck
     extendedIntCheck =
       case wanted of
@@ -101,7 +97,9 @@ checkFunctionUniqueness o fns = do
         else makeError o $ FunctionDifferentReturnType (show name) fns t
     notSameArguments fns =
       if all (\g -> length g == 1) .
-         group . map (\f -> (parentNameMD (sFunctionDetails f), map (\(FunArg t _) -> t) (sFunctionArgs f))) . filter (\f -> fOffset (getInfo f) <= o) $
+         group .
+         map (\f -> (parentNameMD (sFunctionDetails f), map (\(FunArg t _) -> t) (sFunctionArgs f))) .
+         filter (\f -> fOffset (getInfo f) <= o) $
          fns
         then return ()
         else makeError o $ FunctionRepetition fns

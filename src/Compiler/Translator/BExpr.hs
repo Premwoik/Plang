@@ -1,16 +1,16 @@
 module Compiler.Translator.BExpr where
 
-import AST
-import Compiler.Translator.Type
-import Control.Monad.Reader(asks)
+import           AST
+import           Compiler.Translator.Type
+import           Control.Monad.Reader     (asks)
 
 --  TODO replace mock with real feature
 negationTranslator :: BExpr -> Translator
 negationTranslator (Not bExpr) = do
---  bExprTranslator <- asks bExprTranslatorGetter
   res <- concat <$> injectTranslator bExprTranslatorGetter bExpr
   return ["!" ++ res]
 
+--  bExprTranslator <- asks bExprTranslatorGetter
 bBinaryTranslator :: BExpr -> Translator
 bBinaryTranslator (BBinary op a b) = do
   bExprTranslator <- asks bExprTranslatorGetter

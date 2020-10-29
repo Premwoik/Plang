@@ -10,7 +10,6 @@ import           Control.Monad.Writer   (WriterT)
 import           Data.List
 import           Data.Map               (Map)
 import           Data.Maybe             (fromJust, fromMaybe, listToMaybe)
-import           Debug.Trace
 
 type Analyzer' a = ReaderT Dependencies (WriterT [String] (StateT Storage (Except AnalyzerException))) a
 
@@ -192,7 +191,7 @@ scaleNameWithScope [n]           = [n]
 
 changeScopeName :: String -> Scope -> Scope
 changeScopeName n (Scope _ s) = Scope n s
-changeScopeName _ s = s
+changeScopeName _ s           = s
 
 removeScope :: Analyzer' Scope
 removeScope = do
@@ -213,9 +212,9 @@ getScopeName = unwrap . listToMaybe <$> gets scopes
     unwrap Nothing            = ""
 
 containsScopeName :: String -> Analyzer' Bool
-containsScopeName name = not. null . filter cond <$> gets scopes
+containsScopeName name = not . null . filter cond <$> gets scopes
   where
-    cond (Scope n _) = n == name
+    cond (Scope n _)    = n == name
     cond (FScope n _ _) = n == name
 
 addField :: ScopeField -> Analyzer' ScopeField
@@ -236,19 +235,17 @@ addFunction offset name path type' args = do
 addMethod :: Int -> String -> Maybe String -> VarType -> [FunArg] -> MethodDetails -> Analyzer' ScopeField
 addMethod offset name path type' args details = do
   mod <- getModInfo offset
-  addField $ SFunction mod name path type' args details 
+  addField $ SFunction mod name path type' args details
 
 addVar :: Int -> String -> Maybe String -> VarType -> String -> Analyzer' ScopeField
 addVar offset name path type' scopeName = do
   mod <- getModInfo offset
-  trace ("addVar :: " ++ show (SVar mod name path type' scopeName defaultMethodDetails)) $ return()
   addField $ SVar mod name path type' scopeName defaultMethodDetails
 
 addClassVar :: Int -> String -> Maybe String -> VarType -> String -> MethodDetails -> Analyzer' ScopeField
 addClassVar offset name path type' scopeName details = do
   mod <- getModInfo offset
-  addField $ SVar mod name path type' scopeName details 
-
+  addField $ SVar mod name path type' scopeName details
 
 addClass :: Int -> String -> Maybe String -> [String] -> [VarType] -> Scope -> Analyzer' ScopeField
 addClass offset name path gen parents scope = do
@@ -367,9 +364,9 @@ isClass :: ScopeField -> Bool
 isClass SClass {} = True
 isClass _         = False
 
-isPublic f@SVar {} = "public" == visibilityMD (sVarDetails f)
+isPublic f@SVar {}      = "public" == visibilityMD (sVarDetails f)
 isPublic f@SFunction {} = "public" == visibilityMD (sFunctionDetails f)
-isPublic _ = False
+isPublic _              = False
 
 instance Exception AnalyzerException
 

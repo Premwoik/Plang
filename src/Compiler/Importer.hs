@@ -5,21 +5,20 @@ import           Text.Megaparsec          (parse)
 import qualified Text.Megaparsec.Error    as Err
 
 import           AST
+import           Compiler.Analyzer.Type   (emptyStorage)
 import           Compiler.Parser
 import           Compiler.Translator
-import Control.Monad.Reader(runReaderT)
-import           Compiler.Analyzer.Type   (emptyStorage)
 import qualified Compiler.Translator.Type as TT
-import Control.Exception(tryJust, try)
+import           Control.Exception        (try, tryJust)
 import           Control.Monad            (foldM, zipWithM)
+import           Control.Monad.Reader     (runReaderT)
 import           Data.List                (intercalate)
 import           Data.List                (find, sortBy)
 import qualified Data.Map                 as Map
 import           Data.Maybe               (fromJust)
 import           Data.Void                (Void)
-import           Debug.Trace
 import           DirUtil                  (getExePath)
-import System.IO.Error
+import           System.IO.Error
 
 type Counter = Map.Map String Int
 

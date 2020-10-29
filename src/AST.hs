@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module AST where
-import           Data.Text            (Text, unpack)
+
+import           Data.Text (Text, unpack)
 
 data Imported
   -- | IFile name path ast

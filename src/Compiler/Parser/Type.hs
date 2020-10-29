@@ -4,16 +4,16 @@
 module Compiler.Parser.Type where
 
 import           AST
-import           Control.Monad.Reader (asks, ReaderT)
-import           Data.Text            (Text, unpack)
-import           Text.Megaparsec
-import           Text.Megaparsec.Char
 import           Control.Applicative  hiding (some)
+import           Control.Monad.Reader (ReaderT, asks)
 import           Data.List            (intercalate, nub)
 import           Data.Set             (Set)
 import qualified Data.Set             as Set
+import           Data.Text            (Text, unpack)
 import           Data.Text            (Text)
 import           Data.Void
+import           Text.Megaparsec
+import           Text.Megaparsec.Char
 
 type Parser = ReaderT Dependencies (Parsec Custom Text)
 

@@ -14,7 +14,6 @@ import qualified Data.List                   as L
 import qualified Data.Map                    as Map
 import           Data.Maybe                  (fromJust, isJust, listToMaybe,
                                               maybeToList)
-import           Debug.Trace
 
 find' :: [String] -> Analyzer' [ScopeField]
 find' name = do
@@ -59,7 +58,8 @@ findInClass cName name = do
   where
     searchDeeper :: [VarType] -> [ScopeField] -> Analyzer' [ScopeField]
     searchDeeper [] res = return res
-    searchDeeper p res = L.nub . concat . (:) res <$> mapM (\x -> filter isPublic <$> findInClass (unwrapClassName x) name) p
+    searchDeeper p res =
+      L.nub . concat . (:) res <$> mapM (\x -> filter isPublic <$> findInClass (unwrapClassName x) name) p
 
 getFileName :: String -> Analyzer' String
 getFileName alias = do
@@ -80,8 +80,8 @@ searchWithoutThis name scopes = do
   let sc = filter notThis scopes
   searchNameInScopes name sc
   where
-    notThis (Scope "this" _ ) = False
-    notThis _ = True
+    notThis (Scope "this" _) = False
+    notThis _                = True
 
 searchInScopeWithName :: String -> String -> Scopes -> Analyzer' [ScopeField]
 searchInScopeWithName name scopeName scopes =
@@ -157,7 +157,6 @@ searchInScope name scope = return $ filter cond (unwrapFields scope)
   where
     cond f = getName f == name
 
-
 unwrapFields (Scope _ s)    = s
 unwrapFields (FScope _ _ s) = s
 
@@ -179,7 +178,6 @@ maybeArgsMatch :: Maybe [AExpr] -> [VarType] -> ScopeField -> Analyzer' Bool
 maybeArgsMatch (Just args) gen s = do
   args' <- prepareArgs
   let gen' = prepareFunctionGens gen s args'
-  trace ("maybeArgsMatch :: args: " ++ show args' ++ " | gen': " ++ show gen') $ return ()
   argsMatch args' gen' s
   where
     prepareArgs =
@@ -225,7 +223,6 @@ argsMatch' t args = do
 
 constructorArgsMatch :: [VarType] -> [VarType] -> Analyzer' Bool
 constructorArgsMatch t args = do
-  trace ("contructorArgsMatch :: args: " ++ show args ++ " t: " ++ show t) $ return ()
   let lenCheck = length t == length args
   argsCheck <- and <$> mapM match (zip t args)
   return $ lenCheck && argsCheck
@@ -248,7 +245,7 @@ filterConstructor o (Just args) gen (SClass _ n _ _ _ (Scope _ s)) = do
 
 --
 fixArgs :: [VarType] -> [FunArg] -> Analyzer' [VarType]
-fixArgs [] args = return . map (\(FunArg t _) -> t) $ args
+fixArgs [] args  = return . map (\(FunArg t _) -> t) $ args
 fixArgs gen args = mapM (\(FunArg t n) -> fixType gen t) args
 
 -- | fixType - replace generic type with exact type

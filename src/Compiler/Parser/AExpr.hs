@@ -8,21 +8,21 @@ import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
 import           AST
-import Compiler.Parser.Type
 import           Compiler.Parser.Lexer
+import           Compiler.Parser.Type
 import           Compiler.Parser.Universal
 import           Control.Monad
 import           Data.Maybe                 (fromMaybe)
-import           Debug.Trace
 
 bracketParser :: Parser AExpr -> Parser AExpr
 bracketParser aExpr = do
   o <- getOffset
   p <- parens aExpr
   apply <- optional (parens (functionExecutionArgParser aExpr))
-  return $ case apply of
-    Just args -> ABracketApply o p args
-    Nothing -> ABracket o p
+  return $
+    case apply of
+      Just args -> ABracketApply o p args
+      Nothing   -> ABracket o p
 
 anonymousFunctionParser :: Parser [FunArg] -> Parser AExpr -> Parser AExpr
 anonymousFunctionParser functionArgsParser aExpr = lexeme p
@@ -46,7 +46,6 @@ anonymousFunctionBlockParser functionArgsParser functionStmt = blockMark $ lexem
       return (L.IndentMany Nothing (return . LambdaFn o CMOff VAuto args) functionStmt)
 
 -- TODO as
-
 --  returns empty list if there were no args to parse
 scopeMarkParser :: Parser AExpr -> Parser AExpr
 scopeMarkParser aExpr = do
@@ -58,7 +57,7 @@ scopeMarkParser aExpr = do
 
 nullParser :: Parser AExpr
 nullParser = do
-  o <-getOffset
+  o <- getOffset
   void (symbol "null")
   return $ Null o
 
@@ -83,20 +82,16 @@ varLeftAssignParser aExpr = do
   accessor <- optional accParser
   accO <- getOffset
   m <- optional more'
-  return $ case (accessor, m) of
-    (Just a, Just {}) ->
-      Var o fun gen args (Just (Var accO "get" [] (Just a) m))
-    (Just a, Nothing) ->
-      Var o fun gen args (Just (Var accO "set" [] (Just a) m))
-    (Nothing, _) -> 
-      Var o fun gen args m
+  return $
+    case (accessor, m) of
+      (Just a, Just {}) -> Var o fun gen args (Just (Var accO "get" [] (Just a) m))
+      (Just a, Nothing) -> Var o fun gen args (Just (Var accO "set" [] (Just a) m))
+      (Nothing, _) -> Var o fun gen args m
   where
-    accParser = 
-      between (symbol "[") (symbol "]") (functionExecutionArgParser aExpr)
+    accParser = between (symbol "[") (symbol "]") (functionExecutionArgParser aExpr)
     more' = do
       void (symbol ".")
       varParser aExpr
-
 
 varExtendedParser :: Parser AExpr -> Parser AExpr
 varExtendedParser aExpr = do
@@ -108,18 +103,17 @@ varExtendedParser aExpr = do
   maybe <- hidden $ optional $ symbol "?"
   maybe2 <- hidden $ optional $ symbol "?"
   m <- hidden $ optional more'
-  return $ wrapOptional maybe maybe2 $ case accessor of
-    Just a ->
-      Var o fun gen args (Just (Var o "get" [] (Just a) m))
-    Nothing -> 
-      Var o fun gen args m
+  return $
+    wrapOptional maybe maybe2 $
+    case accessor of
+      Just a  -> Var o fun gen args (Just (Var o "get" [] (Just a) m))
+      Nothing -> Var o fun gen args m
   where
-    accParser = 
-      between (symbol "[") (symbol "]") (functionExecutionArgParser aExpr)
+    accParser = between (symbol "[") (symbol "]") (functionExecutionArgParser aExpr)
     more' = do
       void (symbol ".")
       varParser aExpr
-    wrapOptional Just {} Just {} var = Optional 0 (Optional 0 var UnknownOT) UnknownOT 
+    wrapOptional Just {} Just {} var = Optional 0 (Optional 0 var UnknownOT) UnknownOT
     wrapOptional Just {} Nothing var = Optional 0 var UnknownOT
     wrapOptional Nothing Nothing var = var
 
@@ -161,7 +155,7 @@ guardedVar expr = do
   uExpr <- expr
   case uExpr of
     v@Var {} -> return v
-    _           -> fail "aExpr should be Var here"
+    _        -> fail "aExpr should be Var here"
 
 listParser :: Parser AExpr -> Parser AExpr
 listParser aExpr = between (symbol "[") (symbol "]") p
@@ -182,9 +176,10 @@ rangeParser aExpr = between (symbol "[") (symbol "]") p
     p = do
       o <- getOffset
       start <- aExpr
-      step <- optional $ do
-        void (symbol ",")
-        aExpr
+      step <-
+        optional $ do
+          void (symbol ",")
+          aExpr
       void (symbol "..")
       Range o step start <$> aExpr
 
@@ -195,11 +190,10 @@ intParser = do
 
 floatParser :: Parser AExpr
 floatParser = do
-  o<- getOffset
+  o <- getOffset
   FloatConst o <$> float'
 
 stringParser :: Parser AExpr
 stringParser = do
   o <- getOffset
   StringVal o <$> stringLiteral
-

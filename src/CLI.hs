@@ -5,7 +5,7 @@ import           Console.Display
 import           Console.Options
 import           Data.Maybe      (fromJust, fromMaybe)
 import qualified Data.Version    as V
-import           DirUtil         (getExePath, copyNativeToArduinoLib)
+import           DirUtil         (copyNativeToArduinoLib, getExePath)
 import           System.Process
 
 main :: IO ()
@@ -13,8 +13,7 @@ main =
   defaultMain $ do
     programName "plang compiler"
     programVersion (V.makeVersion [0, 1])
-    programDescription
-      "This is a tool for compiling and managing p lang projects."
+    programDescription "This is a tool for compiling and managing p lang projects."
     command "new" newAction
     command "build" buildAction
     command "upload" uploadAction

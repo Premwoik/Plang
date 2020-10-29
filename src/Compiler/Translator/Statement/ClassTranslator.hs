@@ -4,17 +4,12 @@ import           AST
 import           Compiler.Translator.Statement
 import           Compiler.Translator.Type
 import           Data.List                     (intercalate)
-import           Debug.Trace
 
 classTranslator :: Stmt -> Translator
 classTranslator (ClassExpr _ name generics parents block) = do
   block' <- blockTranslator' (injectTranslator classStmtTranslatorGetter) block
   return . concat $
-    [ [translateGenerics generics]
-    , ["class " ++ name ++ translateInheritance parents ++ "{\n"]
-    , block'
-    , ["};\n"]
-    ]
+    [[translateGenerics generics], ["class " ++ name ++ translateInheritance parents ++ "{\n"], block', ["};\n"]]
 
 translateInheritance :: [VarType] -> String
 translateInheritance [] = ""

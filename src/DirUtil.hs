@@ -20,10 +20,9 @@ copyNativeToArduinoLib = do
   nativePath <- flip (++) "native" <$> getExePath
   isExist <- doesDirectoryExist pathArd
   if isExist
-    then  
 --      putStrLn "Native libraries are copied"
-      return ()
-    else do
+    then return ()
 --      putStrLn "Copying native libraries!"
+    else do
       putStrLn =<< readProcess "cp" ["-r", nativePath, pathArd] ""
       return ()

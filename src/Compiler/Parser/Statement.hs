@@ -10,13 +10,12 @@ import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
 import           AST
-import Compiler.Parser.Type
 import           Compiler.Parser.AExpr      hiding (elifStmtParser,
                                              elseStmtParser, ifStmtParser)
 import           Compiler.Parser.Lexer
+import           Compiler.Parser.Type
 import           Control.Monad
 import           Data.Maybe                 (fromMaybe)
-import           Debug.Trace
 import           Text.Megaparsec.Debug      (dbg)
 
 moduleParser :: Parser Stmt
@@ -59,18 +58,23 @@ functionParser :: Parser FunctionStmt -> Parser Stmt
 functionParser functionStmt = L.indentBlock scn p
   where
     toVoid VAuto = VVoid
-    toVoid x = x
-    p = addLocation "function declaration" $ do
-      o <- getOffset
-      header <- pItem
-      gen <- fromMaybe [] <$> optional generics
-      args <- fromMaybe [] <$> optional functionArgsParser
-      type' <-
-        optional $ do
-          void (symbol "->")
-          addContext "You have to specify type after \'->\' eg: int, float, string, MyClass" (toVoid <$> typeParser)
-      void (symbolEnd "do")
-      return (L.IndentSome Nothing (return . Function o header gen (fromMaybe VAuto type') args) (addLocation ("function " ++ header) functionStmt))
+    toVoid x     = x
+    p =
+      addLocation "function declaration" $ do
+        o <- getOffset
+        header <- pItem
+        gen <- fromMaybe [] <$> optional generics
+        args <- fromMaybe [] <$> optional functionArgsParser
+        type' <-
+          optional $ do
+            void (symbol "->")
+            addContext "You have to specify type after \'->\' eg: int, float, string, MyClass" (toVoid <$> typeParser)
+        void (symbolEnd "do")
+        return
+          (L.IndentSome
+             Nothing
+             (return . Function o header gen (fromMaybe VAuto type') args)
+             (addLocation ("function " ++ header) functionStmt))
 
 nativeFunctionParser :: Parser Stmt
 nativeFunctionParser =
@@ -93,7 +97,7 @@ returnParser aExpr = lexeme p
     p = do
       o <- getOffset
       void (symbol "ret")
-      ReturnFn o . Just <$>  aExpr
+      ReturnFn o . Just <$> aExpr
 
 skipStmt :: Parser Stmt
 skipStmt = do
@@ -122,42 +126,44 @@ linkPathParser =
     return $ LinkPath o name
 
 assignGlobalParser :: (Parser AExpr -> Parser AExpr) -> Parser AExpr -> Parser Stmt
-assignGlobalParser lAExpr aExpr = lexeme $ do
+assignGlobalParser lAExpr aExpr =
+  lexeme $ do
     o <- getOffset
     var <- lAExpr aExpr
-    type' <- optional $ do
+    type' <-
+      optional $ do
         void (symbol ":")
         typeParser
     void (symbol "=")
     Assign o var (fromMaybe VAuto type') <$> aExpr
 
-
 classAssignParser :: (Parser AExpr -> Parser AExpr) -> Parser AExpr -> Parser ClassStmt
-classAssignParser lAExpr aExpr = lexeme $ do
-   o <- getOffset
-   var <- lAExpr aExpr
-   type' <- optional $ do
-       void (symbol ":")
-       typeParser
-   void (symbol "=")
-   ClassAssign o var (fromMaybe VAuto type') defaultMethodDetails <$> aExpr
-     
-   
-assignOrOtherParser:: (Parser AExpr -> Parser AExpr) -> Parser AExpr -> Parser FunctionStmt
-assignOrOtherParser lAExpr aExpr = do
+classAssignParser lAExpr aExpr =
+  lexeme $ do
     o <- getOffset
     var <- lAExpr aExpr
-    type' <- optional $ do
+    type' <-
+      optional $ do
         void (symbol ":")
         typeParser
-    rightSide <- optional $ do
-        assignType <- symbol "+=" <|> symbol "-=" <|> symbol "*=" <|> symbol "/=" <|> symbol "="
-        wrapRightWithType var assignType
-    case rightSide of
-      Just expr -> 
-        return $ AssignFn o var (fromMaybe VAuto type') expr
-      Nothing ->
-        return $ OtherFn o var
+    void (symbol "=")
+    ClassAssign o var (fromMaybe VAuto type') defaultMethodDetails <$> aExpr
+
+assignOrOtherParser :: (Parser AExpr -> Parser AExpr) -> Parser AExpr -> Parser FunctionStmt
+assignOrOtherParser lAExpr aExpr = do
+  o <- getOffset
+  var <- lAExpr aExpr
+  type' <-
+    optional $ do
+      void (symbol ":")
+      typeParser
+  rightSide <-
+    optional $ do
+      assignType <- symbol "+=" <|> symbol "-=" <|> symbol "*=" <|> symbol "/=" <|> symbol "="
+      wrapRightWithType var assignType
+  case rightSide of
+    Just expr -> return $ AssignFn o var (fromMaybe VAuto type') expr
+    Nothing   -> return $ OtherFn o var
   where
     wrapRightWithType lVar t =
       case t of
@@ -165,8 +171,7 @@ assignOrOtherParser lAExpr aExpr = do
         "-=" -> ABinary Subtract lVar <$> aExpr
         "*=" -> ABinary Multiply lVar <$> aExpr
         "/=" -> ABinary Divide lVar <$> aExpr
-        _ -> aExpr
-
+        _    -> aExpr
 
 defaultAssignParser :: Parser ClassStmt
 defaultAssignParser =
@@ -192,17 +197,19 @@ nativeAssignDeclParser =
     return $ NativeAssignDeclaration o path name (fromMaybe VAuto type')
 
 decoratorParser :: Parser ClassStmt -> Parser ClassStmt
-decoratorParser bodyParser = lexeme $ do
-  o <- getOffset
-  void (symbol "@")
-  name <- matchName <$> identifier 
-  ClassDecorator o name <$> bodyParser
+decoratorParser bodyParser =
+  lexeme $ do
+    o <- getOffset
+    void (symbol "@")
+    name <- matchName <$> identifier
+    ClassDecorator o name <$> bodyParser
   where
-    matchName n = case n of
-      "override" -> OverrideDec
-      "private" -> PrivateDec
-      "public" -> PublicDec 
-      x -> CustomDec x
+    matchName n =
+      case n of
+        "override" -> OverrideDec
+        "private"  -> PrivateDec
+        "public"   -> PublicDec
+        x          -> CustomDec x
 
 methodDeclarationParser :: Parser ClassStmt
 methodDeclarationParser =
@@ -217,7 +224,6 @@ methodDeclarationParser =
         void (symbol "->")
         typeParser
     return $ NativeMethod o header (fromMaybe VAuto type') args
-
 
 classParser :: Parser ClassStmt -> Parser Stmt
 classParser classStmt = lexeme $ L.indentBlock scn p
@@ -237,7 +243,6 @@ classParser classStmt = lexeme $ L.indentBlock scn p
       n <- identifier
       gen <- fromMaybe [] <$> optional generics'
       return $ VClass (VName n) gen
-    
 
 --      gen <- return Nothing
 nativeClassParser :: Parser ClassStmt -> Parser Stmt
@@ -255,12 +260,13 @@ nativeClassParser classStmt = lexeme $ L.indentBlock scn p
 whileStmt :: Parser BExpr -> (Int -> BExpr -> [b] -> b) -> Parser b -> Parser b
 whileStmt bExpr wrapper parser = lexeme $ L.indentBlock scn p
   where
-    p = addLocation "stmt while" $ do
-      o <- getOffset
-      void (symbol "while")
-      name <- bExpr
-      void (symbolEnd "do")
-      return (L.IndentSome Nothing (return . wrapper o name) (addCtxToIndent "GIERCZAK" parser))
+    p =
+      addLocation "stmt while" $ do
+        o <- getOffset
+        void (symbol "while")
+        name <- bExpr
+        void (symbolEnd "do")
+        return (L.IndentSome Nothing (return . wrapper o name) (addCtxToIndent "GIERCZAK" parser))
 
 forStmt :: Parser AExpr -> (Int -> AExpr -> AExpr -> [b] -> b) -> Parser b -> Parser b
 forStmt aExpr wrapper parser = lexeme $ L.indentBlock scn p

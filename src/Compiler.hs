@@ -1,31 +1,31 @@
 module Compiler where
 
-import qualified Data.Text                as T
-import           Text.Megaparsec.Debug
-import           Text.Megaparsec.Error    as Err
-import Text.Megaparsec
 import           AST
+import           Compiler.Analyzer.Type    (AnalyzerException (..),
+                                            FileInfo (..), emptyStorage)
 import           Compiler.Importer
-import           Compiler.SemanticAnalyzer
 import           Compiler.Parser
+import           Compiler.SemanticAnalyzer
 import           Compiler.Translator
-import qualified Compiler.Translator.Type as TT
-import           Control.Monad            (foldM)
-import           Control.Monad.Except     (runExcept)
-import           Control.Monad.Reader     (runReaderT)
-import           Control.Monad.State      (evalState, evalStateT, runState,
-                                           runStateT)
-import           Control.Monad.Writer     (runWriterT)
-import           Data.List                (intercalate)
-import           Data.Void                (Void)
-import           Debug.Trace
-import Compiler.Analyzer.Type(emptyStorage, AnalyzerException(..), FileInfo(..))
-import Text.Megaparsec (PosState)
-import qualified          Data.List.NonEmpty as NonEmpty
-import qualified Data.Set           as Set
+import qualified Compiler.Translator.Type  as TT
+import           Control.Monad             (foldM)
+import           Control.Monad.Except      (runExcept)
+import           Control.Monad.Reader      (runReaderT)
+import           Control.Monad.State       (evalState, evalStateT, runState,
+                                            runStateT)
+import           Control.Monad.Writer      (runWriterT)
+import           Data.List                 (intercalate)
+import qualified Data.List.NonEmpty        as NonEmpty
+import qualified Data.Set                  as Set
+import qualified Data.Text                 as T
+import           Data.Void                 (Void)
+import           Text.Megaparsec
+import           Text.Megaparsec           (PosState)
+import           Text.Megaparsec.Debug
+import           Text.Megaparsec.Error     as Err
 
 compile dir main = do
-  res <- importMain dir main 
+  res <- importMain dir main
   case runExcept (evalStateT (runWriterT (runReaderT (analyze' res) getAnalyzers)) emptyStorage) of
     Right (a, w) -> do
       putStrLn "Compiling process ended succesfully!"

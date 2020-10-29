@@ -22,30 +22,28 @@ import           Compiler.Analyzer.AExpr.Var
 import           Compiler.Analyzer.Browser
 import           Compiler.Analyzer.Error
 import           Compiler.Analyzer.Type
-import           Compiler.Analyzer.UniversalCheckers (checkFnArgs, compareGens, check)
+import           Compiler.Analyzer.UniversalCheckers (check, checkFnArgs,
+                                                      compareGens)
+import           Control.Monad                       (when)
 import           Control.Monad.Except                (throwError)
 import           Control.Monad.State                 (get, gets, modify, put)
 import           Control.Monad.Writer                (tell)
-import Control.Monad(when)
+import           Data.Functor
 import           Data.List                           (find)
 import           Data.Maybe                          (fromMaybe)
-import           Debug.Trace
-import Data.Functor
 
 checkOptional :: AExpr -> Analyzer' AExprRes
 checkOptional (Optional o (Optional o2 aExpr _) _) = do
   (t, _, a) <- injectAnalyzer aExprAnalyzerGetter aExpr
   case t of
-    VPointer c@VClass {} _ ->
-      checkBoolInterface o c *> return (VBool, [], Optional o a BoolPtrOT)
-    t           -> makeError o $ NotAllowedOptionalUse t
+    VPointer c@VClass {} _ -> checkBoolInterface o c *> return (VBool, [], Optional o a BoolPtrOT)
+    t -> makeError o $ NotAllowedOptionalUse t
 checkOptional (Optional o aExpr _) = do
   (t, _, a) <- injectAnalyzer aExprAnalyzerGetter aExpr
   case t of
     VPointer {} -> return (VBool, [], Optional o a NullOT)
-    c@VClass {}   -> checkBoolInterface o c *> return (VBool, [], Optional o a BoolOT)
-    t           -> makeError o $ NotAllowedOptionalUse t
-
+    c@VClass {} -> checkBoolInterface o c *> return (VBool, [], Optional o a BoolOT)
+    t -> makeError o $ NotAllowedOptionalUse t
 
 checkBoolInterface o t = checkInterface o "boolOp" t
 
@@ -54,23 +52,20 @@ checkInterface o name t@(VClass n _) = do
   ops <- findInClass n name
   when (null ops) $ makeError o $ NotAllowedOptionalUse t
 
-
 -- TODO add checking if class has implemented bool interface
 checkScopeMark :: AExpr -> Analyzer' AExprRes
 checkScopeMark (ScopeMark o scopeName aExpr) = do
   addOffset o
-  res <- (\(a, b, res) -> (a, b, ScopeMark o scopeName res)) <$> checkVar aExpr Nothing scopeName 
+  res <- (\(a, b, res) -> (a, b, ScopeMark o scopeName res)) <$> checkVar aExpr Nothing scopeName
   removeOffset
   return res
 
 checkListVar :: AExpr -> Analyzer' AExprRes
 checkListVar (ListVar _ [] (Just t)) = do
   type' <- wrapAllocationMethod $ VClass (VName "ArrayList") [VGenPair "T" t]
-  return
-    ( fst type'
-    , []
-    , TypedVar (VName "ArrayList") (snd type') (Just []) Nothing)
-    where
+  return (fst type', [], TypedVar (VName "ArrayList") (snd type') (Just []) Nothing)
+  where
+
 checkListVar (ListVar o [] Nothing) = makeError o NotProvidedListType
 checkListVar a@(ListVar o elems wantedType) = do
   let len = show $ length elems
@@ -118,7 +113,7 @@ checkLambdaFn False a@(LambdaFn offset capture retType args stmts) = do
       | VAuto `notElem` init types = do
         let args' = zipWith (\t (FunArg _ n) -> FunArg t n) types args
         let ret' = last types
-        checkLambdaFn True (LambdaFn offset capture ret' args' stmts) 
+        checkLambdaFn True (LambdaFn offset capture ret' args' stmts)
       | otherwise = makeError offset ArgumentsTypeMissing
     allTypesKnown _ = return (VFn [] CMAuto, [], a) --makeError offset "Lambda expression must have defined strict type!"
 checkLambdaFn True a@(LambdaFn offset capture retType args stmts) = do
@@ -129,7 +124,7 @@ checkLambdaFn True a@(LambdaFn offset capture retType args stmts) = do
   setCapture False
   retTmp <- gets rType
   setType retType
-  stmts' <- concat <$> mapM (injectAnalyzer functionStmtAnalyzerGetter) stmts  -- =<< checkReturn stmts
+  stmts' <- concat <$> mapM (injectAnalyzer functionStmtAnalyzerGetter) stmts -- =<< checkReturn stmts
   setType retTmp
   nRet <- checkReturn stmts'
   cs <- toCaptureMode <$> gets useCapture
@@ -141,16 +136,16 @@ checkLambdaFn True a@(LambdaFn offset capture retType args stmts) = do
     makeRet nRet = VFn (map (\(FunArg t _) -> t) args ++ [nRet])
     toCaptureMode True = CMOn
     toCaptureMode _    = CMOff
-    checkReturn stmts 
+    checkReturn stmts
       | retType /= VVoid = do
-        r <- case last stmts of
-          ReturnFn o (Just e) -> aExprExtractType (FunArg VAuto "") e
-          OtherFn o e -> aExprExtractType (FunArg VAuto "") e
-          _ -> makeError offset $ CustomError "cant match return type in case Analyzer/AExpr 124"
+        r <-
+          case last stmts of
+            ReturnFn o (Just e) -> aExprExtractType (FunArg VAuto "") e
+            OtherFn o e -> aExprExtractType (FunArg VAuto "") e
+            _ -> makeError offset $ CustomError "cant match return type in case Analyzer/AExpr 124"
         check offset r retType r r
       | otherwise = return VVoid
-      
-      
+
 checkNegBlock (Neg a) = do
   (t, _, a') <- injectAnalyzer aExprAnalyzerGetter a
   return (t, [], addNeg a')
@@ -166,10 +161,10 @@ checkBracket (ABracket o aExpr) = do
 
 checkBracketApply :: AExpr -> Analyzer' AExprRes
 checkBracketApply (ABracketApply o aExpr args) = do
-  args' <- fromMaybe [] <$> checkArgs [] (Just args) 
+  args' <- fromMaybe [] <$> checkArgs [] (Just args)
   argTypes <- mapM (aExprExtractType (FunArg VAuto "")) args'
   tmpType <- gets rType
-  setType (VFn (argTypes ++ [VAuto]) CMAuto) 
+  setType (VFn (argTypes ++ [VAuto]) CMAuto)
   (t', inc, aExpr') <- injectAnalyzer aExprAnalyzerGetter aExpr
   setType tmpType
   ret <-
@@ -237,4 +232,6 @@ checkNull n@(Null offset) = do
   ret <- gets rType
   case ret of
     VPointer {} -> return (ret, [], n)
-    t -> makeError offset $ CustomError $ "Null can be used only with ptr type. You tried to used it with type - " ++ show t
+    t ->
+      makeError offset $
+      CustomError $ "Null can be used only with ptr type. You tried to used it with type - " ++ show t

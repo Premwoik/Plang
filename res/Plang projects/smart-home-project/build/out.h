@@ -237,7 +237,7 @@ void listenerDef(EnergyMeter &args___meter) {
   }
 }
 void listener0() {
-  EnergyMeter &meter = g___energyMeters.getNativePtr()[0];
+  EnergyMeter meter = g___energyMeters.get(0);
   listenerDef(meter);
 }
 void listener1() {
@@ -359,8 +359,7 @@ public:
 public:
   shared_ptr<ArrayList<uint8_t>> readTemps() {
     int num = this___dt.getDeviceCount();
-    shared_ptr<ArrayList<uint8_t>> result =
-        new ArrayList<uint8_t>(new uint8_t[num * 10]{0}, 0, num * 10 + 1);
+    shared_ptr<ArrayList<uint8_t>> result = new ArrayList<uint8_t>();
     if (num > 0) {
       this___dt.requestTemperatures();
       ArrayList<uint8_t> addr =

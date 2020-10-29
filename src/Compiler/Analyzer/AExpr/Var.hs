@@ -14,7 +14,6 @@ import           Control.Monad.Writer                (tell)
 import           Data.List                           (find)
 import           Data.Maybe                          (fromJust, fromMaybe,
                                                       isNothing, listToMaybe)
-import           Debug.Trace
 
 markClassAsPointer :: [VarType] -> [VarType]
 markClassAsPointer = map mapper
@@ -118,7 +117,6 @@ checkVarFirst var@(Var offset name gen _ more) Nothing retBuilder obj scopeName 
     -- | casual variable that is not executed
         of
     Just tvar@(SVar _ n p t s _) -> do
-      trace ("checkVarFirst :: SVar: " ++ show tvar) $ return ()
       scope <- getFileName scopeName
       t' <-
         if isNothing more
@@ -136,7 +134,6 @@ checkVarFirst var@(Var offset name gen _ more) Nothing retBuilder obj scopeName 
     p -> do
       storage <- gets scopes
       makeError offset $ VariableMissing name
---      traceShow storage $ return ()
 -- | variable that have given args - is executed
 checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName =
   case obj
@@ -156,7 +153,6 @@ checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName =
       let (SFunction o n _ _ cArgs _) = constructor
       let args'' = args' >>= (Just . markNativePtr cArgs)
       newType <- wrapAllocationMethod $ VClass (VName n) (markClassAsPointer gen')
-      trace ("checkVarFirst :: isClass :: newType" ++ show newType) $ return ()
       retBuilder (fst newType) (TypedVar (defaultPath p n) (snd newType) args'') more
     -- | name is function
     Just f@(SFunction _ n p t a _) -> do
@@ -169,7 +165,6 @@ checkVarFirst var@(Var offset name gen _ more) args' retBuilder obj scopeName =
       storage <- gets scopes
       makeError offset $ VariableMissing name
 
---      traceShow storage $ return ()
 wrapInsideScopeMark scope scopeName n =
   case scopeName of
     ""       -> n
@@ -197,13 +192,10 @@ markPtrToUnwrap = ()
 
 checkVar :: AExpr -> Maybe VarType -> String -> Analyzer' AExprRes
 checkVar v@(Var offset name gen args more) wantedType scopeName = do
-  trace ("checkVar :: var: " ++ show v ++ "wantedType: " ++ show wantedType) $ return ()
   case extractPtr wantedType of
     Just c@(VClass cName gen) -> do
       args' <- checkArgs gen args
-      trace ("checkVar :: args' : " ++ show args') $ return ()
       candidate <- listToMaybe . filter isPublic <$> (filterM (filterArgsMatch args' gen) =<< findInClass cName name)
-      trace ("checkVar :: candidate: " ++ show candidate) $ return ()
       readyArgs <- updatePostProcessedArgs args'
       checkVarMore v c readyArgs retBuilder candidate
     Nothing -> do
